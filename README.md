@@ -1,4 +1,4 @@
-# AI Learning Assistant Launcher Server
+# AI Learning Assistant training Server
 
 本项目为 AI 学习助理启动器后端服务，基于 TypeScript、Express、TypeORM、PostgreSQL 构建，支持用户管理、每日总结、课程安排、学习记录、AI 交互等功能。
 
