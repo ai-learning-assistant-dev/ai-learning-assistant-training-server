@@ -1,6 +1,6 @@
 # AI Learning Assistant Launcher Server
 
-本项目为 AI 学习助理启动器后端服务，基于 TypeScript、Express、Sequelize、PostgreSQL 构建，支持用户管理、每日总结、课程安排、学习记录、AI 交互等功能。
+本项目为 AI 学习助理启动器后端服务，基于 TypeScript、Express、TypeORM、PostgreSQL 构建，支持用户管理、每日总结、课程安排、学习记录、AI 交互等功能。
 
 ## 注意事项
 
@@ -37,6 +37,16 @@ http://localhost:3000/docs
 ---
 扩展模型或接口，请参考 `src/models/` 与 `src/controllers/` 目录。
 
+### 6. 数据库初始化脚本
+
+`src/scripts/initDB.ts`：数据库自动创建脚本。
+
+- 作用：用于在 PostgreSQL 中自动创建项目所需的数据库（如数据库不存在时自动创建，已存在则跳过）。
+- 使用方法：
+	```bash
+	npm run db:init # 一般不需要自己执行 启动程序时候会自动执行
+	```
+	该命令会根据 `.env` 配置连接数据库服务器，自动检查并创建数据库，适合首次部署或本地开发初始化数据库环境。
 
 
 ## 项目结构
@@ -67,6 +77,8 @@ http://localhost:3000/docs
 │   │   ├── learningRecord.ts   # 学习记录模型
 │   │   ├── title.ts            # 称号模型
 │   │   └── aiInteraction.ts    # AI 交互模型
+│   └── scripts/
+│       └── initDB.ts           # 数据库自动创建脚本
 │   ├── types/                  # 接口的扩展类型，里面存放接口请求和相应的类型
 │   │   ├── express.ts          # 扩展类型定义
 │   │   ├── user.ts             # 用户类型
@@ -79,7 +91,7 @@ http://localhost:3000/docs
 
 - **TypeScript**：类型安全的 JavaScript 超集
 - **Express**：Web 服务框架
-- **Sequelize**：ORM，支持 PostgreSQL
+- **TypeORM**：ORM，支持 PostgreSQL
 - **PostgreSQL**：关系型数据库
 - **tsoa**：基于注解的接口文档与路由生成
 - **Multer**：文件上传中间件（可选，支持头像上传）

@@ -4,8 +4,8 @@ import helmet from 'helmet';
 import morgan from 'morgan';
 import dotenv from 'dotenv';
 
-import { testConnection,testServerConnection,ensureDatabaseExists } from './config/database';
-import { syncDatabase } from './models/index';
+import { connectDatabase } from './config/database';
+import { createInitialData } from './models/index';
 import { notFoundHandler, errorHandler } from './middleware/errorHandler';
 import logger from './utils/logger';
 
@@ -57,24 +57,10 @@ app.use(errorHandler);
 // 启动服务器
 const startServer = async (): Promise<void> => {
   try {
-    //测试数据库服务器是否能连通
-    const ServerConnected =await testServerConnection();
-     if (!ServerConnected) {
-      throw new Error('无法连接到数据库服务器，服务器启动失败');
-    }
-    //创建数据库，如果已经创建，就忽略
-    const databaseExists = await ensureDatabaseExists();
-    if(!databaseExists){
-       throw new Error('创建数据库失败');
-    }
-     // 测试数据库连接
-    const dbConnected = await testConnection();
-    if (!dbConnected) {
-      throw new Error('无法连接到数据库，服务器启动失败');
-    }
-    // 同步数据库表结构
-    await syncDatabase();
-
+    // 初始化 TypeORM 数据库连接
+    await connectDatabase();
+    // 初始化测试数据（如无用户则插入）
+    await createInitialData();
     // 启动HTTP服务器
     app.listen(PORT, () => {
       logger.info(`🚀 服务器运行在端口 ${PORT}`);

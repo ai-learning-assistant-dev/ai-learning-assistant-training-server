@@ -107,7 +107,7 @@ const models: TsoaRoute.Models = {
         "properties": {
             "summary_id": {"dataType":"double","required":true},
             "user_id": {"dataType":"double","required":true},
-            "summary_date": {"dataType":"string","required":true},
+            "summary_date": {"dataType":"datetime","required":true},
             "content": {"dataType":"string","required":true},
         },
         "additionalProperties": false,
@@ -117,7 +117,7 @@ const models: TsoaRoute.Models = {
         "dataType": "refObject",
         "properties": {
             "user_id": {"dataType":"double","required":true},
-            "summary_date": {"dataType":"string","required":true},
+            "summary_date": {"dataType":"datetime","required":true},
             "content": {"dataType":"string","required":true},
         },
         "additionalProperties": false,
@@ -128,7 +128,7 @@ const models: TsoaRoute.Models = {
         "properties": {
             "summary_id": {"dataType":"double","required":true},
             "content": {"dataType":"string"},
-            "summary_date": {"dataType":"string"},
+            "summary_date": {"dataType":"datetime"},
         },
         "additionalProperties": false,
     },
@@ -137,7 +137,7 @@ const models: TsoaRoute.Models = {
         "dataType": "refObject",
         "properties": {
             "user_id": {"dataType":"double"},
-            "summary_date": {"dataType":"string"},
+            "summary_date": {"dataType":"datetime"},
             "page": {"dataType":"double"},
             "limit": {"dataType":"double"},
         },
@@ -405,7 +405,7 @@ export function RegisterRoutes(app: Router) {
         const argsDailySummaryController_updateDailySummary: Record<string, TsoaRoute.ParameterSchema> = {
                 body: {"in":"body","name":"body","required":true,"ref":"UpdateDailySummaryRequest"},
         };
-        app.put('/dailySummary/update',
+        app.post('/dailySummary/update',
             ...(fetchMiddlewares<RequestHandler>(DailySummaryController)),
             ...(fetchMiddlewares<RequestHandler>(DailySummaryController.prototype.updateDailySummary)),
 
@@ -435,7 +435,7 @@ export function RegisterRoutes(app: Router) {
         const argsDailySummaryController_deleteDailySummary: Record<string, TsoaRoute.ParameterSchema> = {
                 summary_id: {"in":"path","name":"summary_id","required":true,"dataType":"double"},
         };
-        app.delete('/dailySummary/delete/:summary_id',
+        app.post('/dailySummary/delete/:summary_id',
             ...(fetchMiddlewares<RequestHandler>(DailySummaryController)),
             ...(fetchMiddlewares<RequestHandler>(DailySummaryController.prototype.deleteDailySummary)),
 

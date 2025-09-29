@@ -1,6 +1,12 @@
 import { Controller } from 'tsoa';
 
 export class BaseController extends Controller {
+  /**
+   * 统一返回分页数据
+   */
+  protected paginate<T>(rows: T[], total: number, page: number, limit: number, message?: string) {
+    return this.ok(rows, message ?? '查询成功', { total, page, limit });
+  }
     
   /**
    * 统一返回成功响应

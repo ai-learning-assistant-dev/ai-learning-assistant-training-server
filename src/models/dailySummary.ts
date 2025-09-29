@@ -1,38 +1,21 @@
-import { DataTypes, Model } from 'sequelize';
-import sequelize from '../config/database';
+import { Entity, PrimaryGeneratedColumn, Column, ManyToOne, JoinColumn } from 'typeorm';
+import { User } from './user';
 
-interface DailySummaryAttributes {
-  summary_id: number;
-  user_id: number;
-  summary_date: Date;
-  content: string;
+@Entity({ name: 'daily_summaries' })
+export class DailySummary {
+  @PrimaryGeneratedColumn({ type: 'bigint' })
+  summary_id!: number;
+
+  @Column({ type: 'bigint' })
+  user_id!: number;
+
+  @Column({ type: 'timestamp' })
+  summary_date!: Date;
+
+  @Column({ type: 'text' })
+  content!: string;
+  // 关联用户
+  @ManyToOne(() => User, user => user.dailySummaries)
+  @JoinColumn({ name: 'user_id' })
+  user!: User;
 }
-
-interface DailySummaryCreationAttributes extends Omit<DailySummaryAttributes, 'summary_id'> {}
-interface DailySummaryInstance extends Model<DailySummaryAttributes, DailySummaryCreationAttributes>, DailySummaryAttributes {}
-
-const DailySummary = sequelize.define<DailySummaryInstance>('DailySummary', {
-  summary_id: {
-    type: DataTypes.BIGINT,
-    primaryKey: true,
-    autoIncrement: true
-  },
-  user_id: {
-    type: DataTypes.BIGINT,
-    allowNull: false
-  },
-  summary_date: {
-    type: DataTypes.DATE,
-    allowNull: false
-  },
-  content: {
-    type: DataTypes.TEXT,
-    allowNull: false
-  }
-}, {
-  tableName: 'daily_summaries',
-  timestamps: false,
-  underscored: true
-});
-
-export default DailySummary;

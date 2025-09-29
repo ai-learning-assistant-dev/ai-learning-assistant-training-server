@@ -1,48 +1,22 @@
-import { DataTypes, Model } from 'sequelize';
-import sequelize from '../config/database';
+import { Entity, PrimaryGeneratedColumn, Column } from 'typeorm';
 
-interface CourseScheduleAttributes {
-  plan_id: number;
-  user_id: number;
-  course_id: number;
+@Entity({ name: 'course_schedule' })
+export class CourseSchedule {
+  @PrimaryGeneratedColumn({ type: 'bigint' })
+  plan_id!: number;
+
+  @Column({ type: 'bigint' })
+  user_id!: number;
+
+  @Column({ type: 'bigint' })
+  course_id!: number;
+
+  @Column({ type: 'timestamp', nullable: true })
   start_date?: Date;
+
+  @Column({ type: 'timestamp', nullable: true })
   end_date?: Date;
+
+  @Column({ type: 'varchar', length: 255, nullable: true })
   status?: string;
 }
-
-interface CourseScheduleCreationAttributes extends Omit<CourseScheduleAttributes, 'plan_id'> {}
-interface CourseScheduleInstance extends Model<CourseScheduleAttributes, CourseScheduleCreationAttributes>, CourseScheduleAttributes {}
-
-const CourseSchedule = sequelize.define<CourseScheduleInstance>('CourseSchedule', {
-  plan_id: {
-    type: DataTypes.BIGINT,
-    primaryKey: true,
-    autoIncrement: true
-  },
-  user_id: {
-    type: DataTypes.BIGINT,
-    allowNull: false
-  },
-  course_id: {
-    type: DataTypes.BIGINT,
-    allowNull: false
-  },
-  start_date: {
-    type: DataTypes.DATE,
-    allowNull: true
-  },
-  end_date: {
-    type: DataTypes.DATE,
-    allowNull: true
-  },
-  status: {
-    type: DataTypes.STRING,
-    allowNull: true
-  }
-}, {
-  tableName: 'course_schedule',
-  timestamps: false,
-  underscored: true
-});
-
-export default CourseSchedule;

@@ -1,53 +1,25 @@
-import { DataTypes, Model } from 'sequelize';
-import sequelize from '../config/database';
+import { Entity, PrimaryGeneratedColumn, Column } from 'typeorm';
 
-interface TitleAttributes {
-  title_id: number;
-  course_id: number;
-  name: string;
+@Entity({ name: 'titles' })
+export class Title {
+  @PrimaryGeneratedColumn({ type: 'bigint' })
+  title_id!: number;
+
+  @Column({ type: 'bigint' })
+  course_id!: number;
+
+  @Column({ type: 'varchar', length: 255 })
+  name!: string;
+
+  @Column({ type: 'varchar', length: 255, nullable: true })
   icon_url?: string;
+
+  @Column({ type: 'int', nullable: true })
   min_experience_required?: number;
+
+  @Column({ type: 'int', nullable: true })
   min_section_required?: number;
+
+  @Column({ type: 'boolean', nullable: true })
   is_default_template?: boolean;
 }
-
-interface TitleCreationAttributes extends Omit<TitleAttributes, 'title_id'> {}
-interface TitleInstance extends Model<TitleAttributes, TitleCreationAttributes>, TitleAttributes {}
-
-const Title = sequelize.define<TitleInstance>('Title', {
-  title_id: {
-    type: DataTypes.BIGINT,
-    primaryKey: true,
-    autoIncrement: true
-  },
-  course_id: {
-    type: DataTypes.BIGINT,
-    allowNull: false
-  },
-  name: {
-    type: DataTypes.STRING,
-    allowNull: false
-  },
-  icon_url: {
-    type: DataTypes.STRING,
-    allowNull: true
-  },
-  min_experience_required: {
-    type: DataTypes.INTEGER,
-    allowNull: true
-  },
-  min_section_required: {
-    type: DataTypes.INTEGER,
-    allowNull: true
-  },
-  is_default_template: {
-    type: DataTypes.BOOLEAN,
-    allowNull: true
-  }
-}, {
-  tableName: 'titles',
-  timestamps: false,
-  underscored: true
-});
-
-export default Title;

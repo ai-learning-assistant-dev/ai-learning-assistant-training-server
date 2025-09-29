@@ -1,96 +1,109 @@
 import { Request, Response } from 'express';
-import DailySummary from '../models/dailySummary';
+import { AppDataSource } from '../config/database';
+import { DailySummary } from '../models/dailySummary';
 import { DailySummaryResponse, CreateDailySummaryRequest, UpdateDailySummaryRequest, DailySummaryListRequest } from '../types/dailySummary';
 import { BaseController } from './baseController';
 import { Route, Get, Post, Put, Delete, Body, Path, Query, Tags } from 'tsoa';
+import { ApiResponse } from '@/types/express';
 
 
 @Tags('每日总结')
 @Route('dailySummary')
 export class DailySummaryController extends BaseController {
+    /**
+   * 查询每日总结列表（可选按用户/日期过滤）
+   */
+  @Post('/list')
+  public async listDailySummary(@Body() body: DailySummaryListRequest)
+  : Promise<ApiResponse<DailySummaryResponse[]>> {
+    try {
+      const repo = AppDataSource.getRepository(DailySummary);
+      const { user_id, summary_date, page = 1, limit = 10 } = body;
+      const where: any = {};
+      if (user_id) where.user_id = user_id;
+      if (summary_date) where.summary_date = new Date(summary_date);
+      const [rows, count] = await repo.findAndCount({
+        where,
+        skip: (page - 1) * limit,
+        take: limit,
+        order: { summary_date: 'DESC' }
+      });
+      const result: DailySummaryResponse[] = rows.map(s => ({
+        summary_id: s.summary_id,
+        user_id: s.user_id,
+        summary_date: s.summary_date,
+        content: s.content
+      }));
+       return this.paginate(result, count, page, limit);
+    } catch (error) {
+       return this.fail('查询每日总结失败', error instanceof Error);
+    }
+  }
   /**
    * 新增每日总结
    */
   @Post('/add')
-  public async addDailySummary(@Body() body: CreateDailySummaryRequest): Promise<{ success: boolean; statusCode: number; data: DailySummaryResponse | null; message?: string }> {
+  public async addDailySummary(@Body() body: CreateDailySummaryRequest)
+  : Promise<ApiResponse<DailySummaryResponse>> {
     try {
-      const summary = await DailySummary.create({
+      const repo = AppDataSource.getRepository(DailySummary);
+      const entity = repo.create({
         ...body,
         summary_date: new Date(body.summary_date)
       });
+      const summary = await repo.save(entity);
       const result: DailySummaryResponse = {
-        summary_id: summary.get('summary_id') as number,
-        user_id: summary.get('user_id') as number,
-        summary_date: (summary.get('summary_date') as Date).toISOString(),
-        content: summary.get('content') as string
+        summary_id: summary.summary_id,
+        user_id: summary.user_id,
+        summary_date: summary.summary_date,
+        content: summary.content
       };
       return this.ok(result, '新增成功');
     } catch (error) {
-  return this.fail('新增失败', error instanceof Error ? error.message : error, 500) as any as { success: boolean; statusCode: number; data: DailySummaryResponse | null; message?: string };
+      return this.fail('新增每日总结失败', error instanceof Error);
     }
   }
 
   /**
    * 修改每日总结
    */
-  @Put('/update')
-  public async updateDailySummary(@Body() body: UpdateDailySummaryRequest): Promise<{ success: boolean; statusCode: number; data: null; message?: string }> {
+  @Post('/update')
+  public async updateDailySummary(@Body() body: UpdateDailySummaryRequest)
+  : Promise<ApiResponse<any>> {
     try {
+      const repo = AppDataSource.getRepository(DailySummary);
       const { summary_id, ...updateFields } = body;
-      if (updateFields.summary_date) {
-        (updateFields as any).summary_date = new Date(updateFields.summary_date);
+      const summary = await repo.findOneBy({ summary_id });
+      if (!summary) {
+        return this.fail('未找到要更新的记录 ',null,404);
       }
-      // 只传递合法字段
-      const updateObj: any = {};
-      if (updateFields.content !== undefined) updateObj.content = updateFields.content;
-      if (updateFields.summary_date !== undefined) updateObj.summary_date = (updateFields as any).summary_date;
-      const [count] = await DailySummary.update(updateObj, { where: { summary_id } });
-  if (count === 0) return { success: false, statusCode: 404, data: null, message: '未找到要更新的记录' };
+      if (updateFields.content !== undefined) summary.content = updateFields.content;
+      if (updateFields.summary_date !== undefined) summary.summary_date = new Date(updateFields.summary_date);
+      await repo.save(summary);
       return this.ok(null, '更新成功');
     } catch (error) {
-  return { success: false, statusCode: 500, data: null, message: error instanceof Error ? error.message : String(error) };
+      return this.fail('更新每日总结失败', error instanceof Error);
     }
   }
 
   /**
    * 删除每日总结
    */
-  @Delete('/delete/{summary_id}')
-  public async deleteDailySummary(@Path() summary_id: number): Promise<{ success: boolean; statusCode: number; data: null; message?: string }> {
+  @Post('/delete/{summary_id}')
+  public async deleteDailySummary(@Path() summary_id: number)
+  : Promise<ApiResponse<any>> {
     try {
-      const count = await DailySummary.destroy({ where: { summary_id } });
-  if (count === 0) return { success: false, statusCode: 404, data: null, message: '未找到要删除的记录' };
-      return this.ok(null, '删除成功');
+    const repo = AppDataSource.getRepository(DailySummary);
+    const summary = await repo.findOneBy({ summary_id });
+    if (!summary) {
+      return this.fail('删除每日总结失败',null,404);
+    }
+    await repo.remove(summary);
+    return this.ok(null, '删除成功');
     } catch (error) {
-  return { success: false, statusCode: 500, data: null, message: error instanceof Error ? error.message : String(error) };
+      return this.fail('删除每日总结失败', error instanceof Error);
     }
   }
 
-  /**
-   * 查询每日总结列表（可选按用户/日期过滤）
-   */
-  @Post('/list')
-  public async listDailySummary(@Body() body: DailySummaryListRequest): Promise<{ success: boolean; statusCode: number; data: DailySummaryResponse[]; message?: string; pagination?: any }> {
-    try {
-      const { user_id, summary_date, page = 1, limit = 10 } = body;
-      const where: any = {};
-      if (user_id) where.user_id = user_id;
-      if (summary_date) where.summary_date = new Date(summary_date);
-      const { rows, count } = await DailySummary.findAndCountAll({
-        where,
-        offset: (page - 1) * limit,
-        limit,
-        order: [['summary_date', 'DESC']]
-      });
-      const result: DailySummaryResponse[] = rows.map(s => ({
-        summary_id: s.get('summary_id') as number,
-        user_id: s.get('user_id') as number,
-        summary_date: (s.get('summary_date') as Date).toISOString(),
-        content: s.get('content') as string
-      }));
-      return this.ok(result, '查询成功', { total: count, page, limit });
-    } catch (error) {
-  return { success: false, statusCode: 500, data: [], message: error instanceof Error ? error.message : String(error) };
-    }
-  }
+
 }

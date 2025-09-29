@@ -1,66 +1,35 @@
-import { DataTypes, Model, Optional } from 'sequelize';
-import sequelize from '../config/database';
+import { Entity, PrimaryGeneratedColumn, Column, OneToMany } from 'typeorm';
+import { DailySummary } from './dailySummary';
 
-/**
-* 用户相关类型
-*/
-interface UserAttributes {
-  user_id: number;
-  name: string;
+@Entity({ name: 'users' })
+export class User {
+  @PrimaryGeneratedColumn({ type: 'bigint' })
+  user_id!: number;
+
+  @Column({ type: 'varchar', length: 255 })
+  name!: string;
+
+  @Column({ type: 'varchar', length: 255, nullable: true })
   avatar_url?: string;
+
+  @Column({ type: 'varchar', length: 255, nullable: true })
   education_level?: string;
+
+  @Column({ type: 'text', nullable: true })
   learning_ability?: string;
+
+  @Column({ type: 'text', nullable: true })
   goal?: string;
+
+  @Column({ type: 'int', nullable: true })
   level?: number;
+
+  @Column({ type: 'int', nullable: true })
   experience?: number;
+
+  @Column({ type: 'bigint', nullable: true })
   current_title_id?: number;
+  // 用户的每日总结关联
+  @OneToMany(() => DailySummary, summary => summary.user)
+  dailySummaries!: DailySummary[];
 }
-
-interface UserCreationAttributes extends Omit<UserAttributes, 'user_id'> {}
-interface UserInstance extends Model<UserAttributes, UserCreationAttributes>, UserAttributes {}
-
-const User = sequelize.define<UserInstance>('User', {
-  user_id: {
-    type: DataTypes.BIGINT,
-    primaryKey: true,
-    autoIncrement: true
-  },
-  name: {
-    type: DataTypes.STRING,
-    allowNull: false
-  },
-  avatar_url: {
-    type: DataTypes.STRING,
-    allowNull: true
-  },
-  education_level: {
-    type: DataTypes.STRING,
-    allowNull: true
-  },
-  learning_ability: {
-    type: DataTypes.TEXT,
-    allowNull: true
-  },
-  goal: {
-    type: DataTypes.TEXT,
-    allowNull: true
-  },
-  level: {
-    type: DataTypes.INTEGER,
-    allowNull: true
-  },
-  experience: {
-    type: DataTypes.INTEGER,
-    allowNull: true
-  },
-  current_title_id: {
-    type: DataTypes.BIGINT,
-    allowNull: true
-  }
-}, {
-  tableName: 'users',
-  timestamps: false,
-  underscored: true
-});
-
-export default User;

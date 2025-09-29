@@ -292,7 +292,8 @@
 						"format": "double"
 					},
 					"summary_date": {
-						"type": "string"
+						"type": "string",
+						"format": "date-time"
 					},
 					"content": {
 						"type": "string"
@@ -314,7 +315,8 @@
 						"format": "double"
 					},
 					"summary_date": {
-						"type": "string"
+						"type": "string",
+						"format": "date-time"
 					},
 					"content": {
 						"type": "string"
@@ -338,7 +340,8 @@
 						"type": "string"
 					},
 					"summary_date": {
-						"type": "string"
+						"type": "string",
+						"format": "date-time"
 					}
 				},
 				"required": [
@@ -354,7 +357,8 @@
 						"format": "double"
 					},
 					"summary_date": {
-						"type": "string"
+						"type": "string",
+						"format": "date-time"
 					},
 					"page": {
 						"type": "number",
@@ -393,7 +397,7 @@
 						}
 					}
 				},
-				"description": "测试：通过用户ID连表查询（示例：查询用户及其 Profile表信息）",
+				"description": "测试：通过用户ID连表查询（示例：查询用户及其 daily_summaries表信息）",
 				"tags": [
 					"用户表"
 				],
@@ -697,7 +701,7 @@
 			}
 		},
 		"/dailySummary/update": {
-			"put": {
+			"post": {
 				"operationId": "UpdateDailySummary",
 				"responses": {
 					"200": {
@@ -754,7 +758,7 @@
 			}
 		},
 		"/dailySummary/delete/{summary_id}": {
-			"delete": {
+			"post": {
 				"operationId": "DeleteDailySummary",
 				"responses": {
 					"200": {
