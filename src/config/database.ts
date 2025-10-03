@@ -1,6 +1,12 @@
 
 
 import { DataSource } from 'typeorm';
+import { User } from '../models/user';
+import { Title } from '../models/title';
+import { LearningRecord } from '../models/learningRecord';
+import { DailySummary } from '../models/dailySummary';
+import { CourseSchedule } from '../models/courseSchedule';
+import { AiInteraction } from '../models/aiInteraction';
 import dotenv from 'dotenv';
 import { Client } from 'pg';
 dotenv.config();
@@ -22,7 +28,7 @@ export const AppDataSource = new DataSource({
   database: DB_NAME,
   synchronize: true, // 生产环境建议关闭
   logging: false,
-  entities: [__dirname + '/../models/*.js'],
+  entities: [User, Title, LearningRecord, DailySummary, CourseSchedule, AiInteraction],
   migrations: [],
   subscribers: [],
 });
