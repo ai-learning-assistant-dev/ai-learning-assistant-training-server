@@ -28,7 +28,7 @@ export const AppDataSource = new DataSource({
   database: DB_NAME,
   synchronize: true, // 生产环境建议关闭
   logging: false,
-  entities: [User, Title, LearningRecord, DailySummary, CourseSchedule, AiInteraction],
+  entities: [User, Title, LearningRecord, DailySummary, CourseSchedule, AiInteraction],//创建model后要在此处添加
   migrations: [],
   subscribers: [],
 });

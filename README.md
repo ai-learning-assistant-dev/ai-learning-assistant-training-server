@@ -35,7 +35,7 @@ npm run build     # 生成 dist 目录
 http://localhost:3000/docs
 
 ---
-扩展模型或接口，请参考 `src/models/` 与 `src/controllers/` 目录。
+扩展模型或接口，请参考 `src/models/` 与 `src/controllers/` 目录，在 `src/models/` 添加model后需要在 `config/database.ts`  添加引用。
 
 ### 6. 数据库初始化脚本
 
@@ -62,7 +62,7 @@ http://localhost:3000/docs
 │   ├── app.ts                  # 应用入口
 │   ├──build/                   # 此文件夹下为 tsoa 自动生成的路由
 │   ├── config/
-│   │   └── database.ts         # 数据库配置与连接
+│   │   └── database.ts         # 数据库配置与连接,新创建model后需要添加再此处
 │   ├── controllers/            # 控制器
 │   │   ├── baseController.ts   # 统一响应基类
 │   │   ├── userController.ts   # 用户相关接口
