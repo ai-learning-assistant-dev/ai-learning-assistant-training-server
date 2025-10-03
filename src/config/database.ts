@@ -22,7 +22,7 @@ export const AppDataSource = new DataSource({
   database: DB_NAME,
   synchronize: true, // 生产环境建议关闭
   logging: false,
-  entities: [__dirname + '/../models/*.ts'],
+  entities: [__dirname + '/../models/*.js'],
   migrations: [],
   subscribers: [],
 });

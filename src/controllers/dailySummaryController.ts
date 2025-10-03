@@ -4,7 +4,7 @@ import { DailySummary } from '../models/dailySummary';
 import { DailySummaryResponse, CreateDailySummaryRequest, UpdateDailySummaryRequest, DailySummaryListRequest } from '../types/dailySummary';
 import { BaseController } from './baseController';
 import { Route, Get, Post, Put, Delete, Body, Path, Query, Tags } from 'tsoa';
-import { ApiResponse } from '@/types/express';
+import { ApiResponse } from '../types/express';
 
 
 @Tags('每日总结')

@@ -113,6 +113,43 @@ const models: TsoaRoute.Models = {
         "additionalProperties": false,
     },
     // WARNING: This file was auto-generated with tsoa. Please do not modify it. Re-run tsoa to re-generate this file: https://github.com/lukeautry/tsoa
+    "ApiResponse_DailySummaryResponse-Array_": {
+        "dataType": "refObject",
+        "properties": {
+            "success": {"dataType":"boolean","required":true},
+            "data": {"dataType":"array","array":{"dataType":"refObject","ref":"DailySummaryResponse"}},
+            "message": {"dataType":"string"},
+            "error": {"dataType":"string"},
+            "details": {"dataType":"any"},
+            "pagination": {"dataType":"nestedObjectLiteral","nestedProperties":{"totalPages":{"dataType":"double","required":true},"total":{"dataType":"double","required":true},"limit":{"dataType":"double","required":true},"page":{"dataType":"double","required":true}}},
+        },
+        "additionalProperties": false,
+    },
+    // WARNING: This file was auto-generated with tsoa. Please do not modify it. Re-run tsoa to re-generate this file: https://github.com/lukeautry/tsoa
+    "DailySummaryListRequest": {
+        "dataType": "refObject",
+        "properties": {
+            "user_id": {"dataType":"double"},
+            "summary_date": {"dataType":"datetime"},
+            "page": {"dataType":"double"},
+            "limit": {"dataType":"double"},
+        },
+        "additionalProperties": false,
+    },
+    // WARNING: This file was auto-generated with tsoa. Please do not modify it. Re-run tsoa to re-generate this file: https://github.com/lukeautry/tsoa
+    "ApiResponse_DailySummaryResponse_": {
+        "dataType": "refObject",
+        "properties": {
+            "success": {"dataType":"boolean","required":true},
+            "data": {"ref":"DailySummaryResponse"},
+            "message": {"dataType":"string"},
+            "error": {"dataType":"string"},
+            "details": {"dataType":"any"},
+            "pagination": {"dataType":"nestedObjectLiteral","nestedProperties":{"totalPages":{"dataType":"double","required":true},"total":{"dataType":"double","required":true},"limit":{"dataType":"double","required":true},"page":{"dataType":"double","required":true}}},
+        },
+        "additionalProperties": false,
+    },
+    // WARNING: This file was auto-generated with tsoa. Please do not modify it. Re-run tsoa to re-generate this file: https://github.com/lukeautry/tsoa
     "CreateDailySummaryRequest": {
         "dataType": "refObject",
         "properties": {
@@ -129,17 +166,6 @@ const models: TsoaRoute.Models = {
             "summary_id": {"dataType":"double","required":true},
             "content": {"dataType":"string"},
             "summary_date": {"dataType":"datetime"},
-        },
-        "additionalProperties": false,
-    },
-    // WARNING: This file was auto-generated with tsoa. Please do not modify it. Re-run tsoa to re-generate this file: https://github.com/lukeautry/tsoa
-    "DailySummaryListRequest": {
-        "dataType": "refObject",
-        "properties": {
-            "user_id": {"dataType":"double"},
-            "summary_date": {"dataType":"datetime"},
-            "page": {"dataType":"double"},
-            "limit": {"dataType":"double"},
         },
         "additionalProperties": false,
     },
@@ -372,6 +398,36 @@ export function RegisterRoutes(app: Router) {
             }
         });
         // WARNING: This file was auto-generated with tsoa. Please do not modify it. Re-run tsoa to re-generate this file: https://github.com/lukeautry/tsoa
+        const argsDailySummaryController_listDailySummary: Record<string, TsoaRoute.ParameterSchema> = {
+                body: {"in":"body","name":"body","required":true,"ref":"DailySummaryListRequest"},
+        };
+        app.post('/dailySummary/list',
+            ...(fetchMiddlewares<RequestHandler>(DailySummaryController)),
+            ...(fetchMiddlewares<RequestHandler>(DailySummaryController.prototype.listDailySummary)),
+
+            async function DailySummaryController_listDailySummary(request: ExRequest, response: ExResponse, next: any) {
+
+            // WARNING: This file was auto-generated with tsoa. Please do not modify it. Re-run tsoa to re-generate this file: https://github.com/lukeautry/tsoa
+
+            let validatedArgs: any[] = [];
+            try {
+                validatedArgs = templateService.getValidatedArgs({ args: argsDailySummaryController_listDailySummary, request, response });
+
+                const controller = new DailySummaryController();
+
+              await templateService.apiHandler({
+                methodName: 'listDailySummary',
+                controller,
+                response,
+                next,
+                validatedArgs,
+                successStatus: undefined,
+              });
+            } catch (err) {
+                return next(err);
+            }
+        });
+        // WARNING: This file was auto-generated with tsoa. Please do not modify it. Re-run tsoa to re-generate this file: https://github.com/lukeautry/tsoa
         const argsDailySummaryController_addDailySummary: Record<string, TsoaRoute.ParameterSchema> = {
                 body: {"in":"body","name":"body","required":true,"ref":"CreateDailySummaryRequest"},
         };
@@ -451,36 +507,6 @@ export function RegisterRoutes(app: Router) {
 
               await templateService.apiHandler({
                 methodName: 'deleteDailySummary',
-                controller,
-                response,
-                next,
-                validatedArgs,
-                successStatus: undefined,
-              });
-            } catch (err) {
-                return next(err);
-            }
-        });
-        // WARNING: This file was auto-generated with tsoa. Please do not modify it. Re-run tsoa to re-generate this file: https://github.com/lukeautry/tsoa
-        const argsDailySummaryController_listDailySummary: Record<string, TsoaRoute.ParameterSchema> = {
-                body: {"in":"body","name":"body","required":true,"ref":"DailySummaryListRequest"},
-        };
-        app.post('/dailySummary/list',
-            ...(fetchMiddlewares<RequestHandler>(DailySummaryController)),
-            ...(fetchMiddlewares<RequestHandler>(DailySummaryController.prototype.listDailySummary)),
-
-            async function DailySummaryController_listDailySummary(request: ExRequest, response: ExResponse, next: any) {
-
-            // WARNING: This file was auto-generated with tsoa. Please do not modify it. Re-run tsoa to re-generate this file: https://github.com/lukeautry/tsoa
-
-            let validatedArgs: any[] = [];
-            try {
-                validatedArgs = templateService.getValidatedArgs({ args: argsDailySummaryController_listDailySummary, request, response });
-
-                const controller = new DailySummaryController();
-
-              await templateService.apiHandler({
-                methodName: 'listDailySummary',
                 controller,
                 response,
                 next,
