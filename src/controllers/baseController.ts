@@ -28,12 +28,15 @@ export class BaseController extends Controller {
    */
   protected fail(error: string, details?: any,statusCode?: number) {
     this.setStatus(statusCode ?? 500);
-    details=details ?? "错误"
+    let detailObj = null;
+    if (details && typeof details === 'object') {
+      detailObj = details;
+    }
     return {
       success: false,
       statusCode,
       error,
-      ...(details ? { details } : {})
+      details: detailObj
     };
   }
 }

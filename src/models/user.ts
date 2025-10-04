@@ -1,10 +1,13 @@
 import { Entity, PrimaryGeneratedColumn, Column, OneToMany } from 'typeorm';
 import { DailySummary } from './dailySummary';
+import { CourseSchedule } from './courseSchedule';
+import { LearningRecord } from './learningRecord';
+import { AiInteraction } from './aiInteraction';
 
 @Entity({ name: 'users' })
 export class User {
-  @PrimaryGeneratedColumn({ type: 'bigint' })
-  user_id!: number;
+  @PrimaryGeneratedColumn('uuid')
+  user_id!: string;
 
   @Column({ type: 'varchar', length: 255 })
   name!: string;
@@ -27,9 +30,21 @@ export class User {
   @Column({ type: 'int', nullable: true })
   experience?: number;
 
-  @Column({ type: 'bigint', nullable: true })
-  current_title_id?: number;
-  // 用户的每日总结关联
-  @OneToMany(() => DailySummary, summary => summary.user)
+  @Column({ type: 'uuid', nullable: true })
+  current_title_id?: string;
+  // 用户的每日总结关联（仅模型查找，不生成数据库外键）
+  @OneToMany(() => DailySummary, summary => summary.user, { createForeignKeyConstraints: false })
   dailySummaries!: DailySummary[];
+
+  // 用户的课程安排关联
+  @OneToMany(() => CourseSchedule, schedule => schedule.user, { createForeignKeyConstraints: false })
+  courseSchedules!: CourseSchedule[];
+
+  // 用户的学习记录关联
+  @OneToMany(() => LearningRecord, record => record.user, { createForeignKeyConstraints: false })
+  learningRecords!: LearningRecord[];
+
+  // 用户的AI交互关联
+  @OneToMany(() => AiInteraction, ai => ai.user, { createForeignKeyConstraints: false })
+  aiInteractions!: AiInteraction[];
 }

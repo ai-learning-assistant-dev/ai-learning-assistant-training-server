@@ -36,7 +36,7 @@ export class DailySummaryController extends BaseController {
       }));
        return this.paginate(result, count, page, limit);
     } catch (error) {
-       return this.fail('查询每日总结失败', error instanceof Error);
+       return this.fail('查询每日总结失败', error );
     }
   }
   /**
@@ -60,7 +60,7 @@ export class DailySummaryController extends BaseController {
       };
       return this.ok(result, '新增成功');
     } catch (error) {
-      return this.fail('新增每日总结失败', error instanceof Error);
+      return this.fail('新增每日总结失败', error );
     }
   }
 
@@ -82,7 +82,7 @@ export class DailySummaryController extends BaseController {
       await repo.save(summary);
       return this.ok(null, '更新成功');
     } catch (error) {
-      return this.fail('更新每日总结失败', error instanceof Error);
+      return this.fail('更新每日总结失败', error );
     }
   }
 
@@ -101,7 +101,7 @@ export class DailySummaryController extends BaseController {
     await repo.remove(summary);
     return this.ok(null, '删除成功');
     } catch (error) {
-      return this.fail('删除每日总结失败', error instanceof Error);
+      return this.fail('删除每日总结失败', error );
     }
   }
 

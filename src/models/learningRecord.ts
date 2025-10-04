@@ -1,4 +1,8 @@
-import { Entity, PrimaryGeneratedColumn, Column } from 'typeorm';
+import { Entity, PrimaryGeneratedColumn, Column, ManyToOne, JoinColumn } from 'typeorm';
+import { User } from './user';
+import { CourseSchedule } from './courseSchedule';
+import { Section } from './section';
+
 
 @Entity({ name: 'learning_records' })
 export class LearningRecord {
@@ -22,4 +26,18 @@ export class LearningRecord {
 
   @Column({ type: 'varchar', length: 255, nullable: true })
   status?: string;
+    // 用户关联（仅模型查找，不生成数据库外键）
+  @ManyToOne(() => User, user => user.learningRecords, { createForeignKeyConstraints: false })
+  @JoinColumn({ name: 'user_id' })
+  user!: User;
+
+  // 课程安排关联
+  @ManyToOne(() => CourseSchedule, plan => plan.learningRecords, { createForeignKeyConstraints: false })
+  @JoinColumn({ name: 'plan_id' })
+  plan!: CourseSchedule;
+
+  // 节关联
+  @ManyToOne(() => Section, section => section.learningRecords, { createForeignKeyConstraints: false })
+  @JoinColumn({ name: 'section_id' })
+  section!: Section;
 }

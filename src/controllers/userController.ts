@@ -6,6 +6,7 @@ import { UserResponse,CreateUserRequest,UpdateUserRequest,UserQueryParams} from 
 import { Like } from 'typeorm';
 import { Route, Get, Post, Put, Delete, Body, Query, Path, SuccessResponse, Tags } from 'tsoa';
 import { BaseController } from './baseController';
+import logger from '../utils/logger';
 @Tags("用户表")
 @Route('users')
 export class UserController extends BaseController {
@@ -15,7 +16,7 @@ export class UserController extends BaseController {
    */
   @Get('/testJoinById/{userId}')
   public async testJoinById(
-    @Path() userId: number
+    @Path() userId: string
   ): Promise<ApiResponse<any>> {
     try {
       // 使用原生 SQL 连表查询
@@ -37,7 +38,7 @@ export class UserController extends BaseController {
       }
       return this.ok(user);
     } catch (error) {
-      return this.fail('连表查询失败', error instanceof Error);
+      return this.fail('连表查询失败', error);
     }
   }
   
@@ -46,16 +47,13 @@ export class UserController extends BaseController {
    */
   @Post('/list')
   public async listUser(
-    @Body() body: { page?: number; limit?: number; active?: boolean }
+    @Body() body: { page?: number; limit?: number;}
   ): Promise<ApiResponse<UserResponse[]>> {
     try {
       const pageNum = body.page || 1;
       const limitNum = body.limit || 10;
       const offset = (pageNum - 1) * limitNum;
       const whereClause: any = {};
-      if (body.active !== undefined) {
-        whereClause.isActive = body.active;
-      }
       const repo = AppDataSource.getRepository(User);
       const [users, count] = await repo.findAndCount({
         where: whereClause,
@@ -65,7 +63,8 @@ export class UserController extends BaseController {
       });
       return this.paginate(users, count, pageNum, limitNum);
     } catch (error) {
-      return this.fail('获取用户列表失败', error instanceof Error);
+      logger.info(error)
+      return this.fail('获取用户列表失败', error);
     }
   }
 
@@ -74,8 +73,8 @@ export class UserController extends BaseController {
    */
   @Get('/{userId}')
   public async getUserById(
-    @Path() userId: number
-  ): Promise<ApiResponse<UserResponse>> {
+    @Path() userId: string
+  ): Promise<ApiResponse<any>> {
     try {
       const repo = AppDataSource.getRepository(User);
       const user = await repo.findOneBy({ user_id: userId });
@@ -84,27 +83,26 @@ export class UserController extends BaseController {
       }
       return this.ok(user);
     } catch (error) {
-    return this.fail('获取用户信息失败', error instanceof Error);
+      return this.fail('获取用户信息失败', error);
     }
   }
 
   /**
-   * 搜索用户（根据用户名或邮箱）
+   * 搜索用户根据用户名
    */
-  @Get('search')
+  @Post('/search')
   public async searchUsers(
-    @Query() username?: string,
-    @Query() email?: string
-  ): Promise<ApiResponse<UserResponse[]>> {
+    @Query() name?: string
+  ): Promise<ApiResponse<any[]>> {
     try {
-      if (!username && !email) {
-        return this.fail('请提供用户名或邮箱作为搜索条件',null, 400);
+      if (!name) {
+        return this.fail('请提供用户名为搜索条件',null, 400);
       }
       
       const repo = AppDataSource.getRepository(User);
       const whereClause: any = {};
-      if (username) {
-        whereClause.name = Like(`%${username}%`);
+      if (name) {
+        whereClause.name = Like(`%${name}%`);
       }
       // email 字段如有可加
       const users = await repo.find({
@@ -113,7 +111,7 @@ export class UserController extends BaseController {
       });
       return this.ok(users);
     } catch (error) {
-      return this.fail('搜索用户失败', error instanceof Error);
+      return this.fail('搜索用户失败', error);
     }
   }
 
@@ -136,7 +134,7 @@ export class UserController extends BaseController {
       if (error.name === 'SequelizeUniqueConstraintError') {
         return this.fail('用户名已存在', null, 400);
       }
-      return this.fail('创建用户失败', error.message);
+      return this.fail('创建用户失败', error);
     }
   }
 
@@ -160,7 +158,7 @@ export class UserController extends BaseController {
       const saved = await repo.save(user);
       return this.ok(saved, '用户信息更新成功');
     } catch (error) {
-      return this.fail('更新用户信息失败', error instanceof Error);
+      return this.fail('更新用户信息失败', error);
     }
   }
 
@@ -169,7 +167,7 @@ export class UserController extends BaseController {
    */
   @Post('/delete')
   public async deleteUser(
-    @Body() body: { user_id: number }
+    @Body() body: { user_id: string }
   ): Promise<ApiResponse<any>> {
     try {
       const repo = AppDataSource.getRepository(User);
@@ -180,7 +178,7 @@ export class UserController extends BaseController {
       await repo.remove(user);
       return this.ok({}, '用户删除成功');
     } catch (error) {
-      return this.fail('删除用户失败', error instanceof Error);
+      return this.fail('删除用户失败', error);
     }
   }
 }
