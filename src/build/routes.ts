@@ -387,10 +387,10 @@ const models: TsoaRoute.Models = {
     "LearningRecordResponse": {
         "dataType": "refObject",
         "properties": {
-            "task_id": {"dataType":"double","required":true},
-            "plan_id": {"dataType":"double","required":true},
-            "user_id": {"dataType":"double","required":true},
-            "section_id": {"dataType":"double","required":true},
+            "task_id": {"dataType":"string","required":true},
+            "plan_id": {"dataType":"string","required":true},
+            "user_id": {"dataType":"string","required":true},
+            "section_id": {"dataType":"string","required":true},
             "start_date": {"dataType":"datetime"},
             "end_date": {"dataType":"datetime"},
             "status": {"dataType":"string"},
@@ -427,9 +427,9 @@ const models: TsoaRoute.Models = {
     "CreateLearningRecordRequest": {
         "dataType": "refObject",
         "properties": {
-            "plan_id": {"dataType":"double","required":true},
-            "user_id": {"dataType":"double","required":true},
-            "section_id": {"dataType":"double","required":true},
+            "plan_id": {"dataType":"string","required":true},
+            "user_id": {"dataType":"string","required":true},
+            "section_id": {"dataType":"string","required":true},
             "start_date": {"dataType":"datetime"},
             "end_date": {"dataType":"datetime"},
             "status": {"dataType":"string"},
@@ -440,10 +440,10 @@ const models: TsoaRoute.Models = {
     "UpdateLearningRecordRequest": {
         "dataType": "refObject",
         "properties": {
-            "task_id": {"dataType":"double","required":true},
-            "plan_id": {"dataType":"double"},
-            "user_id": {"dataType":"double"},
-            "section_id": {"dataType":"double"},
+            "task_id": {"dataType":"string","required":true},
+            "plan_id": {"dataType":"string"},
+            "user_id": {"dataType":"string"},
+            "section_id": {"dataType":"string"},
             "start_date": {"dataType":"datetime"},
             "end_date": {"dataType":"datetime"},
             "status": {"dataType":"string"},
@@ -633,8 +633,8 @@ const models: TsoaRoute.Models = {
     "DailySummaryResponse": {
         "dataType": "refObject",
         "properties": {
-            "summary_id": {"dataType":"double","required":true},
-            "user_id": {"dataType":"double","required":true},
+            "summary_id": {"dataType":"string","required":true},
+            "user_id": {"dataType":"string","required":true},
             "summary_date": {"dataType":"datetime","required":true},
             "content": {"dataType":"string","required":true},
         },
@@ -657,7 +657,7 @@ const models: TsoaRoute.Models = {
     "DailySummaryListRequest": {
         "dataType": "refObject",
         "properties": {
-            "user_id": {"dataType":"double"},
+            "user_id": {"dataType":"string"},
             "summary_date": {"dataType":"datetime"},
             "page": {"dataType":"double"},
             "limit": {"dataType":"double"},
@@ -681,7 +681,7 @@ const models: TsoaRoute.Models = {
     "CreateDailySummaryRequest": {
         "dataType": "refObject",
         "properties": {
-            "user_id": {"dataType":"double","required":true},
+            "user_id": {"dataType":"string","required":true},
             "summary_date": {"dataType":"datetime","required":true},
             "content": {"dataType":"string","required":true},
         },
@@ -691,7 +691,7 @@ const models: TsoaRoute.Models = {
     "UpdateDailySummaryRequest": {
         "dataType": "refObject",
         "properties": {
-            "summary_id": {"dataType":"double","required":true},
+            "summary_id": {"dataType":"string","required":true},
             "content": {"dataType":"string"},
             "summary_date": {"dataType":"datetime"},
         },
@@ -1048,6 +1048,36 @@ export function RegisterRoutes(app: Router) {
 
               await templateService.apiHandler({
                 methodName: 'testJoinById',
+                controller,
+                response,
+                next,
+                validatedArgs,
+                successStatus: undefined,
+              });
+            } catch (err) {
+                return next(err);
+            }
+        });
+        // WARNING: This file was auto-generated with tsoa. Please do not modify it. Re-run tsoa to re-generate this file: https://github.com/lukeautry/tsoa
+        const argsUserController_getCourseScheduleByUserId: Record<string, TsoaRoute.ParameterSchema> = {
+                userId: {"in":"path","name":"userId","required":true,"dataType":"string"},
+        };
+        app.get('/users/courseScheduleByUser/:userId',
+            ...(fetchMiddlewares<RequestHandler>(UserController)),
+            ...(fetchMiddlewares<RequestHandler>(UserController.prototype.getCourseScheduleByUserId)),
+
+            async function UserController_getCourseScheduleByUserId(request: ExRequest, response: ExResponse, next: any) {
+
+            // WARNING: This file was auto-generated with tsoa. Please do not modify it. Re-run tsoa to re-generate this file: https://github.com/lukeautry/tsoa
+
+            let validatedArgs: any[] = [];
+            try {
+                validatedArgs = templateService.getValidatedArgs({ args: argsUserController_getCourseScheduleByUserId, request, response });
+
+                const controller = new UserController();
+
+              await templateService.apiHandler({
+                methodName: 'getCourseScheduleByUserId',
                 controller,
                 response,
                 next,
@@ -1870,7 +1900,7 @@ export function RegisterRoutes(app: Router) {
         });
         // WARNING: This file was auto-generated with tsoa. Please do not modify it. Re-run tsoa to re-generate this file: https://github.com/lukeautry/tsoa
         const argsLearningRecordController_getLearningRecordById: Record<string, TsoaRoute.ParameterSchema> = {
-                task_id: {"in":"path","name":"task_id","required":true,"dataType":"double"},
+                task_id: {"in":"path","name":"task_id","required":true,"dataType":"string"},
         };
         app.get('/learning-records/:task_id',
             ...(fetchMiddlewares<RequestHandler>(LearningRecordController)),
@@ -1960,7 +1990,7 @@ export function RegisterRoutes(app: Router) {
         });
         // WARNING: This file was auto-generated with tsoa. Please do not modify it. Re-run tsoa to re-generate this file: https://github.com/lukeautry/tsoa
         const argsLearningRecordController_deleteLearningRecord: Record<string, TsoaRoute.ParameterSchema> = {
-                body: {"in":"body","name":"body","required":true,"dataType":"nestedObjectLiteral","nestedProperties":{"task_id":{"dataType":"double","required":true}}},
+                body: {"in":"body","name":"body","required":true,"dataType":"nestedObjectLiteral","nestedProperties":{"task_id":{"dataType":"string","required":true}}},
         };
         app.post('/learning-records/delete',
             ...(fetchMiddlewares<RequestHandler>(LearningRecordController)),
@@ -2530,7 +2560,7 @@ export function RegisterRoutes(app: Router) {
         });
         // WARNING: This file was auto-generated with tsoa. Please do not modify it. Re-run tsoa to re-generate this file: https://github.com/lukeautry/tsoa
         const argsDailySummaryController_deleteDailySummary: Record<string, TsoaRoute.ParameterSchema> = {
-                summary_id: {"in":"path","name":"summary_id","required":true,"dataType":"double"},
+                summary_id: {"in":"path","name":"summary_id","required":true,"dataType":"string"},
         };
         app.post('/dailySummary/delete/:summary_id',
             ...(fetchMiddlewares<RequestHandler>(DailySummaryController)),

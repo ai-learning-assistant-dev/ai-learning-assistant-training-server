@@ -3,11 +3,11 @@ import { User } from './user';
 
 @Entity({ name: 'daily_summaries' })
 export class DailySummary {
-  @PrimaryGeneratedColumn({ type: 'bigint' })
-  summary_id!: number;
+  @PrimaryGeneratedColumn('uuid')
+  summary_id!: string;
 
-  @Column({ type: 'bigint' })
-  user_id!: number;
+  @Column({ type: 'uuid' })
+  user_id!: string;
 
   @Column({ type: 'timestamp' })
   summary_date!: Date;

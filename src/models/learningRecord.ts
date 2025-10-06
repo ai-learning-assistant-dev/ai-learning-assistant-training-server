@@ -6,17 +6,17 @@ import { Section } from './section';
 
 @Entity({ name: 'learning_records' })
 export class LearningRecord {
-  @PrimaryGeneratedColumn({ type: 'bigint' })
-  task_id!: number;
+  @PrimaryGeneratedColumn('uuid')
+  task_id!: string;
 
-  @Column({ type: 'bigint' })
-  plan_id!: number;
+  @Column({ type: 'uuid' })
+  plan_id!: string;
 
-  @Column({ type: 'bigint' })
-  user_id!: number;
+  @Column({ type: 'uuid' })
+  user_id!: string;
 
-  @Column({ type: 'bigint' })
-  section_id!: number;
+  @Column({ type: 'uuid' })
+  section_id!: string;
 
   @Column({ type: 'timestamp', nullable: true })
   start_date?: Date;

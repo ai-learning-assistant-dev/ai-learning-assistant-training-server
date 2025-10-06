@@ -19,8 +19,7 @@ export class LearningRecordController extends BaseController {
       const repo = AppDataSource.getRepository(LearningRecord);
       const [items, count] = await repo.findAndCount({
         skip: offset,
-        take: limitNum,
-        order: { task_id: 'ASC' }
+        take: limitNum
       });
       return this.paginate(items, count, pageNum, limitNum);
     } catch (error) {
@@ -30,7 +29,7 @@ export class LearningRecordController extends BaseController {
 
   @Get('/{task_id}')
   public async getLearningRecordById(
-    @Path() task_id: number
+    @Path() task_id: string
   ): Promise<ApiResponse<LearningRecordResponse>> {
     try {
       const repo = AppDataSource.getRepository(LearningRecord);
@@ -84,7 +83,7 @@ export class LearningRecordController extends BaseController {
 
   @Post('/delete')
   public async deleteLearningRecord(
-    @Body() body: { task_id: number }
+    @Body() body: { task_id: string }
   ): Promise<ApiResponse<any>> {
     try {
       const repo = AppDataSource.getRepository(LearningRecord);

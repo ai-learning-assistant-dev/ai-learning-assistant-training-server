@@ -1,3 +1,4 @@
+
 import { Request, Response } from 'express';
 import { AppDataSource } from '../config/database';
 import { User } from '../models/user';
@@ -39,6 +40,25 @@ export class UserController extends BaseController {
       return this.ok(user);
     } catch (error) {
       return this.fail('连表查询失败', error);
+    }
+  }
+  
+    /**
+   * 通过学员ID查询课程安排及关联课程信息
+   */
+  @Get('/courseScheduleByUser/{userId}')
+  public async getCourseScheduleByUserId(
+    @Path() userId: string
+  ): Promise<ApiResponse<any>> {
+    try {
+      const repo = AppDataSource.getRepository(require('../models/courseSchedule').CourseSchedule);
+      const schedules = await repo.find({
+        where: { user_id: userId },
+        relations: ['course']
+      });
+      return this.ok(schedules);
+    } catch (error) {
+      return this.fail('查询课程安排失败', error);
     }
   }
   

@@ -1027,20 +1027,16 @@
 			"LearningRecordResponse": {
 				"properties": {
 					"task_id": {
-						"type": "number",
-						"format": "double"
+						"type": "string"
 					},
 					"plan_id": {
-						"type": "number",
-						"format": "double"
+						"type": "string"
 					},
 					"user_id": {
-						"type": "number",
-						"format": "double"
+						"type": "string"
 					},
 					"section_id": {
-						"type": "number",
-						"format": "double"
+						"type": "string"
 					},
 					"start_date": {
 						"type": "string",
@@ -1167,16 +1163,13 @@
 			"CreateLearningRecordRequest": {
 				"properties": {
 					"plan_id": {
-						"type": "number",
-						"format": "double"
+						"type": "string"
 					},
 					"user_id": {
-						"type": "number",
-						"format": "double"
+						"type": "string"
 					},
 					"section_id": {
-						"type": "number",
-						"format": "double"
+						"type": "string"
 					},
 					"start_date": {
 						"type": "string",
@@ -1201,20 +1194,16 @@
 			"UpdateLearningRecordRequest": {
 				"properties": {
 					"task_id": {
-						"type": "number",
-						"format": "double"
+						"type": "string"
 					},
 					"plan_id": {
-						"type": "number",
-						"format": "double"
+						"type": "string"
 					},
 					"user_id": {
-						"type": "number",
-						"format": "double"
+						"type": "string"
 					},
 					"section_id": {
-						"type": "number",
-						"format": "double"
+						"type": "string"
 					},
 					"start_date": {
 						"type": "string",
@@ -1753,12 +1742,10 @@
 			"DailySummaryResponse": {
 				"properties": {
 					"summary_id": {
-						"type": "number",
-						"format": "double"
+						"type": "string"
 					},
 					"user_id": {
-						"type": "number",
-						"format": "double"
+						"type": "string"
 					},
 					"summary_date": {
 						"type": "string",
@@ -1832,8 +1819,7 @@
 			"DailySummaryListRequest": {
 				"properties": {
 					"user_id": {
-						"type": "number",
-						"format": "double"
+						"type": "string"
 					},
 					"summary_date": {
 						"type": "string",
@@ -1903,8 +1889,7 @@
 			"CreateDailySummaryRequest": {
 				"properties": {
 					"user_id": {
-						"type": "number",
-						"format": "double"
+						"type": "string"
 					},
 					"summary_date": {
 						"type": "string",
@@ -1925,8 +1910,7 @@
 			"UpdateDailySummaryRequest": {
 				"properties": {
 					"summary_id": {
-						"type": "number",
-						"format": "double"
+						"type": "string"
 					},
 					"content": {
 						"type": "string"
@@ -2879,6 +2863,38 @@
 					}
 				},
 				"description": "测试：通过用户ID连表查询（示例：查询用户及其 daily_summaries表信息）",
+				"tags": [
+					"用户表"
+				],
+				"security": [],
+				"parameters": [
+					{
+						"in": "path",
+						"name": "userId",
+						"required": true,
+						"schema": {
+							"type": "string"
+						}
+					}
+				]
+			}
+		},
+		"/users/courseScheduleByUser/{userId}": {
+			"get": {
+				"operationId": "GetCourseScheduleByUserId",
+				"responses": {
+					"200": {
+						"description": "Ok",
+						"content": {
+							"application/json": {
+								"schema": {
+									"$ref": "#/components/schemas/ApiResponse_any_"
+								}
+							}
+						}
+					}
+				},
+				"description": "通过学员ID查询课程安排及关联课程信息",
 				"tags": [
 					"用户表"
 				],
@@ -3884,8 +3900,7 @@
 						"name": "task_id",
 						"required": true,
 						"schema": {
-							"format": "double",
-							"type": "number"
+							"type": "string"
 						}
 					}
 				]
@@ -3982,8 +3997,7 @@
 							"schema": {
 								"properties": {
 									"task_id": {
-										"type": "number",
-										"format": "double"
+										"type": "string"
 									}
 								},
 								"required": [
@@ -4652,8 +4666,7 @@
 						"name": "summary_id",
 						"required": true,
 						"schema": {
-							"format": "double",
-							"type": "number"
+							"type": "string"
 						}
 					}
 				]
