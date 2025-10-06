@@ -1,10 +1,9 @@
 
-import { Request, Response } from 'express';
 import { AppDataSource } from '../config/database';
 import { User } from '../models/user';
 import { ApiResponse} from '../types/express';
 import { UserResponse,CreateUserRequest,UpdateUserRequest,UserQueryParams} from '../types/user';
-import { Like } from 'typeorm';
+import { Like,In} from 'typeorm';
 import { Route, Get, Post, Put, Delete, Body, Query, Path, SuccessResponse, Tags } from 'tsoa';
 import { BaseController } from './baseController';
 import logger from '../utils/logger';
@@ -12,7 +11,85 @@ import logger from '../utils/logger';
 @Route('users')
 export class UserController extends BaseController {
 
+
   /**
+   * 获取第一个用户
+   */
+  @Get('/firstUser')
+  public async getFirstUser(): Promise<ApiResponse<any>> {
+    try {
+      const repo = AppDataSource.getRepository(User);
+      const users = await repo.find({ take: 1 });
+      if (!users || users.length === 0) {
+        return this.fail('没有用户数据');
+      }
+      return this.ok(users[0]);
+    } catch (error) {
+      return this.fail('获取第一个用户失败', error);
+    }
+  }
+    /**
+     * 通过学员ID查询在学课程
+     */
+    @Get('/courseChaptersSectionsByUser/{userId}')
+    public async getChaptersAndSectionsByUserId(
+      @Path() userId: string
+    ): Promise<ApiResponse<any>> {
+      try {
+        // 1. 查课程安排
+        const courseScheduleRepo = AppDataSource.getRepository(require('../models/courseSchedule').CourseSchedule);
+        const courseRepo = AppDataSource.getRepository(require('../models/course').Course);
+        const chapterRepo = AppDataSource.getRepository(require('../models/chapter').Chapter);
+        const sectionRepo = AppDataSource.getRepository(require('../models/section').Section);
+        const schedules = await courseScheduleRepo.find({ where: { user_id: userId } });
+        const courseIds = schedules.map(s => s.course_id);
+        // 2. 查课程
+        const courses = await courseRepo.findByIds(courseIds);
+        // 3. 查章
+        const chapters = await chapterRepo.find({ where: { course_id: In(courseIds) } });
+        const chapterIds = chapters.map(ch => ch.chapter_id);
+        // 4. 查节
+        const sections = await sectionRepo.find({ where: { chapter_id: In(chapterIds) } });
+        // 5. 组装结构
+        const courseMap = courses.map(course => {
+          const courseChapters = chapters.filter(ch => ch.course_id === course.course_id);
+          // 计算当前课程所有节的最大 order
+          const allSections = courseChapters.flatMap(ch => sections.filter(sec => sec.chapter_id === ch.chapter_id));
+          const maxOrder = allSections.length > 0 ? Math.max(...allSections.map(sec => sec.section_order)) : 0;
+          // 查当前课程的 schedule，取 status 字段
+          const schedule = schedules.find(s => s.course_id === course.course_id);
+          const statusNum = schedule && schedule.status ? parseInt(schedule.status, 10) : 0;
+          // 计算百分比，查不到数据时为 0
+          const percent = maxOrder > 0 ? Math.round((statusNum / maxOrder) * 100) : 0;
+          return {
+            ...course,
+            progress: percent,
+            // chapters: courseChapters.map(ch => ({
+            //   ...ch,
+            //   sections: sections.filter(sec => sec.chapter_id === ch.chapter_id)
+            // }))
+          };
+        });
+        return this.ok(courseMap);
+      } catch (error) {
+        return this.fail('查询课程结构失败', error);
+      }
+    }
+   /**
+   * 获取全部课程
+   */
+  @Get('/allCourses')
+  public async getAllCourses(): Promise<ApiResponse<any>> {
+    try {
+      const repo = AppDataSource.getRepository(require('../models/course').Course);
+      const courses = await repo.find();
+      return this.ok(courses);
+    } catch (error) {
+      return this.fail('获取全部课程失败', error);
+    }
+  }
+
+    /**
    * 测试：通过用户ID连表查询（示例：查询用户及其 daily_summaries表信息）
    */
   @Get('/testJoinById/{userId}')
@@ -42,26 +119,6 @@ export class UserController extends BaseController {
       return this.fail('连表查询失败', error);
     }
   }
-  
-    /**
-   * 通过学员ID查询课程安排及关联课程信息
-   */
-  @Get('/courseScheduleByUser/{userId}')
-  public async getCourseScheduleByUserId(
-    @Path() userId: string
-  ): Promise<ApiResponse<any>> {
-    try {
-      const repo = AppDataSource.getRepository(require('../models/courseSchedule').CourseSchedule);
-      const schedules = await repo.find({
-        where: { user_id: userId },
-        relations: ['course']
-      });
-      return this.ok(schedules);
-    } catch (error) {
-      return this.fail('查询课程安排失败', error);
-    }
-  }
-  
   /**
    * 获取所有用户列表（支持分页和过滤）ORM框架查询
    */
@@ -134,6 +191,8 @@ export class UserController extends BaseController {
       return this.fail('搜索用户失败', error);
     }
   }
+
+
 
   /**
    * 创建新用户

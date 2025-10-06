@@ -2847,9 +2847,9 @@
 		"contact": {}
 	},
 	"paths": {
-		"/users/testJoinById/{userId}": {
+		"/users/firstUser": {
 			"get": {
-				"operationId": "TestJoinById",
+				"operationId": "GetFirstUser",
 				"responses": {
 					"200": {
 						"description": "Ok",
@@ -2862,7 +2862,30 @@
 						}
 					}
 				},
-				"description": "测试：通过用户ID连表查询（示例：查询用户及其 daily_summaries表信息）",
+				"description": "获取第一个用户",
+				"tags": [
+					"用户表"
+				],
+				"security": [],
+				"parameters": []
+			}
+		},
+		"/users/courseChaptersSectionsByUser/{userId}": {
+			"get": {
+				"operationId": "GetChaptersAndSectionsByUserId",
+				"responses": {
+					"200": {
+						"description": "Ok",
+						"content": {
+							"application/json": {
+								"schema": {
+									"$ref": "#/components/schemas/ApiResponse_any_"
+								}
+							}
+						}
+					}
+				},
+				"description": "通过学员ID查询在学课程",
 				"tags": [
 					"用户表"
 				],
@@ -2879,9 +2902,9 @@
 				]
 			}
 		},
-		"/users/courseScheduleByUser/{userId}": {
+		"/users/allCourses": {
 			"get": {
-				"operationId": "GetCourseScheduleByUserId",
+				"operationId": "GetAllCourses",
 				"responses": {
 					"200": {
 						"description": "Ok",
@@ -2894,7 +2917,30 @@
 						}
 					}
 				},
-				"description": "通过学员ID查询课程安排及关联课程信息",
+				"description": "获取全部课程",
+				"tags": [
+					"用户表"
+				],
+				"security": [],
+				"parameters": []
+			}
+		},
+		"/users/testJoinById/{userId}": {
+			"get": {
+				"operationId": "TestJoinById",
+				"responses": {
+					"200": {
+						"description": "Ok",
+						"content": {
+							"application/json": {
+								"schema": {
+									"$ref": "#/components/schemas/ApiResponse_any_"
+								}
+							}
+						}
+					}
+				},
+				"description": "测试：通过用户ID连表查询（示例：查询用户及其 daily_summaries表信息）",
 				"tags": [
 					"用户表"
 				],
