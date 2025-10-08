@@ -6,8 +6,7 @@
 
 每当修改或新增接口的方法名、路由、参数或返回值时，需重启项目服务，才能在接口文档和实际 API 中看到最新的变更。否则文档和接口不会自动更新。
 
-### 接口设计注意事项
-# 控制器接口命名与路由规范
+### 接口设计注意事项 (控制器接口命名与路由规范)
 - **单表基础操作**（不涉及连表/复杂业务）：
 	- 推荐统一使用如下方法名和路由：
 		- `search`：分页/条件查询（如 searchUsers、searchCourses）
@@ -21,7 +20,8 @@
 	- 可根据实际业务自定义方法名和路由，如 `getUserWithCourses`、`getCourseChaptersSectionsByUser`。
 	- 建议方法名和路由能清晰表达业务含义，避免歧义。
 - 每次新增或修改接口后，需重启服务以刷新接口文档。
-
+- **扩展模型或接口**：
+	- 请参考 `src/models/` 与 `src/controllers/` 目录，在 `src/models/` 添加model后需要在 `config/database.ts`  添加引用。
 ## 启动与打包命令
 
 ### 1. 安装依赖
@@ -51,7 +51,6 @@ npm run build     # 生成 dist 目录
 http://localhost:3000/docs
 
 ---
-扩展模型或接口，请参考 `src/models/` 与 `src/controllers/` 目录，在 `src/models/` 添加model后需要在 `config/database.ts`  添加引用。
 
 ### 6. 数据库初始化脚本
 
