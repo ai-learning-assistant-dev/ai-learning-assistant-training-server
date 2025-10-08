@@ -52,7 +52,7 @@ http://localhost:3000/docs
 ## 接口设计注意事项 (控制器接口命名与路由规范)
 
 - **单表基础操作**（不涉及连表/复杂业务）：
-	- 推荐统一使用如下方法名和路由：
+	- 推荐统一使用如下 路由 和 方法名：
 		- `search`：分页/条件查询（如 searchUsers、searchCourses）
 		- `getById`：主键查询单条（如 getUserById、getCourseById）
 		- `add`：新增（如 addUser、addCourse）
