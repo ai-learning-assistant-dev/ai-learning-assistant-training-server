@@ -8,8 +8,8 @@ import { BaseController } from './baseController';
 @Tags("习题选项表")
 @Route('exercise-options')
 export class ExerciseOptionController extends BaseController {
-  @Post('/list')
-  public async listExerciseOptions(
+  @Post('/search')
+  public async searchExerciseOptions(
     @Body() body: { page?: number; limit?: number }
   ): Promise<ApiResponse<ExerciseOptionResponse[]>> {
     try {

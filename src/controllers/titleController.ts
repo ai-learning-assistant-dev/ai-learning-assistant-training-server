@@ -8,8 +8,8 @@ import { BaseController } from './baseController';
 @Tags("称号表")
 @Route('titles')
 export class TitleController extends BaseController {
-  @Post('/list')
-  public async listTitles(
+  @Post('/search')
+  public async lsearchTitles(
     @Body() body: { page?: number; limit?: number }
   ): Promise<ApiResponse<TitleResponse[]>> {
     try {

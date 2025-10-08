@@ -13,8 +13,8 @@ export class DailySummaryController extends BaseController {
     /**
    * 查询每日总结列表（可选按用户/日期过滤）
    */
-  @Post('/list')
-  public async listDailySummary(@Body() body: DailySummaryListRequest)
+  @Post('/search')
+  public async searchDailySummary(@Body() body: DailySummaryListRequest)
   : Promise<ApiResponse<DailySummaryResponse[]>> {
     try {
       const repo = AppDataSource.getRepository(DailySummary);

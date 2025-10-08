@@ -8,8 +8,8 @@ import { BaseController } from './baseController';
 @Tags("课程表")
 @Route('courses')
 export class CourseController extends BaseController {
-  @Post('/list')
-  public async listCourses(
+  @Post('/search')
+  public async searchCourses(
     @Body() body: { page?: number; limit?: number }
   ): Promise<ApiResponse<CourseResponse[]>> {
     try {
@@ -28,7 +28,7 @@ export class CourseController extends BaseController {
     }
   }
 
-  @Post('/getCourseById')
+  @Post('/getById')
   public async getCourseById(
     @Body() body:{ course_id: string}
   ): Promise<ApiResponse<CourseResponse>> {

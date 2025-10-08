@@ -41,7 +41,7 @@ export class UserController extends BaseController {
         const courseRepo = AppDataSource.getRepository(require('../models/course').Course);
         const chapterRepo = AppDataSource.getRepository(require('../models/chapter').Chapter);
         const sectionRepo = AppDataSource.getRepository(require('../models/section').Section);
-  const schedules = await courseScheduleRepo.find({ where: { user_id: body.userId } });
+        const schedules = await courseScheduleRepo.find({ where: { user_id: body.userId } });
         const courseIds = schedules.map(s => s.course_id);
         // 2. 查课程
         const courses = await courseRepo.findByIds(courseIds);
@@ -119,31 +119,6 @@ export class UserController extends BaseController {
       return this.fail('连表查询失败', error);
     }
   }
-  /**
-   * 获取所有用户列表（支持分页和过滤）ORM框架查询
-   */
-  @Post('/list')
-  public async listUser(
-    @Body() body: { page?: number; limit?: number;}
-  ): Promise<ApiResponse<UserResponse[]>> {
-    try {
-      const pageNum = body.page || 1;
-      const limitNum = body.limit || 10;
-      const offset = (pageNum - 1) * limitNum;
-      const whereClause: any = {};
-      const repo = AppDataSource.getRepository(User);
-      const [users, count] = await repo.findAndCount({
-        where: whereClause,
-        skip: offset,
-        take: limitNum,
-        order: { user_id: 'ASC' }
-      });
-      return this.paginate(users, count, pageNum, limitNum);
-    } catch (error) {
-      logger.info(error)
-      return this.fail('获取用户列表失败', error);
-    }
-  }
 
   /**
    * 根据ID获取单个用户
@@ -165,29 +140,30 @@ export class UserController extends BaseController {
   }
 
   /**
-   * 搜索用户根据用户名
+   * 搜索用户（支持用户名模糊搜索和分页）
    */
   @Post('/search')
   public async searchUsers(
-    @Body()body: {  name?: string}
-  ): Promise<ApiResponse<any[]>> {
+    @Body() body: { name?: string; page?: number; limit?: number }
+  ): Promise<ApiResponse<UserResponse[]>> {
     try {
-      if (!body.name) {
-        return this.fail('请提供用户名为搜索条件',null, 400);
-      }
-      
-      const repo = AppDataSource.getRepository(User);
+      const pageNum = body.page || 1;
+      const limitNum = body.limit || 10;
+      const offset = (pageNum - 1) * limitNum;
       const whereClause: any = {};
       if (body.name) {
         whereClause.name = Like(`%${body.name}%`);
       }
-      // email 字段如有可加
-      const users = await repo.find({
+      const repo = AppDataSource.getRepository(User);
+      const [users, count] = await repo.findAndCount({
         where: whereClause,
-        take: 20
+        skip: offset,
+        take: limitNum,
+        order: { user_id: 'ASC' }
       });
-      return this.ok(users);
+      return this.paginate(users, count, pageNum, limitNum);
     } catch (error) {
+      logger.info(error);
       return this.fail('搜索用户失败', error);
     }
   }

@@ -8,8 +8,8 @@ import { BaseController } from './baseController';
 @Tags("预设问题表")
 @Route('leading-questions')
 export class LeadingQuestionController extends BaseController {
-  @Post('/list')
-  public async listLeadingQuestions(
+  @Post('/search')
+  public async searchLeadingQuestions(
     @Body() body: { page?: number; limit?: number }
   ): Promise<ApiResponse<LeadingQuestionResponse[]>> {
     try {

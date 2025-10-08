@@ -8,8 +8,8 @@ import { BaseController } from './baseController';
 @Tags("习题表")
 @Route('exercises')
 export class ExerciseController extends BaseController {
-  @Post('/list')
-  public async listExercises(
+  @Post('/search')
+  public async searchExercises(
     @Body() body: { page?: number; limit?: number }
   ): Promise<ApiResponse<ExerciseResponse[]>> {
     try {

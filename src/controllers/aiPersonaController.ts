@@ -8,8 +8,8 @@ import { BaseController } from './baseController';
 @Tags("AI人设")
 @Route('ai-personas')
 export class AiPersonaController extends BaseController {
-  @Post('/list')
-  public async listAiPersonas(
+  @Post('/search')
+  public async searchAiPersonas(
     @Body() body: { page?: number; limit?: number }
   ): Promise<ApiResponse<AiPersonaResponse[]>> {
     try {
@@ -28,7 +28,7 @@ export class AiPersonaController extends BaseController {
     }
   }
 
-  @Post('/getAiPersonaById')
+  @Post('/getById')
   public async getAiPersonaById(
       @Body() body: { persona_id: string }
   ): Promise<ApiResponse<AiPersonaResponse>> {

@@ -8,8 +8,8 @@ import { BaseController } from './baseController';
 @Tags("测试表")
 @Route('tests')
 export class TestController extends BaseController {
-  @Post('/list')
-  public async listTests(
+  @Post('/search')
+  public async searchTests(
     @Body() body: { page?: number; limit?: number }
   ): Promise<ApiResponse<TestResponse[]>> {
     try {

@@ -8,8 +8,8 @@ import { BaseController } from './baseController';
 @Tags("章节表")
 @Route('chapters')
 export class ChapterController extends BaseController {
-  @Post('/list')
-  public async listChapters(
+  @Post('/search')
+  public async searchChapters(
     @Body() body: { page?: number; limit?: number }
   ): Promise<ApiResponse<ChapterResponse[]>> {
     try {

@@ -8,8 +8,8 @@ import { BaseController } from './baseController';
 @Tags("节表")
 @Route('sections')
 export class SectionController extends BaseController {
-  @Post('/list')
-  public async listSections(
+  @Post('/search')
+  public async searchSections(
     @Body() body: { page?: number; limit?: number }
   ): Promise<ApiResponse<SectionResponse[]>> {
     try {
@@ -28,7 +28,7 @@ export class SectionController extends BaseController {
     }
   }
 
-  @Post('/getSectionById')
+  @Post('/getById')
     public async getSectionById(
       @Body() body: { section_id: string }
     ): Promise<ApiResponse<SectionResponse>> {

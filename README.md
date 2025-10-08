@@ -6,6 +6,22 @@
 
 每当修改或新增接口的方法名、路由、参数或返回值时，需重启项目服务，才能在接口文档和实际 API 中看到最新的变更。否则文档和接口不会自动更新。
 
+### 接口设计注意事项
+# 控制器接口命名与路由规范
+- **单表基础操作**（不涉及连表/复杂业务）：
+	- 推荐统一使用如下方法名和路由：
+		- `search`：分页/条件查询（如 searchUsers、searchCourses）
+		- `getById`：主键查询单条（如 getUserById、getCourseById）
+		- `add`：新增（如 addUser、addCourse）
+		- `update`：更新（如 updateUser、updateCourse）
+		- `delete`：删除（如 deleteUser、deleteCourse）
+	- 路由建议与方法名保持一致，如 `/users/searchUsers`、`/users/getUserById`。
+	- 这样便于前后端协作、接口文档自动生成、维护统一性。
+- **涉及连表、特殊业务或复杂功能**：
+	- 可根据实际业务自定义方法名和路由，如 `getUserWithCourses`、`getCourseChaptersSectionsByUser`。
+	- 建议方法名和路由能清晰表达业务含义，避免歧义。
+- 每次新增或修改接口后，需重启服务以刷新接口文档。
+
 ## 启动与打包命令
 
 ### 1. 安装依赖
@@ -47,6 +63,7 @@ http://localhost:3000/docs
 	npm run db:init # 一般不需要自己执行 启动程序时候会自动执行
 	```
 	该命令会根据 `.env` 配置连接数据库服务器，自动检查并创建数据库，适合首次部署或本地开发初始化数据库环境。
+
 
 
 ## 项目结构

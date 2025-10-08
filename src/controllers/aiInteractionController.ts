@@ -8,8 +8,8 @@ import { BaseController } from './baseController';
 @Tags("AI交互表")
 @Route('ai-interactions')
 export class AiInteractionController extends BaseController {
-  @Post('/list')
-  public async listAiInteractions(
+  @Post('/search')
+  public async searchAiInteractions(
     @Body() body: { page?: number; limit?: number }
   ): Promise<ApiResponse<AiInteractionResponse[]>> {
     try {
@@ -28,7 +28,7 @@ export class AiInteractionController extends BaseController {
     }
   }
 
-  @Post('/getAiInteractionById')
+  @Post('/getById')
   public async getAiInteractionById(
     @Body() body: { interaction_id: string }
   ): Promise<ApiResponse<AiInteractionResponse>> {
