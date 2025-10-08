@@ -28,17 +28,17 @@ export class ChapterController extends BaseController {
     }
   }
 
-  @Get('/{chapter_id}')
-  public async getChapterById(
-    @Path() chapter_id: string
-  ): Promise<ApiResponse<ChapterResponse>> {
+    @Post('/getById')
+    public async getChapterById(
+      @Body() body: { chapter_id: string }
+    ): Promise<ApiResponse<ChapterResponse>> {
     try {
       const repo = AppDataSource.getRepository(Chapter);
-      const item = await repo.findOneBy({ chapter_id });
-      if (!item) {
+          const chapter = await repo.findOneBy({ chapter_id: body.chapter_id });
+      if (!chapter) {
         return this.fail('章节不存在');
       }
-      return this.ok(item);
+      return this.ok(chapter);
     } catch (error) {
       return this.fail('获取章节失败', error );
     }

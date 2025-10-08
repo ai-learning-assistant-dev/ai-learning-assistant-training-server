@@ -28,13 +28,13 @@ export class AiPersonaController extends BaseController {
     }
   }
 
-  @Get('/{persona_id}')
+  @Post('/getAiPersonaById')
   public async getAiPersonaById(
-    @Path() persona_id: string
+      @Body() body: { persona_id: string }
   ): Promise<ApiResponse<AiPersonaResponse>> {
     try {
       const repo = AppDataSource.getRepository(AiPersona);
-      const item = await repo.findOneBy({ persona_id });
+        const item = await repo.findOneBy({ persona_id: body.persona_id });
       if (!item) {
         return this.fail('AI人设不存在');
       }

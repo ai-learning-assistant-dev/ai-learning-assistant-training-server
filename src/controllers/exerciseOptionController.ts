@@ -28,21 +28,21 @@ export class ExerciseOptionController extends BaseController {
     }
   }
 
-  @Get('/{option_id}')
-  public async getExerciseOptionById(
-    @Path() option_id: string
-  ): Promise<ApiResponse<ExerciseOptionResponse>> {
-    try {
-      const repo = AppDataSource.getRepository(ExerciseOption);
-      const item = await repo.findOneBy({ option_id });
-      if (!item) {
-        return this.fail('习题选项不存在');
+    @Post('/getById')
+    public async getExerciseOptionById(
+      @Body() body: { option_id: string }
+    ): Promise<ApiResponse<ExerciseOptionResponse>> {
+      try {
+        const repo = AppDataSource.getRepository(ExerciseOption);
+        const option = await repo.findOneBy({ option_id: body.option_id });
+        if (!option) {
+          return this.fail('选项不存在');
+        }
+        return this.ok(option);
+      } catch (error) {
+        return this.fail('获取选项信息失败', error);
       }
-      return this.ok(item);
-    } catch (error) {
-      return this.fail('获取习题选项失败', error );
     }
-  }
 
   @Post('/add')
   public async addExerciseOption(

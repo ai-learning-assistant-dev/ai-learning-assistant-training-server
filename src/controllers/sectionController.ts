@@ -28,13 +28,13 @@ export class SectionController extends BaseController {
     }
   }
 
-  @Get('/{section_id}')
-  public async getSectionById(
-    @Path() section_id: string
-  ): Promise<ApiResponse<SectionResponse>> {
+  @Post('/getSectionById')
+    public async getSectionById(
+      @Body() body: { section_id: string }
+    ): Promise<ApiResponse<SectionResponse>> {
     try {
       const repo = AppDataSource.getRepository(Section);
-      const item = await repo.findOneBy({ section_id });
+          const item = await repo.findOneBy({ section_id: body.section_id });
       if (!item) {
         return this.fail('节不存在');
       }

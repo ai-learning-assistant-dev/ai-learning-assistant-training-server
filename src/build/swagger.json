@@ -2085,35 +2085,6 @@
 				"type": "object",
 				"additionalProperties": false
 			},
-			"UpdateCourseScheduleRequest": {
-				"properties": {
-					"plan_id": {
-						"type": "string"
-					},
-					"user_id": {
-						"type": "string"
-					},
-					"course_id": {
-						"type": "string"
-					},
-					"start_date": {
-						"type": "string",
-						"format": "date-time"
-					},
-					"end_date": {
-						"type": "string",
-						"format": "date-time"
-					},
-					"status": {
-						"type": "string"
-					}
-				},
-				"required": [
-					"plan_id"
-				],
-				"type": "object",
-				"additionalProperties": false
-			},
 			"CourseResponse": {
 				"properties": {
 					"course_id": {
@@ -2870,8 +2841,8 @@
 				"parameters": []
 			}
 		},
-		"/users/courseChaptersSectionsByUser/{userId}": {
-			"get": {
+		"/users/courseChaptersSectionsByUser": {
+			"post": {
 				"operationId": "GetChaptersAndSectionsByUserId",
 				"responses": {
 					"200": {
@@ -2890,16 +2861,25 @@
 					"用户表"
 				],
 				"security": [],
-				"parameters": [
-					{
-						"in": "path",
-						"name": "userId",
-						"required": true,
-						"schema": {
-							"type": "string"
+				"parameters": [],
+				"requestBody": {
+					"required": true,
+					"content": {
+						"application/json": {
+							"schema": {
+								"properties": {
+									"userId": {
+										"type": "string"
+									}
+								},
+								"required": [
+									"userId"
+								],
+								"type": "object"
+							}
 						}
 					}
-				]
+				}
 			}
 		},
 		"/users/allCourses": {
@@ -2925,8 +2905,8 @@
 				"parameters": []
 			}
 		},
-		"/users/testJoinById/{userId}": {
-			"get": {
+		"/users/testJoinById": {
+			"post": {
 				"operationId": "TestJoinById",
 				"responses": {
 					"200": {
@@ -2945,16 +2925,25 @@
 					"用户表"
 				],
 				"security": [],
-				"parameters": [
-					{
-						"in": "path",
-						"name": "userId",
-						"required": true,
-						"schema": {
-							"type": "string"
+				"parameters": [],
+				"requestBody": {
+					"required": true,
+					"content": {
+						"application/json": {
+							"schema": {
+								"properties": {
+									"userId": {
+										"type": "string"
+									}
+								},
+								"required": [
+									"userId"
+								],
+								"type": "object"
+							}
 						}
 					}
-				]
+				}
 			}
 		},
 		"/users/list": {
@@ -3000,8 +2989,8 @@
 				}
 			}
 		},
-		"/users/{userId}": {
-			"get": {
+		"/users/getById": {
+			"post": {
 				"operationId": "GetUserById",
 				"responses": {
 					"200": {
@@ -3020,16 +3009,25 @@
 					"用户表"
 				],
 				"security": [],
-				"parameters": [
-					{
-						"in": "path",
-						"name": "userId",
-						"required": true,
-						"schema": {
-							"type": "string"
+				"parameters": [],
+				"requestBody": {
+					"required": true,
+					"content": {
+						"application/json": {
+							"schema": {
+								"properties": {
+									"userId": {
+										"type": "string"
+									}
+								},
+								"required": [
+									"userId"
+								],
+								"type": "object"
+							}
 						}
 					}
-				]
+				}
 			}
 		},
 		"/users/search": {
@@ -3052,16 +3050,22 @@
 					"用户表"
 				],
 				"security": [],
-				"parameters": [
-					{
-						"in": "query",
-						"name": "name",
-						"required": false,
-						"schema": {
-							"type": "string"
+				"parameters": [],
+				"requestBody": {
+					"required": true,
+					"content": {
+						"application/json": {
+							"schema": {
+								"properties": {
+									"name": {
+										"type": "string"
+									}
+								},
+								"type": "object"
+							}
 						}
 					}
-				]
+				}
 			}
 		},
 		"/users/add": {
@@ -3213,8 +3217,8 @@
 				}
 			}
 		},
-		"/titles/{title_id}": {
-			"get": {
+		"/titles/getById": {
+			"post": {
 				"operationId": "GetTitleById",
 				"responses": {
 					"200": {
@@ -3232,16 +3236,25 @@
 					"称号表"
 				],
 				"security": [],
-				"parameters": [
-					{
-						"in": "path",
-						"name": "title_id",
-						"required": true,
-						"schema": {
-							"type": "string"
+				"parameters": [],
+				"requestBody": {
+					"required": true,
+					"content": {
+						"application/json": {
+							"schema": {
+								"properties": {
+									"title_id": {
+										"type": "string"
+									}
+								},
+								"required": [
+									"title_id"
+								],
+								"type": "object"
+							}
 						}
 					}
-				]
+				}
 			}
 		},
 		"/titles/add": {
@@ -3390,8 +3403,8 @@
 				}
 			}
 		},
-		"/test-results/{result_id}": {
-			"get": {
+		"/test-results/getById": {
+			"post": {
 				"operationId": "GetTestResultById",
 				"responses": {
 					"200": {
@@ -3409,16 +3422,25 @@
 					"测试结果表"
 				],
 				"security": [],
-				"parameters": [
-					{
-						"in": "path",
-						"name": "result_id",
-						"required": true,
-						"schema": {
-							"type": "string"
+				"parameters": [],
+				"requestBody": {
+					"required": true,
+					"content": {
+						"application/json": {
+							"schema": {
+								"properties": {
+									"result_id": {
+										"type": "string"
+									}
+								},
+								"required": [
+									"result_id"
+								],
+								"type": "object"
+							}
 						}
 					}
-				]
+				}
 			}
 		},
 		"/test-results/add": {
@@ -3567,8 +3589,8 @@
 				}
 			}
 		},
-		"/tests/{test_id}": {
-			"get": {
+		"/tests/getById": {
+			"post": {
 				"operationId": "GetTestById",
 				"responses": {
 					"200": {
@@ -3586,16 +3608,25 @@
 					"测试表"
 				],
 				"security": [],
-				"parameters": [
-					{
-						"in": "path",
-						"name": "test_id",
-						"required": true,
-						"schema": {
-							"type": "string"
+				"parameters": [],
+				"requestBody": {
+					"required": true,
+					"content": {
+						"application/json": {
+							"schema": {
+								"properties": {
+									"test_id": {
+										"type": "string"
+									}
+								},
+								"required": [
+									"test_id"
+								],
+								"type": "object"
+							}
 						}
 					}
-				]
+				}
 			}
 		},
 		"/tests/add": {
@@ -3744,8 +3775,8 @@
 				}
 			}
 		},
-		"/sections/{section_id}": {
-			"get": {
+		"/sections/getSectionById": {
+			"post": {
 				"operationId": "GetSectionById",
 				"responses": {
 					"200": {
@@ -3763,16 +3794,25 @@
 					"节表"
 				],
 				"security": [],
-				"parameters": [
-					{
-						"in": "path",
-						"name": "section_id",
-						"required": true,
-						"schema": {
-							"type": "string"
+				"parameters": [],
+				"requestBody": {
+					"required": true,
+					"content": {
+						"application/json": {
+							"schema": {
+								"properties": {
+									"section_id": {
+										"type": "string"
+									}
+								},
+								"required": [
+									"section_id"
+								],
+								"type": "object"
+							}
 						}
 					}
-				]
+				}
 			}
 		},
 		"/sections/add": {
@@ -3921,8 +3961,8 @@
 				}
 			}
 		},
-		"/learning-records/{task_id}": {
-			"get": {
+		"/learning-records/getLearningRecordById": {
+			"post": {
 				"operationId": "GetLearningRecordById",
 				"responses": {
 					"200": {
@@ -3940,16 +3980,25 @@
 					"学习记录表"
 				],
 				"security": [],
-				"parameters": [
-					{
-						"in": "path",
-						"name": "task_id",
-						"required": true,
-						"schema": {
-							"type": "string"
+				"parameters": [],
+				"requestBody": {
+					"required": true,
+					"content": {
+						"application/json": {
+							"schema": {
+								"properties": {
+									"task_id": {
+										"type": "string"
+									}
+								},
+								"required": [
+									"task_id"
+								],
+								"type": "object"
+							}
 						}
 					}
-				]
+				}
 			}
 		},
 		"/learning-records/add": {
@@ -4098,8 +4147,8 @@
 				}
 			}
 		},
-		"/leading-questions/{question_id}": {
-			"get": {
+		"/leading-questions/getById": {
+			"post": {
 				"operationId": "GetLeadingQuestionById",
 				"responses": {
 					"200": {
@@ -4117,16 +4166,25 @@
 					"预设问题表"
 				],
 				"security": [],
-				"parameters": [
-					{
-						"in": "path",
-						"name": "question_id",
-						"required": true,
-						"schema": {
-							"type": "string"
+				"parameters": [],
+				"requestBody": {
+					"required": true,
+					"content": {
+						"application/json": {
+							"schema": {
+								"properties": {
+									"question_id": {
+										"type": "string"
+									}
+								},
+								"required": [
+									"question_id"
+								],
+								"type": "object"
+							}
 						}
 					}
-				]
+				}
 			}
 		},
 		"/leading-questions/add": {
@@ -4275,8 +4333,8 @@
 				}
 			}
 		},
-		"/exercise-options/{option_id}": {
-			"get": {
+		"/exercise-options/getById": {
+			"post": {
 				"operationId": "GetExerciseOptionById",
 				"responses": {
 					"200": {
@@ -4294,16 +4352,25 @@
 					"习题选项表"
 				],
 				"security": [],
-				"parameters": [
-					{
-						"in": "path",
-						"name": "option_id",
-						"required": true,
-						"schema": {
-							"type": "string"
+				"parameters": [],
+				"requestBody": {
+					"required": true,
+					"content": {
+						"application/json": {
+							"schema": {
+								"properties": {
+									"option_id": {
+										"type": "string"
+									}
+								},
+								"required": [
+									"option_id"
+								],
+								"type": "object"
+							}
 						}
 					}
-				]
+				}
 			}
 		},
 		"/exercise-options/add": {
@@ -4452,8 +4519,8 @@
 				}
 			}
 		},
-		"/exercises/{exercise_id}": {
-			"get": {
+		"/exercises/getById": {
+			"post": {
 				"operationId": "GetExerciseById",
 				"responses": {
 					"200": {
@@ -4471,16 +4538,25 @@
 					"习题表"
 				],
 				"security": [],
-				"parameters": [
-					{
-						"in": "path",
-						"name": "exercise_id",
-						"required": true,
-						"schema": {
-							"type": "string"
+				"parameters": [],
+				"requestBody": {
+					"required": true,
+					"content": {
+						"application/json": {
+							"schema": {
+								"properties": {
+									"exercise_id": {
+										"type": "string"
+									}
+								},
+								"required": [
+									"exercise_id"
+								],
+								"type": "object"
+							}
 						}
 					}
-				]
+				}
 			}
 		},
 		"/exercises/add": {
@@ -4686,7 +4762,7 @@
 				}
 			}
 		},
-		"/dailySummary/delete/{summary_id}": {
+		"/dailySummary/delete": {
 			"post": {
 				"operationId": "DeleteDailySummary",
 				"responses": {
@@ -4706,16 +4782,17 @@
 					"每日总结"
 				],
 				"security": [],
-				"parameters": [
-					{
-						"in": "path",
-						"name": "summary_id",
-						"required": true,
-						"schema": {
-							"type": "string"
+				"parameters": [],
+				"requestBody": {
+					"required": true,
+					"content": {
+						"application/json": {
+							"schema": {
+								"type": "string"
+							}
 						}
 					}
-				]
+				}
 			}
 		},
 		"/course-schedules/list": {
@@ -4760,8 +4837,8 @@
 				}
 			}
 		},
-		"/course-schedules/{plan_id}": {
-			"get": {
+		"/course-schedules/getById": {
+			"post": {
 				"operationId": "GetCourseScheduleById",
 				"responses": {
 					"200": {
@@ -4779,16 +4856,25 @@
 					"课程安排表"
 				],
 				"security": [],
-				"parameters": [
-					{
-						"in": "path",
-						"name": "plan_id",
-						"required": true,
-						"schema": {
-							"type": "string"
+				"parameters": [],
+				"requestBody": {
+					"required": true,
+					"content": {
+						"application/json": {
+							"schema": {
+								"properties": {
+									"plan_id": {
+										"type": "string"
+									}
+								},
+								"required": [
+									"plan_id"
+								],
+								"type": "object"
+							}
 						}
 					}
-				]
+				}
 			}
 		},
 		"/course-schedules/add": {
@@ -4848,7 +4934,15 @@
 					"content": {
 						"application/json": {
 							"schema": {
-								"$ref": "#/components/schemas/UpdateCourseScheduleRequest"
+								"properties": {
+									"plan_id": {
+										"type": "string"
+									}
+								},
+								"required": [
+									"plan_id"
+								],
+								"type": "object"
 							}
 						}
 					}
@@ -4937,8 +5031,8 @@
 				}
 			}
 		},
-		"/courses/{course_id}": {
-			"get": {
+		"/courses/getCourseById": {
+			"post": {
 				"operationId": "GetCourseById",
 				"responses": {
 					"200": {
@@ -4956,16 +5050,25 @@
 					"课程表"
 				],
 				"security": [],
-				"parameters": [
-					{
-						"in": "path",
-						"name": "course_id",
-						"required": true,
-						"schema": {
-							"type": "string"
+				"parameters": [],
+				"requestBody": {
+					"required": true,
+					"content": {
+						"application/json": {
+							"schema": {
+								"properties": {
+									"course_id": {
+										"type": "string"
+									}
+								},
+								"required": [
+									"course_id"
+								],
+								"type": "object"
+							}
 						}
 					}
-				]
+				}
 			}
 		},
 		"/courses/add": {
@@ -5114,8 +5217,8 @@
 				}
 			}
 		},
-		"/chapters/{chapter_id}": {
-			"get": {
+		"/chapters/getById": {
+			"post": {
 				"operationId": "GetChapterById",
 				"responses": {
 					"200": {
@@ -5133,16 +5236,25 @@
 					"章节表"
 				],
 				"security": [],
-				"parameters": [
-					{
-						"in": "path",
-						"name": "chapter_id",
-						"required": true,
-						"schema": {
-							"type": "string"
+				"parameters": [],
+				"requestBody": {
+					"required": true,
+					"content": {
+						"application/json": {
+							"schema": {
+								"properties": {
+									"chapter_id": {
+										"type": "string"
+									}
+								},
+								"required": [
+									"chapter_id"
+								],
+								"type": "object"
+							}
 						}
 					}
-				]
+				}
 			}
 		},
 		"/chapters/add": {
@@ -5291,8 +5403,8 @@
 				}
 			}
 		},
-		"/ai-personas/{persona_id}": {
-			"get": {
+		"/ai-personas/getAiPersonaById": {
+			"post": {
 				"operationId": "GetAiPersonaById",
 				"responses": {
 					"200": {
@@ -5310,16 +5422,25 @@
 					"AI人设"
 				],
 				"security": [],
-				"parameters": [
-					{
-						"in": "path",
-						"name": "persona_id",
-						"required": true,
-						"schema": {
-							"type": "string"
+				"parameters": [],
+				"requestBody": {
+					"required": true,
+					"content": {
+						"application/json": {
+							"schema": {
+								"properties": {
+									"persona_id": {
+										"type": "string"
+									}
+								},
+								"required": [
+									"persona_id"
+								],
+								"type": "object"
+							}
 						}
 					}
-				]
+				}
 			}
 		},
 		"/ai-personas/add": {
@@ -5468,8 +5589,8 @@
 				}
 			}
 		},
-		"/ai-interactions/{interaction_id}": {
-			"get": {
+		"/ai-interactions/getAiInteractionById": {
+			"post": {
 				"operationId": "GetAiInteractionById",
 				"responses": {
 					"200": {
@@ -5487,16 +5608,25 @@
 					"AI交互表"
 				],
 				"security": [],
-				"parameters": [
-					{
-						"in": "path",
-						"name": "interaction_id",
-						"required": true,
-						"schema": {
-							"type": "string"
+				"parameters": [],
+				"requestBody": {
+					"required": true,
+					"content": {
+						"application/json": {
+							"schema": {
+								"properties": {
+									"interaction_id": {
+										"type": "string"
+									}
+								},
+								"required": [
+									"interaction_id"
+								],
+								"type": "object"
+							}
 						}
 					}
-				]
+				}
 			}
 		},
 		"/ai-interactions/add": {

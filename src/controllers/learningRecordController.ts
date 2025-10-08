@@ -27,13 +27,13 @@ export class LearningRecordController extends BaseController {
     }
   }
 
-  @Get('/{task_id}')
-  public async getLearningRecordById(
-    @Path() task_id: string
-  ): Promise<ApiResponse<LearningRecordResponse>> {
+    @Post('/getLearningRecordById')
+    public async getLearningRecordById(
+      @Body() body: { task_id: string }
+    ): Promise<ApiResponse<LearningRecordResponse>> {
     try {
       const repo = AppDataSource.getRepository(LearningRecord);
-      const item = await repo.findOneBy({ task_id });
+        const item = await repo.findOneBy({ task_id: body.task_id });
       if (!item) {
         return this.fail('学习记录不存在');
       }

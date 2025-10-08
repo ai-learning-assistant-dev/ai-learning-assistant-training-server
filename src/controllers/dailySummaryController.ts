@@ -89,8 +89,8 @@ export class DailySummaryController extends BaseController {
   /**
    * 删除每日总结
    */
-  @Post('/delete/{summary_id}')
-  public async deleteDailySummary(@Path() summary_id: string)
+  @Post('/delete')
+  public async deleteDailySummary(@Body() summary_id: string)
   : Promise<ApiResponse<any>> {
     try {
     const repo = AppDataSource.getRepository(DailySummary);

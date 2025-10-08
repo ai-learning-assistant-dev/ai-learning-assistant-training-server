@@ -28,13 +28,13 @@ export class TestController extends BaseController {
     }
   }
 
-  @Get('/{test_id}')
+  @Post('/getById')
   public async getTestById(
-    @Path() test_id: string
+    @Body() body: { test_id: string }
   ): Promise<ApiResponse<TestResponse>> {
     try {
       const repo = AppDataSource.getRepository(Test);
-      const item = await repo.findOneBy({ test_id });
+      const item = await repo.findOneBy({ test_id: body.test_id });
       if (!item) {
         return this.fail('测试不存在');
       }

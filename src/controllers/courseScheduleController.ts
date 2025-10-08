@@ -37,13 +37,13 @@ export class CourseScheduleController extends BaseController {
     }
   }
 
-  @Get('/{plan_id}')
+  @Post('/getById')
   public async getCourseScheduleById(
-    @Path() plan_id: string
+    @Body() body: { plan_id: string }
   ): Promise<ApiResponse<CourseScheduleResponse>> {
     try {
       const repo = AppDataSource.getRepository(CourseSchedule);
-      const item = await repo.findOneBy({ plan_id });
+      const item = await repo.findOneBy({ plan_id: body.plan_id });
       if (!item) {
         return this.fail('课程安排不存在');
       }
@@ -56,7 +56,7 @@ export class CourseScheduleController extends BaseController {
         status: item.status
       });
     } catch (error) {
-      return this.fail('获取课程安排失败', error );
+      return this.fail('获取课程安排信息失败', error );
     }
   }
 
@@ -86,18 +86,15 @@ export class CourseScheduleController extends BaseController {
 
   @Post('/update')
   public async updateCourseSchedule(
-    @Body() requestBody: UpdateCourseScheduleRequest
+    @Body() body: { plan_id: string }
   ): Promise<ApiResponse<any>> {
     try {
-      if (!requestBody.plan_id) {
-        return this.fail('plan_id 必填', null, 400);
-      }
       const repo = AppDataSource.getRepository(CourseSchedule);
-      const item = await repo.findOneBy({ plan_id: requestBody.plan_id });
+      const item = await repo.findOneBy({ plan_id: body.plan_id });
       if (!item) {
         return this.fail('课程安排不存在');
       }
-      Object.assign(item, requestBody);
+      Object.assign(item, body);
       const saved = await repo.save(item);
       return this.ok({
         plan_id: saved.plan_id,

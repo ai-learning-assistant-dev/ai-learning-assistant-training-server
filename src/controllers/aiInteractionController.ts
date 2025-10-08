@@ -28,13 +28,13 @@ export class AiInteractionController extends BaseController {
     }
   }
 
-  @Get('/{interaction_id}')
+  @Post('/getAiInteractionById')
   public async getAiInteractionById(
-    @Path() interaction_id: string
+    @Body() body: { interaction_id: string }
   ): Promise<ApiResponse<AiInteractionResponse>> {
     try {
       const repo = AppDataSource.getRepository(AiInteraction);
-      const item = await repo.findOneBy({ interaction_id });
+          const item = await repo.findOneBy({ interaction_id: body.interaction_id });
       if (!item) {
         return this.fail('AI交互不存在');
       }

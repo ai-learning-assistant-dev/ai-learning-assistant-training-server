@@ -28,13 +28,13 @@ export class ExerciseController extends BaseController {
     }
   }
 
-  @Get('/{exercise_id}')
+  @Post('/getById')
   public async getExerciseById(
-    @Path() exercise_id: string
+    @Body() body: { exercise_id: string }
   ): Promise<ApiResponse<ExerciseResponse>> {
     try {
       const repo = AppDataSource.getRepository(Exercise);
-      const item = await repo.findOneBy({ exercise_id });
+      const item = await repo.findOneBy({ exercise_id: body.exercise_id });
       if (!item) {
         return this.fail('习题不存在');
       }

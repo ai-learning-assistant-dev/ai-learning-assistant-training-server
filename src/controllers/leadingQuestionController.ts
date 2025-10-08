@@ -28,13 +28,13 @@ export class LeadingQuestionController extends BaseController {
     }
   }
 
-  @Get('/{question_id}')
-  public async getLeadingQuestionById(
-    @Path() question_id: string
-  ): Promise<ApiResponse<LeadingQuestionResponse>> {
+    @Post('/getById')
+    public async getLeadingQuestionById(
+      @Body() body: { question_id: string }
+    ): Promise<ApiResponse<LeadingQuestionResponse>> {
     try {
       const repo = AppDataSource.getRepository(LeadingQuestion);
-      const item = await repo.findOneBy({ question_id });
+          const item = await repo.findOneBy({ question_id: body.question_id });
       if (!item) {
         return this.fail('预设问题不存在');
       }

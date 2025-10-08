@@ -31,9 +31,9 @@ export class UserController extends BaseController {
     /**
      * 通过学员ID查询在学课程
      */
-    @Get('/courseChaptersSectionsByUser/{userId}')
+    @Post('/courseChaptersSectionsByUser')
     public async getChaptersAndSectionsByUserId(
-      @Path() userId: string
+      @Body() body: { userId: string }
     ): Promise<ApiResponse<any>> {
       try {
         // 1. 查课程安排
@@ -41,7 +41,7 @@ export class UserController extends BaseController {
         const courseRepo = AppDataSource.getRepository(require('../models/course').Course);
         const chapterRepo = AppDataSource.getRepository(require('../models/chapter').Chapter);
         const sectionRepo = AppDataSource.getRepository(require('../models/section').Section);
-        const schedules = await courseScheduleRepo.find({ where: { user_id: userId } });
+  const schedules = await courseScheduleRepo.find({ where: { user_id: body.userId } });
         const courseIds = schedules.map(s => s.course_id);
         // 2. 查课程
         const courses = await courseRepo.findByIds(courseIds);
@@ -92,9 +92,9 @@ export class UserController extends BaseController {
     /**
    * 测试：通过用户ID连表查询（示例：查询用户及其 daily_summaries表信息）
    */
-  @Get('/testJoinById/{userId}')
+  @Post('/testJoinById')
   public async testJoinById(
-    @Path() userId: string
+    @Body() body: { userId: string }
   ): Promise<ApiResponse<any>> {
     try {
       // 使用原生 SQL 连表查询
@@ -108,7 +108,7 @@ export class UserController extends BaseController {
       // TypeORM 可用 QueryBuilder 或 Repository 进行连表查询
       const repo = AppDataSource.getRepository(User);
       const user = await repo.findOne({
-        where: { user_id: userId },
+        where: { user_id: body.userId },
         relations: ['dailySummaries'] // 需在实体中配置关系
       });
       if (!user) {
@@ -148,13 +148,13 @@ export class UserController extends BaseController {
   /**
    * 根据ID获取单个用户
    */
-  @Get('/{userId}')
+  @Post('/getById')
   public async getUserById(
-    @Path() userId: string
+    @Body() body: { userId: string }
   ): Promise<ApiResponse<any>> {
     try {
       const repo = AppDataSource.getRepository(User);
-      const user = await repo.findOneBy({ user_id: userId });
+      const user = await repo.findOneBy({ user_id: body.userId });
       if (!user) {
         return this.fail('用户不存在');
       }
@@ -169,17 +169,17 @@ export class UserController extends BaseController {
    */
   @Post('/search')
   public async searchUsers(
-    @Query() name?: string
+    @Body()body: {  name?: string}
   ): Promise<ApiResponse<any[]>> {
     try {
-      if (!name) {
+      if (!body.name) {
         return this.fail('请提供用户名为搜索条件',null, 400);
       }
       
       const repo = AppDataSource.getRepository(User);
       const whereClause: any = {};
-      if (name) {
-        whereClause.name = Like(`%${name}%`);
+      if (body.name) {
+        whereClause.name = Like(`%${body.name}%`);
       }
       // email 字段如有可加
       const users = await repo.find({

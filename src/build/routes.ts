@@ -749,19 +749,6 @@ const models: TsoaRoute.Models = {
         "additionalProperties": false,
     },
     // WARNING: This file was auto-generated with tsoa. Please do not modify it. Re-run tsoa to re-generate this file: https://github.com/lukeautry/tsoa
-    "UpdateCourseScheduleRequest": {
-        "dataType": "refObject",
-        "properties": {
-            "plan_id": {"dataType":"string","required":true},
-            "user_id": {"dataType":"string"},
-            "course_id": {"dataType":"string"},
-            "start_date": {"dataType":"datetime"},
-            "end_date": {"dataType":"datetime"},
-            "status": {"dataType":"string"},
-        },
-        "additionalProperties": false,
-    },
-    // WARNING: This file was auto-generated with tsoa. Please do not modify it. Re-run tsoa to re-generate this file: https://github.com/lukeautry/tsoa
     "CourseResponse": {
         "dataType": "refObject",
         "properties": {
@@ -1059,9 +1046,9 @@ export function RegisterRoutes(app: Router) {
         });
         // WARNING: This file was auto-generated with tsoa. Please do not modify it. Re-run tsoa to re-generate this file: https://github.com/lukeautry/tsoa
         const argsUserController_getChaptersAndSectionsByUserId: Record<string, TsoaRoute.ParameterSchema> = {
-                userId: {"in":"path","name":"userId","required":true,"dataType":"string"},
+                body: {"in":"body","name":"body","required":true,"dataType":"nestedObjectLiteral","nestedProperties":{"userId":{"dataType":"string","required":true}}},
         };
-        app.get('/users/courseChaptersSectionsByUser/:userId',
+        app.post('/users/courseChaptersSectionsByUser',
             ...(fetchMiddlewares<RequestHandler>(UserController)),
             ...(fetchMiddlewares<RequestHandler>(UserController.prototype.getChaptersAndSectionsByUserId)),
 
@@ -1118,9 +1105,9 @@ export function RegisterRoutes(app: Router) {
         });
         // WARNING: This file was auto-generated with tsoa. Please do not modify it. Re-run tsoa to re-generate this file: https://github.com/lukeautry/tsoa
         const argsUserController_testJoinById: Record<string, TsoaRoute.ParameterSchema> = {
-                userId: {"in":"path","name":"userId","required":true,"dataType":"string"},
+                body: {"in":"body","name":"body","required":true,"dataType":"nestedObjectLiteral","nestedProperties":{"userId":{"dataType":"string","required":true}}},
         };
-        app.get('/users/testJoinById/:userId',
+        app.post('/users/testJoinById',
             ...(fetchMiddlewares<RequestHandler>(UserController)),
             ...(fetchMiddlewares<RequestHandler>(UserController.prototype.testJoinById)),
 
@@ -1178,9 +1165,9 @@ export function RegisterRoutes(app: Router) {
         });
         // WARNING: This file was auto-generated with tsoa. Please do not modify it. Re-run tsoa to re-generate this file: https://github.com/lukeautry/tsoa
         const argsUserController_getUserById: Record<string, TsoaRoute.ParameterSchema> = {
-                userId: {"in":"path","name":"userId","required":true,"dataType":"string"},
+                body: {"in":"body","name":"body","required":true,"dataType":"nestedObjectLiteral","nestedProperties":{"userId":{"dataType":"string","required":true}}},
         };
-        app.get('/users/:userId',
+        app.post('/users/getById',
             ...(fetchMiddlewares<RequestHandler>(UserController)),
             ...(fetchMiddlewares<RequestHandler>(UserController.prototype.getUserById)),
 
@@ -1208,7 +1195,7 @@ export function RegisterRoutes(app: Router) {
         });
         // WARNING: This file was auto-generated with tsoa. Please do not modify it. Re-run tsoa to re-generate this file: https://github.com/lukeautry/tsoa
         const argsUserController_searchUsers: Record<string, TsoaRoute.ParameterSchema> = {
-                name: {"in":"query","name":"name","dataType":"string"},
+                body: {"in":"body","name":"body","required":true,"dataType":"nestedObjectLiteral","nestedProperties":{"name":{"dataType":"string"}}},
         };
         app.post('/users/search',
             ...(fetchMiddlewares<RequestHandler>(UserController)),
@@ -1358,9 +1345,9 @@ export function RegisterRoutes(app: Router) {
         });
         // WARNING: This file was auto-generated with tsoa. Please do not modify it. Re-run tsoa to re-generate this file: https://github.com/lukeautry/tsoa
         const argsTitleController_getTitleById: Record<string, TsoaRoute.ParameterSchema> = {
-                title_id: {"in":"path","name":"title_id","required":true,"dataType":"string"},
+                body: {"in":"body","name":"body","required":true,"dataType":"nestedObjectLiteral","nestedProperties":{"title_id":{"dataType":"string","required":true}}},
         };
-        app.get('/titles/:title_id',
+        app.post('/titles/getById',
             ...(fetchMiddlewares<RequestHandler>(TitleController)),
             ...(fetchMiddlewares<RequestHandler>(TitleController.prototype.getTitleById)),
 
@@ -1508,9 +1495,9 @@ export function RegisterRoutes(app: Router) {
         });
         // WARNING: This file was auto-generated with tsoa. Please do not modify it. Re-run tsoa to re-generate this file: https://github.com/lukeautry/tsoa
         const argsTestResultController_getTestResultById: Record<string, TsoaRoute.ParameterSchema> = {
-                result_id: {"in":"path","name":"result_id","required":true,"dataType":"string"},
+                body: {"in":"body","name":"body","required":true,"dataType":"nestedObjectLiteral","nestedProperties":{"result_id":{"dataType":"string","required":true}}},
         };
-        app.get('/test-results/:result_id',
+        app.post('/test-results/getById',
             ...(fetchMiddlewares<RequestHandler>(TestResultController)),
             ...(fetchMiddlewares<RequestHandler>(TestResultController.prototype.getTestResultById)),
 
@@ -1658,9 +1645,9 @@ export function RegisterRoutes(app: Router) {
         });
         // WARNING: This file was auto-generated with tsoa. Please do not modify it. Re-run tsoa to re-generate this file: https://github.com/lukeautry/tsoa
         const argsTestController_getTestById: Record<string, TsoaRoute.ParameterSchema> = {
-                test_id: {"in":"path","name":"test_id","required":true,"dataType":"string"},
+                body: {"in":"body","name":"body","required":true,"dataType":"nestedObjectLiteral","nestedProperties":{"test_id":{"dataType":"string","required":true}}},
         };
-        app.get('/tests/:test_id',
+        app.post('/tests/getById',
             ...(fetchMiddlewares<RequestHandler>(TestController)),
             ...(fetchMiddlewares<RequestHandler>(TestController.prototype.getTestById)),
 
@@ -1808,9 +1795,9 @@ export function RegisterRoutes(app: Router) {
         });
         // WARNING: This file was auto-generated with tsoa. Please do not modify it. Re-run tsoa to re-generate this file: https://github.com/lukeautry/tsoa
         const argsSectionController_getSectionById: Record<string, TsoaRoute.ParameterSchema> = {
-                section_id: {"in":"path","name":"section_id","required":true,"dataType":"string"},
+                body: {"in":"body","name":"body","required":true,"dataType":"nestedObjectLiteral","nestedProperties":{"section_id":{"dataType":"string","required":true}}},
         };
-        app.get('/sections/:section_id',
+        app.post('/sections/getSectionById',
             ...(fetchMiddlewares<RequestHandler>(SectionController)),
             ...(fetchMiddlewares<RequestHandler>(SectionController.prototype.getSectionById)),
 
@@ -1958,9 +1945,9 @@ export function RegisterRoutes(app: Router) {
         });
         // WARNING: This file was auto-generated with tsoa. Please do not modify it. Re-run tsoa to re-generate this file: https://github.com/lukeautry/tsoa
         const argsLearningRecordController_getLearningRecordById: Record<string, TsoaRoute.ParameterSchema> = {
-                task_id: {"in":"path","name":"task_id","required":true,"dataType":"string"},
+                body: {"in":"body","name":"body","required":true,"dataType":"nestedObjectLiteral","nestedProperties":{"task_id":{"dataType":"string","required":true}}},
         };
-        app.get('/learning-records/:task_id',
+        app.post('/learning-records/getLearningRecordById',
             ...(fetchMiddlewares<RequestHandler>(LearningRecordController)),
             ...(fetchMiddlewares<RequestHandler>(LearningRecordController.prototype.getLearningRecordById)),
 
@@ -2108,9 +2095,9 @@ export function RegisterRoutes(app: Router) {
         });
         // WARNING: This file was auto-generated with tsoa. Please do not modify it. Re-run tsoa to re-generate this file: https://github.com/lukeautry/tsoa
         const argsLeadingQuestionController_getLeadingQuestionById: Record<string, TsoaRoute.ParameterSchema> = {
-                question_id: {"in":"path","name":"question_id","required":true,"dataType":"string"},
+                body: {"in":"body","name":"body","required":true,"dataType":"nestedObjectLiteral","nestedProperties":{"question_id":{"dataType":"string","required":true}}},
         };
-        app.get('/leading-questions/:question_id',
+        app.post('/leading-questions/getById',
             ...(fetchMiddlewares<RequestHandler>(LeadingQuestionController)),
             ...(fetchMiddlewares<RequestHandler>(LeadingQuestionController.prototype.getLeadingQuestionById)),
 
@@ -2258,9 +2245,9 @@ export function RegisterRoutes(app: Router) {
         });
         // WARNING: This file was auto-generated with tsoa. Please do not modify it. Re-run tsoa to re-generate this file: https://github.com/lukeautry/tsoa
         const argsExerciseOptionController_getExerciseOptionById: Record<string, TsoaRoute.ParameterSchema> = {
-                option_id: {"in":"path","name":"option_id","required":true,"dataType":"string"},
+                body: {"in":"body","name":"body","required":true,"dataType":"nestedObjectLiteral","nestedProperties":{"option_id":{"dataType":"string","required":true}}},
         };
-        app.get('/exercise-options/:option_id',
+        app.post('/exercise-options/getById',
             ...(fetchMiddlewares<RequestHandler>(ExerciseOptionController)),
             ...(fetchMiddlewares<RequestHandler>(ExerciseOptionController.prototype.getExerciseOptionById)),
 
@@ -2408,9 +2395,9 @@ export function RegisterRoutes(app: Router) {
         });
         // WARNING: This file was auto-generated with tsoa. Please do not modify it. Re-run tsoa to re-generate this file: https://github.com/lukeautry/tsoa
         const argsExerciseController_getExerciseById: Record<string, TsoaRoute.ParameterSchema> = {
-                exercise_id: {"in":"path","name":"exercise_id","required":true,"dataType":"string"},
+                body: {"in":"body","name":"body","required":true,"dataType":"nestedObjectLiteral","nestedProperties":{"exercise_id":{"dataType":"string","required":true}}},
         };
-        app.get('/exercises/:exercise_id',
+        app.post('/exercises/getById',
             ...(fetchMiddlewares<RequestHandler>(ExerciseController)),
             ...(fetchMiddlewares<RequestHandler>(ExerciseController.prototype.getExerciseById)),
 
@@ -2618,9 +2605,9 @@ export function RegisterRoutes(app: Router) {
         });
         // WARNING: This file was auto-generated with tsoa. Please do not modify it. Re-run tsoa to re-generate this file: https://github.com/lukeautry/tsoa
         const argsDailySummaryController_deleteDailySummary: Record<string, TsoaRoute.ParameterSchema> = {
-                summary_id: {"in":"path","name":"summary_id","required":true,"dataType":"string"},
+                summary_id: {"in":"body","name":"summary_id","required":true,"dataType":"string"},
         };
-        app.post('/dailySummary/delete/:summary_id',
+        app.post('/dailySummary/delete',
             ...(fetchMiddlewares<RequestHandler>(DailySummaryController)),
             ...(fetchMiddlewares<RequestHandler>(DailySummaryController.prototype.deleteDailySummary)),
 
@@ -2678,9 +2665,9 @@ export function RegisterRoutes(app: Router) {
         });
         // WARNING: This file was auto-generated with tsoa. Please do not modify it. Re-run tsoa to re-generate this file: https://github.com/lukeautry/tsoa
         const argsCourseScheduleController_getCourseScheduleById: Record<string, TsoaRoute.ParameterSchema> = {
-                plan_id: {"in":"path","name":"plan_id","required":true,"dataType":"string"},
+                body: {"in":"body","name":"body","required":true,"dataType":"nestedObjectLiteral","nestedProperties":{"plan_id":{"dataType":"string","required":true}}},
         };
-        app.get('/course-schedules/:plan_id',
+        app.post('/course-schedules/getById',
             ...(fetchMiddlewares<RequestHandler>(CourseScheduleController)),
             ...(fetchMiddlewares<RequestHandler>(CourseScheduleController.prototype.getCourseScheduleById)),
 
@@ -2738,7 +2725,7 @@ export function RegisterRoutes(app: Router) {
         });
         // WARNING: This file was auto-generated with tsoa. Please do not modify it. Re-run tsoa to re-generate this file: https://github.com/lukeautry/tsoa
         const argsCourseScheduleController_updateCourseSchedule: Record<string, TsoaRoute.ParameterSchema> = {
-                requestBody: {"in":"body","name":"requestBody","required":true,"ref":"UpdateCourseScheduleRequest"},
+                body: {"in":"body","name":"body","required":true,"dataType":"nestedObjectLiteral","nestedProperties":{"plan_id":{"dataType":"string","required":true}}},
         };
         app.post('/course-schedules/update',
             ...(fetchMiddlewares<RequestHandler>(CourseScheduleController)),
@@ -2828,9 +2815,9 @@ export function RegisterRoutes(app: Router) {
         });
         // WARNING: This file was auto-generated with tsoa. Please do not modify it. Re-run tsoa to re-generate this file: https://github.com/lukeautry/tsoa
         const argsCourseController_getCourseById: Record<string, TsoaRoute.ParameterSchema> = {
-                course_id: {"in":"path","name":"course_id","required":true,"dataType":"string"},
+                body: {"in":"body","name":"body","required":true,"dataType":"nestedObjectLiteral","nestedProperties":{"course_id":{"dataType":"string","required":true}}},
         };
-        app.get('/courses/:course_id',
+        app.post('/courses/getCourseById',
             ...(fetchMiddlewares<RequestHandler>(CourseController)),
             ...(fetchMiddlewares<RequestHandler>(CourseController.prototype.getCourseById)),
 
@@ -2978,9 +2965,9 @@ export function RegisterRoutes(app: Router) {
         });
         // WARNING: This file was auto-generated with tsoa. Please do not modify it. Re-run tsoa to re-generate this file: https://github.com/lukeautry/tsoa
         const argsChapterController_getChapterById: Record<string, TsoaRoute.ParameterSchema> = {
-                chapter_id: {"in":"path","name":"chapter_id","required":true,"dataType":"string"},
+                body: {"in":"body","name":"body","required":true,"dataType":"nestedObjectLiteral","nestedProperties":{"chapter_id":{"dataType":"string","required":true}}},
         };
-        app.get('/chapters/:chapter_id',
+        app.post('/chapters/getById',
             ...(fetchMiddlewares<RequestHandler>(ChapterController)),
             ...(fetchMiddlewares<RequestHandler>(ChapterController.prototype.getChapterById)),
 
@@ -3128,9 +3115,9 @@ export function RegisterRoutes(app: Router) {
         });
         // WARNING: This file was auto-generated with tsoa. Please do not modify it. Re-run tsoa to re-generate this file: https://github.com/lukeautry/tsoa
         const argsAiPersonaController_getAiPersonaById: Record<string, TsoaRoute.ParameterSchema> = {
-                persona_id: {"in":"path","name":"persona_id","required":true,"dataType":"string"},
+                body: {"in":"body","name":"body","required":true,"dataType":"nestedObjectLiteral","nestedProperties":{"persona_id":{"dataType":"string","required":true}}},
         };
-        app.get('/ai-personas/:persona_id',
+        app.post('/ai-personas/getAiPersonaById',
             ...(fetchMiddlewares<RequestHandler>(AiPersonaController)),
             ...(fetchMiddlewares<RequestHandler>(AiPersonaController.prototype.getAiPersonaById)),
 
@@ -3278,9 +3265,9 @@ export function RegisterRoutes(app: Router) {
         });
         // WARNING: This file was auto-generated with tsoa. Please do not modify it. Re-run tsoa to re-generate this file: https://github.com/lukeautry/tsoa
         const argsAiInteractionController_getAiInteractionById: Record<string, TsoaRoute.ParameterSchema> = {
-                interaction_id: {"in":"path","name":"interaction_id","required":true,"dataType":"string"},
+                body: {"in":"body","name":"body","required":true,"dataType":"nestedObjectLiteral","nestedProperties":{"interaction_id":{"dataType":"string","required":true}}},
         };
-        app.get('/ai-interactions/:interaction_id',
+        app.post('/ai-interactions/getAiInteractionById',
             ...(fetchMiddlewares<RequestHandler>(AiInteractionController)),
             ...(fetchMiddlewares<RequestHandler>(AiInteractionController.prototype.getAiInteractionById)),
 

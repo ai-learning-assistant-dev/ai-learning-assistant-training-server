@@ -28,30 +28,28 @@ export class CourseController extends BaseController {
     }
   }
 
-  @Get('/{course_id}')
+  @Post('/getCourseById')
   public async getCourseById(
-    @Path() course_id: string
+    @Body() body:{ course_id: string}
   ): Promise<ApiResponse<CourseResponse>> {
     try {
       const repo = AppDataSource.getRepository(Course);
-      const item = await repo.findOneBy({ course_id });
+      const item = await repo.findOneBy({course_id: body.course_id });
       if (!item) {
         return this.fail('课程不存在');
       }
       return this.ok(item);
-    } catch (error) {
+      } catch (error) {
       return this.fail('获取课程失败', error );
     }
-  }
+    }
+ 
 
   @Post('/add')
   public async addCourse(
     @Body() requestBody: CreateCourseRequest
   ): Promise<ApiResponse<any>> {
     try {
-      if (!requestBody.name) {
-        return this.fail('课程名称必填', null, 400);
-      }
       const repo = AppDataSource.getRepository(Course);
       const item = repo.create(requestBody);
       const saved = await repo.save(item);

@@ -28,13 +28,13 @@ export class TitleController extends BaseController {
     }
   }
 
-  @Get('/{title_id}')
+  @Post('/getById')
   public async getTitleById(
-    @Path() title_id: string
+    @Body() body: { title_id: string }
   ): Promise<ApiResponse<TitleResponse>> {
     try {
       const repo = AppDataSource.getRepository(Title);
-      const item = await repo.findOneBy({ title_id });
+      const item = await repo.findOneBy({ title_id: body.title_id });
       if (!item) {
         return this.fail('称号不存在');
       }
