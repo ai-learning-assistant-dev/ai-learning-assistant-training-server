@@ -39,6 +39,21 @@ export class DailySummaryController extends BaseController {
        return this.fail('查询每日总结失败', error );
     }
   }
+  @Post('/getById')
+  public async getDailySummaryById(
+  @Body() body: { summary_id: string }
+  ): Promise<ApiResponse<DailySummaryResponse>> {
+  try {
+       const repo = AppDataSource.getRepository(DailySummary);
+       const option = await repo.findOneBy({ summary_id: body.summary_id });
+      if (!option) {
+         return this.fail('每日总结不存在');
+       }
+        return this.ok(option);
+      } catch (error) {
+        return this.fail('获取每日总结失败', error);
+      }
+  }
   /**
    * 新增每日总结
    */

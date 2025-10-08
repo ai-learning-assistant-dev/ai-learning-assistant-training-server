@@ -153,56 +153,6 @@
 				"type": "object",
 				"additionalProperties": false
 			},
-			"ApiResponse_any-Array_": {
-				"properties": {
-					"success": {
-						"type": "boolean"
-					},
-					"data": {
-						"items": {},
-						"type": "array"
-					},
-					"message": {
-						"type": "string"
-					},
-					"error": {
-						"type": "string"
-					},
-					"details": {},
-					"pagination": {
-						"properties": {
-							"totalPages": {
-								"type": "number",
-								"format": "double"
-							},
-							"total": {
-								"type": "number",
-								"format": "double"
-							},
-							"limit": {
-								"type": "number",
-								"format": "double"
-							},
-							"page": {
-								"type": "number",
-								"format": "double"
-							}
-						},
-						"required": [
-							"totalPages",
-							"total",
-							"limit",
-							"page"
-						],
-						"type": "object"
-					}
-				},
-				"required": [
-					"success"
-				],
-				"type": "object",
-				"additionalProperties": false
-			},
 			"CreateUserRequest": {
 				"properties": {
 					"name": {
@@ -2946,49 +2896,6 @@
 				}
 			}
 		},
-		"/users/list": {
-			"post": {
-				"operationId": "ListUser",
-				"responses": {
-					"200": {
-						"description": "Ok",
-						"content": {
-							"application/json": {
-								"schema": {
-									"$ref": "#/components/schemas/ApiResponse_UserResponse-Array_"
-								}
-							}
-						}
-					}
-				},
-				"description": "获取所有用户列表（支持分页和过滤）ORM框架查询",
-				"tags": [
-					"用户表"
-				],
-				"security": [],
-				"parameters": [],
-				"requestBody": {
-					"required": true,
-					"content": {
-						"application/json": {
-							"schema": {
-								"properties": {
-									"limit": {
-										"type": "number",
-										"format": "double"
-									},
-									"page": {
-										"type": "number",
-										"format": "double"
-									}
-								},
-								"type": "object"
-							}
-						}
-					}
-				}
-			}
-		},
 		"/users/getById": {
 			"post": {
 				"operationId": "GetUserById",
@@ -3039,13 +2946,13 @@
 						"content": {
 							"application/json": {
 								"schema": {
-									"$ref": "#/components/schemas/ApiResponse_any-Array_"
+									"$ref": "#/components/schemas/ApiResponse_UserResponse-Array_"
 								}
 							}
 						}
 					}
 				},
-				"description": "搜索用户根据用户名",
+				"description": "搜索用户（支持用户名模糊搜索和分页）",
 				"tags": [
 					"用户表"
 				],
@@ -3057,6 +2964,14 @@
 						"application/json": {
 							"schema": {
 								"properties": {
+									"limit": {
+										"type": "number",
+										"format": "double"
+									},
+									"page": {
+										"type": "number",
+										"format": "double"
+									},
 									"name": {
 										"type": "string"
 									}
@@ -3175,9 +3090,9 @@
 				}
 			}
 		},
-		"/titles/list": {
+		"/titles/search": {
 			"post": {
-				"operationId": "ListTitles",
+				"operationId": "LsearchTitles",
 				"responses": {
 					"200": {
 						"description": "Ok",
@@ -3361,9 +3276,9 @@
 				}
 			}
 		},
-		"/test-results/list": {
+		"/test-results/search": {
 			"post": {
-				"operationId": "ListTestResults",
+				"operationId": "SearchTestResults",
 				"responses": {
 					"200": {
 						"description": "Ok",
@@ -3547,9 +3462,9 @@
 				}
 			}
 		},
-		"/tests/list": {
+		"/tests/search": {
 			"post": {
-				"operationId": "ListTests",
+				"operationId": "SearchTests",
 				"responses": {
 					"200": {
 						"description": "Ok",
@@ -3733,9 +3648,9 @@
 				}
 			}
 		},
-		"/sections/list": {
+		"/sections/search": {
 			"post": {
-				"operationId": "ListSections",
+				"operationId": "SearchSections",
 				"responses": {
 					"200": {
 						"description": "Ok",
@@ -3775,7 +3690,7 @@
 				}
 			}
 		},
-		"/sections/getSectionById": {
+		"/sections/getById": {
 			"post": {
 				"operationId": "GetSectionById",
 				"responses": {
@@ -3919,9 +3834,9 @@
 				}
 			}
 		},
-		"/learning-records/list": {
+		"/learning-records/search": {
 			"post": {
-				"operationId": "ListLearningRecords",
+				"operationId": "SearchLearningRecords",
 				"responses": {
 					"200": {
 						"description": "Ok",
@@ -3961,7 +3876,7 @@
 				}
 			}
 		},
-		"/learning-records/getLearningRecordById": {
+		"/learning-records/getById": {
 			"post": {
 				"operationId": "GetLearningRecordById",
 				"responses": {
@@ -4105,9 +4020,9 @@
 				}
 			}
 		},
-		"/leading-questions/list": {
+		"/leading-questions/search": {
 			"post": {
-				"operationId": "ListLeadingQuestions",
+				"operationId": "SearchLeadingQuestions",
 				"responses": {
 					"200": {
 						"description": "Ok",
@@ -4291,9 +4206,9 @@
 				}
 			}
 		},
-		"/exercise-options/list": {
+		"/exercise-options/search": {
 			"post": {
-				"operationId": "ListExerciseOptions",
+				"operationId": "SearchExerciseOptions",
 				"responses": {
 					"200": {
 						"description": "Ok",
@@ -4477,9 +4392,9 @@
 				}
 			}
 		},
-		"/exercises/list": {
+		"/exercises/search": {
 			"post": {
-				"operationId": "ListExercises",
+				"operationId": "SearchExercises",
 				"responses": {
 					"200": {
 						"description": "Ok",
@@ -4663,9 +4578,9 @@
 				}
 			}
 		},
-		"/dailySummary/list": {
+		"/dailySummary/search": {
 			"post": {
-				"operationId": "ListDailySummary",
+				"operationId": "SearchDailySummary",
 				"responses": {
 					"200": {
 						"description": "Ok",
@@ -4690,6 +4605,46 @@
 						"application/json": {
 							"schema": {
 								"$ref": "#/components/schemas/DailySummaryListRequest"
+							}
+						}
+					}
+				}
+			}
+		},
+		"/dailySummary/getById": {
+			"post": {
+				"operationId": "GetDailySummaryById",
+				"responses": {
+					"200": {
+						"description": "Ok",
+						"content": {
+							"application/json": {
+								"schema": {
+									"$ref": "#/components/schemas/ApiResponse_DailySummaryResponse_"
+								}
+							}
+						}
+					}
+				},
+				"tags": [
+					"每日总结"
+				],
+				"security": [],
+				"parameters": [],
+				"requestBody": {
+					"required": true,
+					"content": {
+						"application/json": {
+							"schema": {
+								"properties": {
+									"summary_id": {
+										"type": "string"
+									}
+								},
+								"required": [
+									"summary_id"
+								],
+								"type": "object"
 							}
 						}
 					}
@@ -4795,9 +4750,9 @@
 				}
 			}
 		},
-		"/course-schedules/list": {
+		"/course-schedules/search": {
 			"post": {
-				"operationId": "ListCourseSchedules",
+				"operationId": "SearchCourseSchedules",
 				"responses": {
 					"200": {
 						"description": "Ok",
@@ -4989,9 +4944,9 @@
 				}
 			}
 		},
-		"/courses/list": {
+		"/courses/search": {
 			"post": {
-				"operationId": "ListCourses",
+				"operationId": "SearchCourses",
 				"responses": {
 					"200": {
 						"description": "Ok",
@@ -5031,7 +4986,7 @@
 				}
 			}
 		},
-		"/courses/getCourseById": {
+		"/courses/getById": {
 			"post": {
 				"operationId": "GetCourseById",
 				"responses": {
@@ -5175,9 +5130,9 @@
 				}
 			}
 		},
-		"/chapters/list": {
+		"/chapters/search": {
 			"post": {
-				"operationId": "ListChapters",
+				"operationId": "SearchChapters",
 				"responses": {
 					"200": {
 						"description": "Ok",
@@ -5361,9 +5316,9 @@
 				}
 			}
 		},
-		"/ai-personas/list": {
+		"/ai-personas/search": {
 			"post": {
-				"operationId": "ListAiPersonas",
+				"operationId": "SearchAiPersonas",
 				"responses": {
 					"200": {
 						"description": "Ok",
@@ -5403,7 +5358,7 @@
 				}
 			}
 		},
-		"/ai-personas/getAiPersonaById": {
+		"/ai-personas/getById": {
 			"post": {
 				"operationId": "GetAiPersonaById",
 				"responses": {
@@ -5547,9 +5502,9 @@
 				}
 			}
 		},
-		"/ai-interactions/list": {
+		"/ai-interactions/search": {
 			"post": {
-				"operationId": "ListAiInteractions",
+				"operationId": "SearchAiInteractions",
 				"responses": {
 					"200": {
 						"description": "Ok",
@@ -5589,7 +5544,7 @@
 				}
 			}
 		},
-		"/ai-interactions/getAiInteractionById": {
+		"/ai-interactions/getById": {
 			"post": {
 				"operationId": "GetAiInteractionById",
 				"responses": {

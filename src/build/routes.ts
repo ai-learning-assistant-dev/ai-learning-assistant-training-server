@@ -84,19 +84,6 @@ const models: TsoaRoute.Models = {
         "additionalProperties": false,
     },
     // WARNING: This file was auto-generated with tsoa. Please do not modify it. Re-run tsoa to re-generate this file: https://github.com/lukeautry/tsoa
-    "ApiResponse_any-Array_": {
-        "dataType": "refObject",
-        "properties": {
-            "success": {"dataType":"boolean","required":true},
-            "data": {"dataType":"array","array":{"dataType":"any"}},
-            "message": {"dataType":"string"},
-            "error": {"dataType":"string"},
-            "details": {"dataType":"any"},
-            "pagination": {"dataType":"nestedObjectLiteral","nestedProperties":{"totalPages":{"dataType":"double","required":true},"total":{"dataType":"double","required":true},"limit":{"dataType":"double","required":true},"page":{"dataType":"double","required":true}}},
-        },
-        "additionalProperties": false,
-    },
-    // WARNING: This file was auto-generated with tsoa. Please do not modify it. Re-run tsoa to re-generate this file: https://github.com/lukeautry/tsoa
     "CreateUserRequest": {
         "dataType": "refObject",
         "properties": {
@@ -1134,36 +1121,6 @@ export function RegisterRoutes(app: Router) {
             }
         });
         // WARNING: This file was auto-generated with tsoa. Please do not modify it. Re-run tsoa to re-generate this file: https://github.com/lukeautry/tsoa
-        const argsUserController_listUser: Record<string, TsoaRoute.ParameterSchema> = {
-                body: {"in":"body","name":"body","required":true,"dataType":"nestedObjectLiteral","nestedProperties":{"limit":{"dataType":"double"},"page":{"dataType":"double"}}},
-        };
-        app.post('/users/list',
-            ...(fetchMiddlewares<RequestHandler>(UserController)),
-            ...(fetchMiddlewares<RequestHandler>(UserController.prototype.listUser)),
-
-            async function UserController_listUser(request: ExRequest, response: ExResponse, next: any) {
-
-            // WARNING: This file was auto-generated with tsoa. Please do not modify it. Re-run tsoa to re-generate this file: https://github.com/lukeautry/tsoa
-
-            let validatedArgs: any[] = [];
-            try {
-                validatedArgs = templateService.getValidatedArgs({ args: argsUserController_listUser, request, response });
-
-                const controller = new UserController();
-
-              await templateService.apiHandler({
-                methodName: 'listUser',
-                controller,
-                response,
-                next,
-                validatedArgs,
-                successStatus: undefined,
-              });
-            } catch (err) {
-                return next(err);
-            }
-        });
-        // WARNING: This file was auto-generated with tsoa. Please do not modify it. Re-run tsoa to re-generate this file: https://github.com/lukeautry/tsoa
         const argsUserController_getUserById: Record<string, TsoaRoute.ParameterSchema> = {
                 body: {"in":"body","name":"body","required":true,"dataType":"nestedObjectLiteral","nestedProperties":{"userId":{"dataType":"string","required":true}}},
         };
@@ -1195,7 +1152,7 @@ export function RegisterRoutes(app: Router) {
         });
         // WARNING: This file was auto-generated with tsoa. Please do not modify it. Re-run tsoa to re-generate this file: https://github.com/lukeautry/tsoa
         const argsUserController_searchUsers: Record<string, TsoaRoute.ParameterSchema> = {
-                body: {"in":"body","name":"body","required":true,"dataType":"nestedObjectLiteral","nestedProperties":{"name":{"dataType":"string"}}},
+                body: {"in":"body","name":"body","required":true,"dataType":"nestedObjectLiteral","nestedProperties":{"limit":{"dataType":"double"},"page":{"dataType":"double"},"name":{"dataType":"string"}}},
         };
         app.post('/users/search',
             ...(fetchMiddlewares<RequestHandler>(UserController)),
@@ -1314,25 +1271,25 @@ export function RegisterRoutes(app: Router) {
             }
         });
         // WARNING: This file was auto-generated with tsoa. Please do not modify it. Re-run tsoa to re-generate this file: https://github.com/lukeautry/tsoa
-        const argsTitleController_listTitles: Record<string, TsoaRoute.ParameterSchema> = {
+        const argsTitleController_lsearchTitles: Record<string, TsoaRoute.ParameterSchema> = {
                 body: {"in":"body","name":"body","required":true,"dataType":"nestedObjectLiteral","nestedProperties":{"limit":{"dataType":"double"},"page":{"dataType":"double"}}},
         };
-        app.post('/titles/list',
+        app.post('/titles/search',
             ...(fetchMiddlewares<RequestHandler>(TitleController)),
-            ...(fetchMiddlewares<RequestHandler>(TitleController.prototype.listTitles)),
+            ...(fetchMiddlewares<RequestHandler>(TitleController.prototype.lsearchTitles)),
 
-            async function TitleController_listTitles(request: ExRequest, response: ExResponse, next: any) {
+            async function TitleController_lsearchTitles(request: ExRequest, response: ExResponse, next: any) {
 
             // WARNING: This file was auto-generated with tsoa. Please do not modify it. Re-run tsoa to re-generate this file: https://github.com/lukeautry/tsoa
 
             let validatedArgs: any[] = [];
             try {
-                validatedArgs = templateService.getValidatedArgs({ args: argsTitleController_listTitles, request, response });
+                validatedArgs = templateService.getValidatedArgs({ args: argsTitleController_lsearchTitles, request, response });
 
                 const controller = new TitleController();
 
               await templateService.apiHandler({
-                methodName: 'listTitles',
+                methodName: 'lsearchTitles',
                 controller,
                 response,
                 next,
@@ -1464,25 +1421,25 @@ export function RegisterRoutes(app: Router) {
             }
         });
         // WARNING: This file was auto-generated with tsoa. Please do not modify it. Re-run tsoa to re-generate this file: https://github.com/lukeautry/tsoa
-        const argsTestResultController_listTestResults: Record<string, TsoaRoute.ParameterSchema> = {
+        const argsTestResultController_searchTestResults: Record<string, TsoaRoute.ParameterSchema> = {
                 body: {"in":"body","name":"body","required":true,"dataType":"nestedObjectLiteral","nestedProperties":{"limit":{"dataType":"double"},"page":{"dataType":"double"}}},
         };
-        app.post('/test-results/list',
+        app.post('/test-results/search',
             ...(fetchMiddlewares<RequestHandler>(TestResultController)),
-            ...(fetchMiddlewares<RequestHandler>(TestResultController.prototype.listTestResults)),
+            ...(fetchMiddlewares<RequestHandler>(TestResultController.prototype.searchTestResults)),
 
-            async function TestResultController_listTestResults(request: ExRequest, response: ExResponse, next: any) {
+            async function TestResultController_searchTestResults(request: ExRequest, response: ExResponse, next: any) {
 
             // WARNING: This file was auto-generated with tsoa. Please do not modify it. Re-run tsoa to re-generate this file: https://github.com/lukeautry/tsoa
 
             let validatedArgs: any[] = [];
             try {
-                validatedArgs = templateService.getValidatedArgs({ args: argsTestResultController_listTestResults, request, response });
+                validatedArgs = templateService.getValidatedArgs({ args: argsTestResultController_searchTestResults, request, response });
 
                 const controller = new TestResultController();
 
               await templateService.apiHandler({
-                methodName: 'listTestResults',
+                methodName: 'searchTestResults',
                 controller,
                 response,
                 next,
@@ -1614,25 +1571,25 @@ export function RegisterRoutes(app: Router) {
             }
         });
         // WARNING: This file was auto-generated with tsoa. Please do not modify it. Re-run tsoa to re-generate this file: https://github.com/lukeautry/tsoa
-        const argsTestController_listTests: Record<string, TsoaRoute.ParameterSchema> = {
+        const argsTestController_searchTests: Record<string, TsoaRoute.ParameterSchema> = {
                 body: {"in":"body","name":"body","required":true,"dataType":"nestedObjectLiteral","nestedProperties":{"limit":{"dataType":"double"},"page":{"dataType":"double"}}},
         };
-        app.post('/tests/list',
+        app.post('/tests/search',
             ...(fetchMiddlewares<RequestHandler>(TestController)),
-            ...(fetchMiddlewares<RequestHandler>(TestController.prototype.listTests)),
+            ...(fetchMiddlewares<RequestHandler>(TestController.prototype.searchTests)),
 
-            async function TestController_listTests(request: ExRequest, response: ExResponse, next: any) {
+            async function TestController_searchTests(request: ExRequest, response: ExResponse, next: any) {
 
             // WARNING: This file was auto-generated with tsoa. Please do not modify it. Re-run tsoa to re-generate this file: https://github.com/lukeautry/tsoa
 
             let validatedArgs: any[] = [];
             try {
-                validatedArgs = templateService.getValidatedArgs({ args: argsTestController_listTests, request, response });
+                validatedArgs = templateService.getValidatedArgs({ args: argsTestController_searchTests, request, response });
 
                 const controller = new TestController();
 
               await templateService.apiHandler({
-                methodName: 'listTests',
+                methodName: 'searchTests',
                 controller,
                 response,
                 next,
@@ -1764,25 +1721,25 @@ export function RegisterRoutes(app: Router) {
             }
         });
         // WARNING: This file was auto-generated with tsoa. Please do not modify it. Re-run tsoa to re-generate this file: https://github.com/lukeautry/tsoa
-        const argsSectionController_listSections: Record<string, TsoaRoute.ParameterSchema> = {
+        const argsSectionController_searchSections: Record<string, TsoaRoute.ParameterSchema> = {
                 body: {"in":"body","name":"body","required":true,"dataType":"nestedObjectLiteral","nestedProperties":{"limit":{"dataType":"double"},"page":{"dataType":"double"}}},
         };
-        app.post('/sections/list',
+        app.post('/sections/search',
             ...(fetchMiddlewares<RequestHandler>(SectionController)),
-            ...(fetchMiddlewares<RequestHandler>(SectionController.prototype.listSections)),
+            ...(fetchMiddlewares<RequestHandler>(SectionController.prototype.searchSections)),
 
-            async function SectionController_listSections(request: ExRequest, response: ExResponse, next: any) {
+            async function SectionController_searchSections(request: ExRequest, response: ExResponse, next: any) {
 
             // WARNING: This file was auto-generated with tsoa. Please do not modify it. Re-run tsoa to re-generate this file: https://github.com/lukeautry/tsoa
 
             let validatedArgs: any[] = [];
             try {
-                validatedArgs = templateService.getValidatedArgs({ args: argsSectionController_listSections, request, response });
+                validatedArgs = templateService.getValidatedArgs({ args: argsSectionController_searchSections, request, response });
 
                 const controller = new SectionController();
 
               await templateService.apiHandler({
-                methodName: 'listSections',
+                methodName: 'searchSections',
                 controller,
                 response,
                 next,
@@ -1797,7 +1754,7 @@ export function RegisterRoutes(app: Router) {
         const argsSectionController_getSectionById: Record<string, TsoaRoute.ParameterSchema> = {
                 body: {"in":"body","name":"body","required":true,"dataType":"nestedObjectLiteral","nestedProperties":{"section_id":{"dataType":"string","required":true}}},
         };
-        app.post('/sections/getSectionById',
+        app.post('/sections/getById',
             ...(fetchMiddlewares<RequestHandler>(SectionController)),
             ...(fetchMiddlewares<RequestHandler>(SectionController.prototype.getSectionById)),
 
@@ -1914,25 +1871,25 @@ export function RegisterRoutes(app: Router) {
             }
         });
         // WARNING: This file was auto-generated with tsoa. Please do not modify it. Re-run tsoa to re-generate this file: https://github.com/lukeautry/tsoa
-        const argsLearningRecordController_listLearningRecords: Record<string, TsoaRoute.ParameterSchema> = {
+        const argsLearningRecordController_searchLearningRecords: Record<string, TsoaRoute.ParameterSchema> = {
                 body: {"in":"body","name":"body","required":true,"dataType":"nestedObjectLiteral","nestedProperties":{"limit":{"dataType":"double"},"page":{"dataType":"double"}}},
         };
-        app.post('/learning-records/list',
+        app.post('/learning-records/search',
             ...(fetchMiddlewares<RequestHandler>(LearningRecordController)),
-            ...(fetchMiddlewares<RequestHandler>(LearningRecordController.prototype.listLearningRecords)),
+            ...(fetchMiddlewares<RequestHandler>(LearningRecordController.prototype.searchLearningRecords)),
 
-            async function LearningRecordController_listLearningRecords(request: ExRequest, response: ExResponse, next: any) {
+            async function LearningRecordController_searchLearningRecords(request: ExRequest, response: ExResponse, next: any) {
 
             // WARNING: This file was auto-generated with tsoa. Please do not modify it. Re-run tsoa to re-generate this file: https://github.com/lukeautry/tsoa
 
             let validatedArgs: any[] = [];
             try {
-                validatedArgs = templateService.getValidatedArgs({ args: argsLearningRecordController_listLearningRecords, request, response });
+                validatedArgs = templateService.getValidatedArgs({ args: argsLearningRecordController_searchLearningRecords, request, response });
 
                 const controller = new LearningRecordController();
 
               await templateService.apiHandler({
-                methodName: 'listLearningRecords',
+                methodName: 'searchLearningRecords',
                 controller,
                 response,
                 next,
@@ -1947,7 +1904,7 @@ export function RegisterRoutes(app: Router) {
         const argsLearningRecordController_getLearningRecordById: Record<string, TsoaRoute.ParameterSchema> = {
                 body: {"in":"body","name":"body","required":true,"dataType":"nestedObjectLiteral","nestedProperties":{"task_id":{"dataType":"string","required":true}}},
         };
-        app.post('/learning-records/getLearningRecordById',
+        app.post('/learning-records/getById',
             ...(fetchMiddlewares<RequestHandler>(LearningRecordController)),
             ...(fetchMiddlewares<RequestHandler>(LearningRecordController.prototype.getLearningRecordById)),
 
@@ -2064,25 +2021,25 @@ export function RegisterRoutes(app: Router) {
             }
         });
         // WARNING: This file was auto-generated with tsoa. Please do not modify it. Re-run tsoa to re-generate this file: https://github.com/lukeautry/tsoa
-        const argsLeadingQuestionController_listLeadingQuestions: Record<string, TsoaRoute.ParameterSchema> = {
+        const argsLeadingQuestionController_searchLeadingQuestions: Record<string, TsoaRoute.ParameterSchema> = {
                 body: {"in":"body","name":"body","required":true,"dataType":"nestedObjectLiteral","nestedProperties":{"limit":{"dataType":"double"},"page":{"dataType":"double"}}},
         };
-        app.post('/leading-questions/list',
+        app.post('/leading-questions/search',
             ...(fetchMiddlewares<RequestHandler>(LeadingQuestionController)),
-            ...(fetchMiddlewares<RequestHandler>(LeadingQuestionController.prototype.listLeadingQuestions)),
+            ...(fetchMiddlewares<RequestHandler>(LeadingQuestionController.prototype.searchLeadingQuestions)),
 
-            async function LeadingQuestionController_listLeadingQuestions(request: ExRequest, response: ExResponse, next: any) {
+            async function LeadingQuestionController_searchLeadingQuestions(request: ExRequest, response: ExResponse, next: any) {
 
             // WARNING: This file was auto-generated with tsoa. Please do not modify it. Re-run tsoa to re-generate this file: https://github.com/lukeautry/tsoa
 
             let validatedArgs: any[] = [];
             try {
-                validatedArgs = templateService.getValidatedArgs({ args: argsLeadingQuestionController_listLeadingQuestions, request, response });
+                validatedArgs = templateService.getValidatedArgs({ args: argsLeadingQuestionController_searchLeadingQuestions, request, response });
 
                 const controller = new LeadingQuestionController();
 
               await templateService.apiHandler({
-                methodName: 'listLeadingQuestions',
+                methodName: 'searchLeadingQuestions',
                 controller,
                 response,
                 next,
@@ -2214,25 +2171,25 @@ export function RegisterRoutes(app: Router) {
             }
         });
         // WARNING: This file was auto-generated with tsoa. Please do not modify it. Re-run tsoa to re-generate this file: https://github.com/lukeautry/tsoa
-        const argsExerciseOptionController_listExerciseOptions: Record<string, TsoaRoute.ParameterSchema> = {
+        const argsExerciseOptionController_searchExerciseOptions: Record<string, TsoaRoute.ParameterSchema> = {
                 body: {"in":"body","name":"body","required":true,"dataType":"nestedObjectLiteral","nestedProperties":{"limit":{"dataType":"double"},"page":{"dataType":"double"}}},
         };
-        app.post('/exercise-options/list',
+        app.post('/exercise-options/search',
             ...(fetchMiddlewares<RequestHandler>(ExerciseOptionController)),
-            ...(fetchMiddlewares<RequestHandler>(ExerciseOptionController.prototype.listExerciseOptions)),
+            ...(fetchMiddlewares<RequestHandler>(ExerciseOptionController.prototype.searchExerciseOptions)),
 
-            async function ExerciseOptionController_listExerciseOptions(request: ExRequest, response: ExResponse, next: any) {
+            async function ExerciseOptionController_searchExerciseOptions(request: ExRequest, response: ExResponse, next: any) {
 
             // WARNING: This file was auto-generated with tsoa. Please do not modify it. Re-run tsoa to re-generate this file: https://github.com/lukeautry/tsoa
 
             let validatedArgs: any[] = [];
             try {
-                validatedArgs = templateService.getValidatedArgs({ args: argsExerciseOptionController_listExerciseOptions, request, response });
+                validatedArgs = templateService.getValidatedArgs({ args: argsExerciseOptionController_searchExerciseOptions, request, response });
 
                 const controller = new ExerciseOptionController();
 
               await templateService.apiHandler({
-                methodName: 'listExerciseOptions',
+                methodName: 'searchExerciseOptions',
                 controller,
                 response,
                 next,
@@ -2364,25 +2321,25 @@ export function RegisterRoutes(app: Router) {
             }
         });
         // WARNING: This file was auto-generated with tsoa. Please do not modify it. Re-run tsoa to re-generate this file: https://github.com/lukeautry/tsoa
-        const argsExerciseController_listExercises: Record<string, TsoaRoute.ParameterSchema> = {
+        const argsExerciseController_searchExercises: Record<string, TsoaRoute.ParameterSchema> = {
                 body: {"in":"body","name":"body","required":true,"dataType":"nestedObjectLiteral","nestedProperties":{"limit":{"dataType":"double"},"page":{"dataType":"double"}}},
         };
-        app.post('/exercises/list',
+        app.post('/exercises/search',
             ...(fetchMiddlewares<RequestHandler>(ExerciseController)),
-            ...(fetchMiddlewares<RequestHandler>(ExerciseController.prototype.listExercises)),
+            ...(fetchMiddlewares<RequestHandler>(ExerciseController.prototype.searchExercises)),
 
-            async function ExerciseController_listExercises(request: ExRequest, response: ExResponse, next: any) {
+            async function ExerciseController_searchExercises(request: ExRequest, response: ExResponse, next: any) {
 
             // WARNING: This file was auto-generated with tsoa. Please do not modify it. Re-run tsoa to re-generate this file: https://github.com/lukeautry/tsoa
 
             let validatedArgs: any[] = [];
             try {
-                validatedArgs = templateService.getValidatedArgs({ args: argsExerciseController_listExercises, request, response });
+                validatedArgs = templateService.getValidatedArgs({ args: argsExerciseController_searchExercises, request, response });
 
                 const controller = new ExerciseController();
 
               await templateService.apiHandler({
-                methodName: 'listExercises',
+                methodName: 'searchExercises',
                 controller,
                 response,
                 next,
@@ -2514,25 +2471,55 @@ export function RegisterRoutes(app: Router) {
             }
         });
         // WARNING: This file was auto-generated with tsoa. Please do not modify it. Re-run tsoa to re-generate this file: https://github.com/lukeautry/tsoa
-        const argsDailySummaryController_listDailySummary: Record<string, TsoaRoute.ParameterSchema> = {
+        const argsDailySummaryController_searchDailySummary: Record<string, TsoaRoute.ParameterSchema> = {
                 body: {"in":"body","name":"body","required":true,"ref":"DailySummaryListRequest"},
         };
-        app.post('/dailySummary/list',
+        app.post('/dailySummary/search',
             ...(fetchMiddlewares<RequestHandler>(DailySummaryController)),
-            ...(fetchMiddlewares<RequestHandler>(DailySummaryController.prototype.listDailySummary)),
+            ...(fetchMiddlewares<RequestHandler>(DailySummaryController.prototype.searchDailySummary)),
 
-            async function DailySummaryController_listDailySummary(request: ExRequest, response: ExResponse, next: any) {
+            async function DailySummaryController_searchDailySummary(request: ExRequest, response: ExResponse, next: any) {
 
             // WARNING: This file was auto-generated with tsoa. Please do not modify it. Re-run tsoa to re-generate this file: https://github.com/lukeautry/tsoa
 
             let validatedArgs: any[] = [];
             try {
-                validatedArgs = templateService.getValidatedArgs({ args: argsDailySummaryController_listDailySummary, request, response });
+                validatedArgs = templateService.getValidatedArgs({ args: argsDailySummaryController_searchDailySummary, request, response });
 
                 const controller = new DailySummaryController();
 
               await templateService.apiHandler({
-                methodName: 'listDailySummary',
+                methodName: 'searchDailySummary',
+                controller,
+                response,
+                next,
+                validatedArgs,
+                successStatus: undefined,
+              });
+            } catch (err) {
+                return next(err);
+            }
+        });
+        // WARNING: This file was auto-generated with tsoa. Please do not modify it. Re-run tsoa to re-generate this file: https://github.com/lukeautry/tsoa
+        const argsDailySummaryController_getDailySummaryById: Record<string, TsoaRoute.ParameterSchema> = {
+                body: {"in":"body","name":"body","required":true,"dataType":"nestedObjectLiteral","nestedProperties":{"summary_id":{"dataType":"string","required":true}}},
+        };
+        app.post('/dailySummary/getById',
+            ...(fetchMiddlewares<RequestHandler>(DailySummaryController)),
+            ...(fetchMiddlewares<RequestHandler>(DailySummaryController.prototype.getDailySummaryById)),
+
+            async function DailySummaryController_getDailySummaryById(request: ExRequest, response: ExResponse, next: any) {
+
+            // WARNING: This file was auto-generated with tsoa. Please do not modify it. Re-run tsoa to re-generate this file: https://github.com/lukeautry/tsoa
+
+            let validatedArgs: any[] = [];
+            try {
+                validatedArgs = templateService.getValidatedArgs({ args: argsDailySummaryController_getDailySummaryById, request, response });
+
+                const controller = new DailySummaryController();
+
+              await templateService.apiHandler({
+                methodName: 'getDailySummaryById',
                 controller,
                 response,
                 next,
@@ -2634,25 +2621,25 @@ export function RegisterRoutes(app: Router) {
             }
         });
         // WARNING: This file was auto-generated with tsoa. Please do not modify it. Re-run tsoa to re-generate this file: https://github.com/lukeautry/tsoa
-        const argsCourseScheduleController_listCourseSchedules: Record<string, TsoaRoute.ParameterSchema> = {
+        const argsCourseScheduleController_searchCourseSchedules: Record<string, TsoaRoute.ParameterSchema> = {
                 body: {"in":"body","name":"body","required":true,"dataType":"nestedObjectLiteral","nestedProperties":{"limit":{"dataType":"double"},"page":{"dataType":"double"}}},
         };
-        app.post('/course-schedules/list',
+        app.post('/course-schedules/search',
             ...(fetchMiddlewares<RequestHandler>(CourseScheduleController)),
-            ...(fetchMiddlewares<RequestHandler>(CourseScheduleController.prototype.listCourseSchedules)),
+            ...(fetchMiddlewares<RequestHandler>(CourseScheduleController.prototype.searchCourseSchedules)),
 
-            async function CourseScheduleController_listCourseSchedules(request: ExRequest, response: ExResponse, next: any) {
+            async function CourseScheduleController_searchCourseSchedules(request: ExRequest, response: ExResponse, next: any) {
 
             // WARNING: This file was auto-generated with tsoa. Please do not modify it. Re-run tsoa to re-generate this file: https://github.com/lukeautry/tsoa
 
             let validatedArgs: any[] = [];
             try {
-                validatedArgs = templateService.getValidatedArgs({ args: argsCourseScheduleController_listCourseSchedules, request, response });
+                validatedArgs = templateService.getValidatedArgs({ args: argsCourseScheduleController_searchCourseSchedules, request, response });
 
                 const controller = new CourseScheduleController();
 
               await templateService.apiHandler({
-                methodName: 'listCourseSchedules',
+                methodName: 'searchCourseSchedules',
                 controller,
                 response,
                 next,
@@ -2784,25 +2771,25 @@ export function RegisterRoutes(app: Router) {
             }
         });
         // WARNING: This file was auto-generated with tsoa. Please do not modify it. Re-run tsoa to re-generate this file: https://github.com/lukeautry/tsoa
-        const argsCourseController_listCourses: Record<string, TsoaRoute.ParameterSchema> = {
+        const argsCourseController_searchCourses: Record<string, TsoaRoute.ParameterSchema> = {
                 body: {"in":"body","name":"body","required":true,"dataType":"nestedObjectLiteral","nestedProperties":{"limit":{"dataType":"double"},"page":{"dataType":"double"}}},
         };
-        app.post('/courses/list',
+        app.post('/courses/search',
             ...(fetchMiddlewares<RequestHandler>(CourseController)),
-            ...(fetchMiddlewares<RequestHandler>(CourseController.prototype.listCourses)),
+            ...(fetchMiddlewares<RequestHandler>(CourseController.prototype.searchCourses)),
 
-            async function CourseController_listCourses(request: ExRequest, response: ExResponse, next: any) {
+            async function CourseController_searchCourses(request: ExRequest, response: ExResponse, next: any) {
 
             // WARNING: This file was auto-generated with tsoa. Please do not modify it. Re-run tsoa to re-generate this file: https://github.com/lukeautry/tsoa
 
             let validatedArgs: any[] = [];
             try {
-                validatedArgs = templateService.getValidatedArgs({ args: argsCourseController_listCourses, request, response });
+                validatedArgs = templateService.getValidatedArgs({ args: argsCourseController_searchCourses, request, response });
 
                 const controller = new CourseController();
 
               await templateService.apiHandler({
-                methodName: 'listCourses',
+                methodName: 'searchCourses',
                 controller,
                 response,
                 next,
@@ -2817,7 +2804,7 @@ export function RegisterRoutes(app: Router) {
         const argsCourseController_getCourseById: Record<string, TsoaRoute.ParameterSchema> = {
                 body: {"in":"body","name":"body","required":true,"dataType":"nestedObjectLiteral","nestedProperties":{"course_id":{"dataType":"string","required":true}}},
         };
-        app.post('/courses/getCourseById',
+        app.post('/courses/getById',
             ...(fetchMiddlewares<RequestHandler>(CourseController)),
             ...(fetchMiddlewares<RequestHandler>(CourseController.prototype.getCourseById)),
 
@@ -2934,25 +2921,25 @@ export function RegisterRoutes(app: Router) {
             }
         });
         // WARNING: This file was auto-generated with tsoa. Please do not modify it. Re-run tsoa to re-generate this file: https://github.com/lukeautry/tsoa
-        const argsChapterController_listChapters: Record<string, TsoaRoute.ParameterSchema> = {
+        const argsChapterController_searchChapters: Record<string, TsoaRoute.ParameterSchema> = {
                 body: {"in":"body","name":"body","required":true,"dataType":"nestedObjectLiteral","nestedProperties":{"limit":{"dataType":"double"},"page":{"dataType":"double"}}},
         };
-        app.post('/chapters/list',
+        app.post('/chapters/search',
             ...(fetchMiddlewares<RequestHandler>(ChapterController)),
-            ...(fetchMiddlewares<RequestHandler>(ChapterController.prototype.listChapters)),
+            ...(fetchMiddlewares<RequestHandler>(ChapterController.prototype.searchChapters)),
 
-            async function ChapterController_listChapters(request: ExRequest, response: ExResponse, next: any) {
+            async function ChapterController_searchChapters(request: ExRequest, response: ExResponse, next: any) {
 
             // WARNING: This file was auto-generated with tsoa. Please do not modify it. Re-run tsoa to re-generate this file: https://github.com/lukeautry/tsoa
 
             let validatedArgs: any[] = [];
             try {
-                validatedArgs = templateService.getValidatedArgs({ args: argsChapterController_listChapters, request, response });
+                validatedArgs = templateService.getValidatedArgs({ args: argsChapterController_searchChapters, request, response });
 
                 const controller = new ChapterController();
 
               await templateService.apiHandler({
-                methodName: 'listChapters',
+                methodName: 'searchChapters',
                 controller,
                 response,
                 next,
@@ -3084,25 +3071,25 @@ export function RegisterRoutes(app: Router) {
             }
         });
         // WARNING: This file was auto-generated with tsoa. Please do not modify it. Re-run tsoa to re-generate this file: https://github.com/lukeautry/tsoa
-        const argsAiPersonaController_listAiPersonas: Record<string, TsoaRoute.ParameterSchema> = {
+        const argsAiPersonaController_searchAiPersonas: Record<string, TsoaRoute.ParameterSchema> = {
                 body: {"in":"body","name":"body","required":true,"dataType":"nestedObjectLiteral","nestedProperties":{"limit":{"dataType":"double"},"page":{"dataType":"double"}}},
         };
-        app.post('/ai-personas/list',
+        app.post('/ai-personas/search',
             ...(fetchMiddlewares<RequestHandler>(AiPersonaController)),
-            ...(fetchMiddlewares<RequestHandler>(AiPersonaController.prototype.listAiPersonas)),
+            ...(fetchMiddlewares<RequestHandler>(AiPersonaController.prototype.searchAiPersonas)),
 
-            async function AiPersonaController_listAiPersonas(request: ExRequest, response: ExResponse, next: any) {
+            async function AiPersonaController_searchAiPersonas(request: ExRequest, response: ExResponse, next: any) {
 
             // WARNING: This file was auto-generated with tsoa. Please do not modify it. Re-run tsoa to re-generate this file: https://github.com/lukeautry/tsoa
 
             let validatedArgs: any[] = [];
             try {
-                validatedArgs = templateService.getValidatedArgs({ args: argsAiPersonaController_listAiPersonas, request, response });
+                validatedArgs = templateService.getValidatedArgs({ args: argsAiPersonaController_searchAiPersonas, request, response });
 
                 const controller = new AiPersonaController();
 
               await templateService.apiHandler({
-                methodName: 'listAiPersonas',
+                methodName: 'searchAiPersonas',
                 controller,
                 response,
                 next,
@@ -3117,7 +3104,7 @@ export function RegisterRoutes(app: Router) {
         const argsAiPersonaController_getAiPersonaById: Record<string, TsoaRoute.ParameterSchema> = {
                 body: {"in":"body","name":"body","required":true,"dataType":"nestedObjectLiteral","nestedProperties":{"persona_id":{"dataType":"string","required":true}}},
         };
-        app.post('/ai-personas/getAiPersonaById',
+        app.post('/ai-personas/getById',
             ...(fetchMiddlewares<RequestHandler>(AiPersonaController)),
             ...(fetchMiddlewares<RequestHandler>(AiPersonaController.prototype.getAiPersonaById)),
 
@@ -3234,25 +3221,25 @@ export function RegisterRoutes(app: Router) {
             }
         });
         // WARNING: This file was auto-generated with tsoa. Please do not modify it. Re-run tsoa to re-generate this file: https://github.com/lukeautry/tsoa
-        const argsAiInteractionController_listAiInteractions: Record<string, TsoaRoute.ParameterSchema> = {
+        const argsAiInteractionController_searchAiInteractions: Record<string, TsoaRoute.ParameterSchema> = {
                 body: {"in":"body","name":"body","required":true,"dataType":"nestedObjectLiteral","nestedProperties":{"limit":{"dataType":"double"},"page":{"dataType":"double"}}},
         };
-        app.post('/ai-interactions/list',
+        app.post('/ai-interactions/search',
             ...(fetchMiddlewares<RequestHandler>(AiInteractionController)),
-            ...(fetchMiddlewares<RequestHandler>(AiInteractionController.prototype.listAiInteractions)),
+            ...(fetchMiddlewares<RequestHandler>(AiInteractionController.prototype.searchAiInteractions)),
 
-            async function AiInteractionController_listAiInteractions(request: ExRequest, response: ExResponse, next: any) {
+            async function AiInteractionController_searchAiInteractions(request: ExRequest, response: ExResponse, next: any) {
 
             // WARNING: This file was auto-generated with tsoa. Please do not modify it. Re-run tsoa to re-generate this file: https://github.com/lukeautry/tsoa
 
             let validatedArgs: any[] = [];
             try {
-                validatedArgs = templateService.getValidatedArgs({ args: argsAiInteractionController_listAiInteractions, request, response });
+                validatedArgs = templateService.getValidatedArgs({ args: argsAiInteractionController_searchAiInteractions, request, response });
 
                 const controller = new AiInteractionController();
 
               await templateService.apiHandler({
-                methodName: 'listAiInteractions',
+                methodName: 'searchAiInteractions',
                 controller,
                 response,
                 next,
@@ -3267,7 +3254,7 @@ export function RegisterRoutes(app: Router) {
         const argsAiInteractionController_getAiInteractionById: Record<string, TsoaRoute.ParameterSchema> = {
                 body: {"in":"body","name":"body","required":true,"dataType":"nestedObjectLiteral","nestedProperties":{"interaction_id":{"dataType":"string","required":true}}},
         };
-        app.post('/ai-interactions/getAiInteractionById',
+        app.post('/ai-interactions/getById',
             ...(fetchMiddlewares<RequestHandler>(AiInteractionController)),
             ...(fetchMiddlewares<RequestHandler>(AiInteractionController.prototype.getAiInteractionById)),
 
