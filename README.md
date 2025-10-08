@@ -66,7 +66,6 @@ http://localhost:3000/docs
 - **扩展模型或接口**：
 	- 请参考 `src/models/` 与 `src/controllers/` 目录，在 `src/models/` 添加model后需要在 `config/database.ts`  添加引用。
 
-
 ## 项目结构
 
 ```
