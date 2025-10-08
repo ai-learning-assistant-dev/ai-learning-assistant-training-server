@@ -58,7 +58,6 @@ http://localhost:3000/docs
 		- `add`：新增（如 addUser、addCourse）
 		- `update`：更新（如 updateUser、updateCourse）
 		- `delete`：删除（如 deleteUser、deleteCourse）
-	- 路由建议与方法名保持一致，如 `/users/searchUsers`、`/users/getUserById`。
 	- 这样便于前后端协作、接口文档自动生成、维护统一性。
 - **涉及连表、特殊业务或复杂功能**：
 	- 可根据实际业务自定义方法名和路由，如 `getUserWithCourses`、`getCourseChaptersSectionsByUser`。
