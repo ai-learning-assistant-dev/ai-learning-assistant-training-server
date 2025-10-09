@@ -34,12 +34,6 @@ RegisterRoutes(app);
 // 加载由 tsoa 生成的 OpenAPI 规范文件
 // 注意：需要先运行 `npm run build:tsoa` 生成这个文件
 app.use('/docs', swaggerUi.serve, swaggerUi.setup(swaggerDocument));
-// 解决 safari 打开不了 swagger-ui 的问题
-app.use((req, res, next) => {
-    res.removeHeader('Strict-Transport-Security');
-    next();
-});
-
 
 // 健康检查端点
 app.get('/health', (req, res) => {
