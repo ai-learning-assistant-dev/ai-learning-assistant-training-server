@@ -8,10 +8,10 @@ import { connectDatabase } from './config/database';
 import { createInitialData } from './models/index';
 import { notFoundHandler, errorHandler } from './middleware/errorHandler';
 import logger from './utils/logger';
-import path from 'path';
-// 导入 tsoa 生成的路由
-import { RegisterRoutes } from './build/routes'; //第一次启动报错不用管，直接npm start 就行，后续修改代码不会报错了
 import swaggerUi from 'swagger-ui-express';
+// 导入 tsoa 生成的路由
+import { RegisterRoutes } from '../build/routes'; //第一次启动报错不用管，直接npm start 就行，后续修改代码不会报错了
+import swaggerDocument from '../build/swagger.json'
 
 // 加载环境变量
 dotenv.config();
@@ -31,18 +31,15 @@ app.use(express.urlencoded({ extended: true })); // URL编码解析
 // 注册 tsoa 生成的路由
 RegisterRoutes(app);
 
-
-
-//// 兼容 Mac/Windows 静态资源路径，托管 swagger-ui 及 build 目录
-// 只托管 build 目录（tsoa 默认输出 swagger 静态资源和 swagger.json）
-app.use('/docs', express.static(path.join(__dirname, '../build')));
 // 加载由 tsoa 生成的 OpenAPI 规范文件
 // 注意：需要先运行 `npm run build:tsoa` 生成这个文件
-const swaggerDocument = require('../src/build/swagger.json');
-app.use('/docs', swaggerUi.serve, swaggerUi.setup(swaggerDocument, {
-  customCssUrl: '/docs/swagger-ui.css',
-  customJs: '/docs/swagger-ui-bundle.js',
-}));
+app.use('/docs', swaggerUi.serve, swaggerUi.setup(swaggerDocument));
+// 解决 safari 打开不了 swagger-ui 的问题
+app.use((req, res, next) => {
+    res.removeHeader('Strict-Transport-Security');
+    next();
+});
+
 
 // 健康检查端点
 app.get('/health', (req, res) => {
