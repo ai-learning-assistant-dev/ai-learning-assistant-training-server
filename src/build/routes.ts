@@ -30,6 +30,10 @@ import { CourseController } from './../controllers/courseController';
 // WARNING: This file was auto-generated with tsoa. Please do not modify it. Re-run tsoa to re-generate this file: https://github.com/lukeautry/tsoa
 import { ChapterController } from './../controllers/chapterController';
 // WARNING: This file was auto-generated with tsoa. Please do not modify it. Re-run tsoa to re-generate this file: https://github.com/lukeautry/tsoa
+import { BilibiliVideoController } from './../controllers/bilibiliVideoController';
+// WARNING: This file was auto-generated with tsoa. Please do not modify it. Re-run tsoa to re-generate this file: https://github.com/lukeautry/tsoa
+import { BilibiliProxyController } from './../controllers/bilibiliProxyController';
+// WARNING: This file was auto-generated with tsoa. Please do not modify it. Re-run tsoa to re-generate this file: https://github.com/lukeautry/tsoa
 import { AiPersonaController } from './../controllers/aiPersonaController';
 // WARNING: This file was auto-generated with tsoa. Please do not modify it. Re-run tsoa to re-generate this file: https://github.com/lukeautry/tsoa
 import { AiInteractionController } from './../controllers/aiInteractionController';
@@ -3060,6 +3064,74 @@ export function RegisterRoutes(app: Router) {
 
               await templateService.apiHandler({
                 methodName: 'deleteChapter',
+                controller,
+                response,
+                next,
+                validatedArgs,
+                successStatus: undefined,
+              });
+            } catch (err) {
+                return next(err);
+            }
+        });
+        // WARNING: This file was auto-generated with tsoa. Please do not modify it. Re-run tsoa to re-generate this file: https://github.com/lukeautry/tsoa
+        const argsBilibiliVideoController_getVideoManifest: Record<string, TsoaRoute.ParameterSchema> = {
+                bvid: {"in":"query","name":"bvid","required":true,"dataType":"string"},
+                req: {"in":"request","name":"req","required":true,"dataType":"object"},
+                ok: {"in":"res","name":"200","required":true,"dataType":"string"},
+                badRequest: {"in":"res","name":"400","required":true,"dataType":"nestedObjectLiteral","nestedProperties":{"message":{"dataType":"string","required":true},"error":{"dataType":"string","required":true}}},
+                serverError: {"in":"res","name":"500","required":true,"dataType":"nestedObjectLiteral","nestedProperties":{"message":{"dataType":"string","required":true},"error":{"dataType":"string","required":true}}},
+                sessdata: {"in":"query","name":"sessdata","dataType":"string"},
+        };
+        app.get('/proxy/bilibili/video-manifest',
+            ...(fetchMiddlewares<RequestHandler>(BilibiliVideoController)),
+            ...(fetchMiddlewares<RequestHandler>(BilibiliVideoController.prototype.getVideoManifest)),
+
+            async function BilibiliVideoController_getVideoManifest(request: ExRequest, response: ExResponse, next: any) {
+
+            // WARNING: This file was auto-generated with tsoa. Please do not modify it. Re-run tsoa to re-generate this file: https://github.com/lukeautry/tsoa
+
+            let validatedArgs: any[] = [];
+            try {
+                validatedArgs = templateService.getValidatedArgs({ args: argsBilibiliVideoController_getVideoManifest, request, response });
+
+                const controller = new BilibiliVideoController();
+
+              await templateService.apiHandler({
+                methodName: 'getVideoManifest',
+                controller,
+                response,
+                next,
+                validatedArgs,
+                successStatus: undefined,
+              });
+            } catch (err) {
+                return next(err);
+            }
+        });
+        // WARNING: This file was auto-generated with tsoa. Please do not modify it. Re-run tsoa to re-generate this file: https://github.com/lukeautry/tsoa
+        const argsBilibiliProxyController_proxyBilibiliStream: Record<string, TsoaRoute.ParameterSchema> = {
+                url: {"in":"query","name":"url","required":true,"dataType":"string"},
+                req: {"in":"request","name":"req","required":true,"dataType":"object"},
+                badRequest: {"in":"res","name":"400","required":true,"dataType":"nestedObjectLiteral","nestedProperties":{"error":{"dataType":"string","required":true}}},
+                serverError: {"in":"res","name":"500","required":true,"dataType":"nestedObjectLiteral","nestedProperties":{"error":{"dataType":"string","required":true}}},
+        };
+        app.get('/proxy/bilibili/stream',
+            ...(fetchMiddlewares<RequestHandler>(BilibiliProxyController)),
+            ...(fetchMiddlewares<RequestHandler>(BilibiliProxyController.prototype.proxyBilibiliStream)),
+
+            async function BilibiliProxyController_proxyBilibiliStream(request: ExRequest, response: ExResponse, next: any) {
+
+            // WARNING: This file was auto-generated with tsoa. Please do not modify it. Re-run tsoa to re-generate this file: https://github.com/lukeautry/tsoa
+
+            let validatedArgs: any[] = [];
+            try {
+                validatedArgs = templateService.getValidatedArgs({ args: argsBilibiliProxyController_proxyBilibiliStream, request, response });
+
+                const controller = new BilibiliProxyController();
+
+              await templateService.apiHandler({
+                methodName: 'proxyBilibiliStream',
                 controller,
                 response,
                 next,
