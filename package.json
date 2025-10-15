@@ -7,7 +7,7 @@
     "dev": "nodemon --exec ts-node src/app.ts",
     "build:tsoa": "tsoa spec-and-routes",
     "prestart": "npm run build:tsoa && npm run build",
-    "start": "node dist/app.js",
+    "start": "node dist/src/app.js",
     "predev": "npm run build:tsoa",
     "prebuild": "npm run build:tsoa",
     "build": "tsc",
@@ -16,8 +16,7 @@
     "clean": "rimraf dist build",
     "db:init": "ts-node src/scripts/initDB.ts",
     "lint": "eslint src/**/*.ts",
-    "lint:fix": "eslint src/**/*.ts --fix",
-    "docs": "npm run build:tsoa && open http://localhost:3000/api-docs"
+    "lint:fix": "eslint src/**/*.ts --fix"
   },
   "dependencies": {
     "cors": "^2.8.5",

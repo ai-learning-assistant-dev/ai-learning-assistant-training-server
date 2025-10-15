@@ -1,13 +1,59 @@
 import { AppDataSource } from '../config/database';
 import { Course } from '../models/course';
+import { Chapter } from '../models/chapter';
+import { Section } from '../models/section';
 import { ApiResponse } from '../types/express';
 import { CourseResponse, CreateCourseRequest, UpdateCourseRequest } from '../types/course';
 import { Route, Get, Post, Body, Path, Tags } from 'tsoa';
+import { In } from 'typeorm';
 import { BaseController } from './baseController';
 
 @Tags("课程表")
 @Route('courses')
 export class CourseController extends BaseController {
+  /**
+   * 通过课程ID查询其下所有章节及节
+   */
+  @Post('/getCourseChaptersSections')
+  public async getCourseChaptersSections(
+    @Body() body: { course_id: string }
+  ): Promise<ApiResponse<any>> {
+    try {
+      if (!body.course_id) {
+        return this.fail('course_id 必填', null, 400);
+      }
+      const courseRepo = AppDataSource.getRepository(Course);
+      const chapterRepo = AppDataSource.getRepository(Chapter);
+      const sectionRepo = AppDataSource.getRepository(Section);
+
+      const course = await courseRepo.findOneBy({ course_id: body.course_id });
+      if (!course) {
+        return this.fail('课程不存在');
+      }
+
+      const chapters = await chapterRepo.find({ where: { course_id: body.course_id }, order: { chapter_order: 'ASC' } as any });
+      const chapterIds = chapters.map(c => c.chapter_id);
+      let sections: Section[] = [];
+      if (chapterIds.length > 0) {
+        sections = await sectionRepo.find({ where: { chapter_id: In(chapterIds) }, order: { section_order: 'ASC' } as any });
+      }
+
+      const chapterList = chapters.map(ch => ({
+        ...ch,
+        sections: sections.filter(sec => sec.chapter_id === ch.chapter_id)
+      }));
+
+      return this.ok({
+        course_id: course.course_id,
+        course_name: (course as any).name || (course as any).course_name || undefined,
+        chapters: chapterList
+      });
+    } catch (error) {
+      return this.fail('查询课程章节/节失败', error);
+    }
+  }
+ 
+
   @Post('/search')
   public async searchCourses(
     @Body() body: { page?: number; limit?: number }
@@ -43,7 +89,6 @@ export class CourseController extends BaseController {
       return this.fail('获取课程失败', error );
     }
     }
- 
 
   @Post('/add')
   public async addCourse(
