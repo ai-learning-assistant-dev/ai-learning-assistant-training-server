@@ -29,7 +29,8 @@
       "@routes/*": ["src/routes/*"],
       "@middleware/*": ["src/middleware/*"],
       "@types/*": ["src/types/*"],
-      "@utils/*": ["src/utils/*"]
+      "@utils/*": ["src/utils/*"],
+      "@llm/*": ["src/llm/*"]
     },
     "experimentalDecorators": true,
     "emitDecoratorMetadata": true
