@@ -4,6 +4,8 @@ import { AiInteraction } from "../../models/aiInteraction";
 import { User } from "../../models/user";
 import { Section } from "../../models/section";
 import { AiPersona } from "../../models/aiPersona";
+import { Course } from "../../models/course";
+import { Chapter } from "../../models/chapter";
 import { ReactAgent } from "../agent/react_agent_base";
 import { IntegratedPostgreSQLStorage } from "../storage/integrated_storage";
 import { createLLM } from "../utils/create_llm";
@@ -14,9 +16,11 @@ import { createLLM } from "../utils/create_llm";
 export interface LearningAssistantOptions {
   /** 用户ID */
   userId: string;
+  /** 课程ID（可选，如果提供会自动加载课程信息） */
+  courseId?: string;
   /** 章节ID */
   sectionId: string;
-  /** AI人设ID（可选，使用默认人设） */
+  /** AI人设ID（可选，使用默认人设或课程默认人设） */
   personaId?: string;
   /** 自定义会话ID（可选，系统自动生成） */
   sessionId?: string;
@@ -27,7 +31,6 @@ export interface LearningAssistantOptions {
 /**
  * 集成现有数据模型的学习助手
  * 
- * 这个类将 LangGraph ReactAgent 与现有的数据模型无缝集成：
  * - 使用现有的 AiInteraction 表记录对话
  * - 支持用户、章节、AI人设的关联
  * - 提供会话管理和历史记录功能
@@ -36,12 +39,14 @@ export class LearningAssistant {
   private agent: ReactAgent;
   private storage: IntegratedPostgreSQLStorage;
   private userId: string;
+  private courseId?: string;
   private sectionId: string;
   private sessionId: string;
   private personaId?: string;
 
   constructor(options: LearningAssistantOptions) {
     this.userId = options.userId;
+    this.courseId = options.courseId;
     this.sectionId = options.sectionId;
     this.personaId = options.personaId;
     this.sessionId = options.sessionId || IntegratedPostgreSQLStorage.generateSessionId(
@@ -76,12 +81,19 @@ export class LearningAssistant {
       await this.storage.connect();
     }
 
+    // 加载课程信息并设置默认人设（如果需要）
+    await this.loadCourseInfo();
+
+    // 生成包含课程上下文的系统提示
+    const systemPrompt = await this.createSystemPrompt();
+
     // 创建 ReactAgent（现在存储已经连接）
     this.agent = new ReactAgent({
       llm: createLLM(),
       defaultThreadId: this.sessionId,
       checkpointSaver: this.storage.getSaver(),
       postgresStorage: this.storage as any,
+      prompt: systemPrompt,
     });
 
     // 验证用户、章节、人设是否存在
@@ -173,6 +185,202 @@ export class LearningAssistant {
   }
 
   /**
+   * 获取课程信息
+   */
+  async getCourseInfo(): Promise<any> {
+    if (!this.courseId || !AppDataSource.isInitialized) {
+      return null;
+    }
+
+    const courseRepo = AppDataSource.getRepository(Course);
+    const course = await courseRepo.findOne({
+      where: { course_id: this.courseId },
+      relations: ['chapters', 'defaultAiPersona', 'titles', 'tests']
+    });
+
+    return course;
+  }
+
+  /**
+   * 获取课程大纲（章节结构）
+   */
+  async getCourseOutline(): Promise<string> {
+    if (!this.courseId) {
+      return "当前会话未关联课程信息";
+    }
+
+    const course = await this.getCourseInfo();
+    if (!course) {
+      return "课程信息不存在";
+    }
+
+    let outline = `📚 ${course.name}\n`;
+    if (course.description) {
+      outline += `📝 课程描述: ${course.description}\n\n`;
+    }
+
+    // 加载完整的章节和小节信息
+    const chapterRepo = AppDataSource.getRepository(Chapter);
+    const chapters = await chapterRepo.find({
+      where: { course_id: this.courseId },
+      order: { chapter_order: 'ASC' }
+    });
+
+    if (chapters.length === 0) {
+      outline += "暂无章节内容";
+      return outline;
+    }
+
+    // 获取所有章节的小节
+    const sectionRepo = AppDataSource.getRepository(Section);
+    
+    outline += "📋 课程大纲:\n";
+    
+    for (let index = 0; index < chapters.length; index++) {
+      const chapter = chapters[index];
+      outline += `${index + 1}. ${chapter.title}\n`;
+      
+      // 查询该章节下的所有小节
+      const sections = await sectionRepo.find({
+        where: { chapter_id: chapter.chapter_id },
+        order: { section_order: 'ASC' }
+      });
+      
+      if (sections.length > 0) {
+        sections.forEach((section, sectionIndex) => {
+          outline += `   ${index + 1}.${sectionIndex + 1} ${section.title}`;
+          if (section.estimated_time) {
+            outline += ` (${section.estimated_time}分钟)`;
+          }
+          outline += "\n";
+        });
+      }
+    }
+
+    return outline;
+  }
+
+  /**
+   * 获取当前章节在课程中的上下文信息
+   */
+  async getSectionContext(): Promise<string> {
+    if (!AppDataSource.isInitialized) {
+      return "数据库未初始化";
+    }
+
+    const sectionRepo = AppDataSource.getRepository(Section);
+    const section = await sectionRepo.findOne({
+      where: { section_id: this.sectionId },
+      relations: ['chapter', 'chapter.course']
+    });
+
+    if (!section) {
+      return "章节信息不存在";
+    }
+
+    let context = `📖 当前章节: ${section.title}\n`;
+    
+    if (section.chapter) {
+      context += `📚 所属章节: ${section.chapter.title}\n`;
+      
+      if (section.chapter.course) {
+        context += `🎓 所属课程: ${section.chapter.course.name}\n`;
+        // 更新课程ID
+        this.courseId = section.chapter.course.course_id;
+      }
+    }
+
+    if (section.knowledge_points) {
+      context += `🎯 知识点: ${section.knowledge_points}\n`;
+    }
+
+    if (section.knowledge_content) {
+      context += `📋 内容概要: ${section.knowledge_content}\n`;
+    }
+
+    if (section.estimated_time) {
+      context += `⏱️ 预计时间: ${section.estimated_time}分钟\n`;
+    }
+
+    return context;
+  }
+
+  /**
+   * 加载课程信息并设置默认AI人设
+   */
+  private async loadCourseInfo(): Promise<void> {
+    if (!AppDataSource.isInitialized) {
+      return;
+    }
+
+    // 如果没有提供课程ID，尝试从章节信息中获取
+    if (!this.courseId) {
+      const sectionContext = await this.getSectionContext();
+      console.log("📖 从章节加载课程上下文:", sectionContext.split('\n')[0]);
+    }
+
+    // 如果仍然没有课程ID，直接返回
+    if (!this.courseId) {
+      return;
+    }
+
+    const course = await this.getCourseInfo();
+    if (!course) {
+      console.log("⚠️ 课程信息加载失败:", this.courseId);
+      return;
+    }
+
+    console.log(`📚 已加载课程: ${course.name}`);
+
+    // 如果没有指定AI人设，使用课程的默认人设
+    if (!this.personaId && course.default_ai_persona_id) {
+      this.personaId = course.default_ai_persona_id;
+      console.log(`🎭 使用课程默认AI人设: ${course.defaultAiPersona?.name || this.personaId}`);
+    }
+  }
+
+  /**
+   * 创建包含课程上下文的系统提示
+   */
+  private async createSystemPrompt(): Promise<any> {
+    let systemPromptText = "";
+    let personaPrompt = "你是一个智能学习助手，专门帮助学生学习和答疑。请根据学生的问题提供准确、有用的学习指导.";
+
+    // 获取AI人设的提示
+    if (this.personaId && AppDataSource.isInitialized) {
+      const personaRepo = AppDataSource.getRepository(AiPersona);
+      const persona = await personaRepo.findOne({ where: { persona_id: this.personaId } });
+      personaPrompt = persona ? persona.prompt : personaPrompt;}
+
+    // 添加课程上下文信息
+    if (this.courseId) {
+      const courseOutline = await this.getCourseOutline();
+      const sectionContext = await this.getSectionContext();
+      
+      systemPromptText += `## 当前学习环境
+
+${sectionContext}
+
+## 完整课程信息
+
+${courseOutline}
+
+## 角色
+
+${personaPrompt}`;
+    } else {
+      // 如果没有课程信息，提供通用的学习助手提示
+      systemPromptText += `## 🤖 AI学习助手
+
+你是一个智能学习助手，专门帮助学生学习和答疑。请根据学生的问题提供准确、有用的学习指导。`;
+    }
+
+    // 使用 SystemMessage 格式
+    const { SystemMessage } = await import("@langchain/core/messages");
+    return new SystemMessage(systemPromptText);
+  }
+
+  /**
    * 清理助手资源
    */
   async cleanup(): Promise<void> {
@@ -200,6 +408,13 @@ export class LearningAssistant {
    */
   getSectionId(): string {
     return this.sectionId;
+  }
+
+  /**
+   * 获取课程ID
+   */
+  getCourseId(): string | undefined {
+    return this.courseId;
   }
 
   /**
@@ -271,10 +486,12 @@ export async function createLearningAssistant(
   userId: string,
   sectionId: string,
   personaId?: string,
-  sessionId?: string
+  sessionId?: string,
+  courseId?: string
 ): Promise<LearningAssistant> {
   const assistant = new LearningAssistant({
     userId,
+    courseId,
     sectionId,
     personaId,
     sessionId
@@ -290,12 +507,13 @@ export async function createLearningAssistant(
 export async function startNewLearningSession(
   userId: string,
   sectionId: string,
-  personaId?: string
+  personaId?: string,
+  courseId?: string
 ): Promise<LearningAssistant> {
   // 生成新的会话ID
   const sessionId = IntegratedPostgreSQLStorage.generateSessionId(userId, sectionId);
   
-  return createLearningAssistant(userId, sectionId, personaId, sessionId);
+  return createLearningAssistant(userId, sectionId, personaId, sessionId, courseId);
 }
 
 /**
@@ -314,4 +532,43 @@ export async function resumeLearningSession(
   const sectionId = parts[2]; // session_{userId}_{sectionId}_{date} 格式
   
   return createLearningAssistant(userId, sectionId, undefined, sessionId);
+}
+
+/**
+ * 基于课程创建学习助手
+ */
+export async function createCourseAssistant(
+  userId: string,
+  courseId: string,
+  sectionId?: string
+): Promise<LearningAssistant> {
+  // 如果没有指定章节，使用第一个章节
+  let finalSectionId = sectionId;
+  
+  if (!finalSectionId && AppDataSource.isInitialized) {
+    const chapterRepo = AppDataSource.getRepository(Chapter);
+    const firstChapter = await chapterRepo.findOne({
+      where: { course_id: courseId },
+      order: { chapter_order: 'ASC' }
+    });
+    
+    if (firstChapter) {
+      const sectionRepo = AppDataSource.getRepository(Section);
+      const firstSection = await sectionRepo.findOne({
+        where: { chapter_id: firstChapter.chapter_id },
+        order: { section_order: 'ASC' }
+      });
+      
+      if (firstSection) {
+        finalSectionId = firstSection.section_id;
+        console.log(`📖 自动选择课程第一个章节: ${firstSection.title}`);
+      }
+    }
+  }
+  
+  if (!finalSectionId) {
+    throw new Error("无法确定课程的章节信息，请指定 sectionId");
+  }
+  
+  return createLearningAssistant(userId, finalSectionId, undefined, undefined, courseId);
 }
