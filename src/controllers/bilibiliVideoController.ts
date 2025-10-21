@@ -1,0 +1,426 @@
+import { Controller, Get, Query, Route, Res, Request, TsoaResponse, Tags } from 'tsoa';
+import { ofetch } from 'ofetch';
+import md5 from 'md5';
+import { create } from 'xmlbuilder2';
+
+/**
+ * Types
+ */
+interface BaseResponse<T> {
+  code: number;
+  message: string;
+  ttl: number;
+  data: T;
+}
+
+interface WbiKeysResponse {
+  img_key: string;
+  sub_key: string;
+}
+
+interface NavData {
+  wbi_img: {
+    img_url: string;
+    sub_url: string;
+  };
+}
+
+interface VideoViewData {
+  cid: number;
+}
+
+interface DashStream {
+  [x: string]: any;
+  id: number;
+  base_url: string;
+  backup_url: string[];
+  bandwidth?: number;
+  mime_type?: string;
+  codecs?: string;
+  width?: number;
+  height?: number;
+  frame_rate?: string;
+  sar?: string;
+  segment_base: {
+    index_range: string;
+    initialization: string;
+  };
+  start_with_sap?: number;
+  size: number;
+}
+
+interface DashData {
+  duration: number;
+  timelength: number;
+  minBufferTime: number;
+  video: DashStream[];
+  audio: DashStream[];
+}
+
+interface PlayVideoData {
+  timelength?: number;
+  dash?: {
+    timelength?: number;
+    duration?: number;
+    minBufferTime?: number;
+    video?: DashStream[];
+    audio?: DashStream[];
+  };
+  data?: {
+    timelength?: number;
+    dash?: {
+      duration?: number;
+      minBufferTime?: number;
+      timelength?: number;
+      video?: DashStream[];
+      audio?: DashStream[];
+    };
+  };
+  durl?: { url: string; size: number }[];
+}
+
+type EncWbiParams = Record<string, string | number | boolean>;
+
+interface EncWbiResult {
+  wts: number;
+  w_rid: string;
+}
+
+/**
+ * mixinKey table (unchanged)
+ */
+const mixinKeyEncTab: number[] = [
+  46, 47, 18, 2, 53, 8, 23, 32, 15, 50, 10, 31, 58, 3, 45, 35, 27, 43, 5, 49,
+  33, 9, 42, 19, 29, 28, 14, 39, 12, 38, 41, 13, 37, 48, 7, 16, 24, 55, 40,
+  61, 26, 17, 0, 1, 60, 51, 30, 4, 22, 25, 54, 21, 56, 59, 6, 63, 57, 62, 11,
+  36, 20, 34, 44, 52,
+];
+
+/**
+ * safer mixin key generator: 使用 charAt 避免索引越界导致 undefined 字符串
+ */
+const getMixinKey = (orig: string): string =>
+  mixinKeyEncTab.map((n) => orig.charAt(n)).join('').slice(0, 32);
+
+/**
+ * WBI 签名
+ */
+function encWbi(params: EncWbiParams, img_key: string, sub_key: string): EncWbiResult {
+  const mixin_key = getMixinKey(img_key + sub_key);
+  const curr_time = Math.floor(Date.now() / 1000);
+  const chr_filter = /[!\(\)'\*]/g;
+
+  // 确保 params 里包含 wts
+  Object.assign(params, { wts: curr_time });
+
+  const query = Object.keys(params)
+    .sort()
+    .map((key) => {
+      const value = String(params[key]).replace(chr_filter, '');
+      return `${encodeURIComponent(key)}=${encodeURIComponent(value)}`;
+    })
+    .join('&');
+
+  const wbi_sign = md5(query + mixin_key);
+  return { wts: curr_time, w_rid: wbi_sign };
+}
+
+/**
+ * 获取 WBI keys（更稳健）
+ */
+async function getWbiKeys(sessdata?: string): Promise<WbiKeysResponse> {
+  const headers: Record<string, string> = {
+    'User-Agent':
+      'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/91.0.4472.124 Safari/537.36',
+    Referer: 'https://www.bilibili.com',
+  };
+  if (sessdata) headers.Cookie = `SESSDATA=${sessdata};`;
+
+  const res = await ofetch<BaseResponse<NavData>>('https://api.bilibili.com/x/web-interface/nav', {
+    method: 'GET',
+    headers,
+    timeout: 5000,
+  });
+
+  if (!res?.data?.wbi_img) {
+    throw new Error('Unable to obtain WBI keys: missing wbi_img in nav response');
+  }
+
+  const img_url = res.data.wbi_img.img_url || '';
+  const sub_url = res.data.wbi_img.sub_url || '';
+
+  const img_key = img_url.split('/').pop()?.split('.')[0] ?? '';
+  const sub_key = sub_url.split('/').pop()?.split('.')[0] ?? '';
+
+  if (!img_key || !sub_key) {
+    throw new Error('Invalid WBI keys returned by nav API');
+  }
+
+  return { img_key, sub_key };
+}
+
+/**
+ * Helper to avoid double-encoding query value.
+ * If url appears already encoded (decodeURIComponent(url) !== url) we keep it.
+ * Otherwise we encode it so it's safe as a query parameter value.
+ */
+function encodeUrlForQuery(url: string): string {
+  try {
+    const decoded = decodeURIComponent(url);
+    if (decoded !== url) {
+      // Seems already encoded — return as-is
+      return url;
+    }
+  } catch (e) {
+    // decodeURIComponent may throw; ignore and encode below
+  }
+  return encodeURIComponent(url);
+}
+
+/**
+ * 将远端 stream/url 包装为代理访问 URL（使 MPD 指向本服务的 /stream endpoint）
+ */
+function replaceProxyUrl(url: string, baseUrl: string): string {
+  const encoded = encodeUrlForQuery(url);
+  return `${baseUrl.replace(/\/$/, '')}/proxy/bilibili/stream?url=${encoded}`;
+}
+
+// helper: 清洗 codec / mime 字段 (去掉引号和反斜线等)
+function sanitizeCodec(val?: string): string | undefined {
+  if (!val) return undefined;
+  return val.replace(/["'\\]/g, '').trim() || undefined;
+}
+
+function sanitizeMime(val?: string): string | undefined {
+  if (!val) return undefined;
+  return val.replace(/["'\\]/g, '').trim() || undefined;
+}
+
+/**
+ * Generate MPD (DASH manifest) - using sanitized codec/mime and safe url encoding
+ */
+function generateMPD(dashData: DashData, baseUrl: string): string {
+  const duration = dashData.duration || Math.floor((dashData.timelength || 0) / 1000);
+  const minBufferTime = dashData.minBufferTime || 1;
+
+  const root = create({ version: '1.0', encoding: 'UTF-8' }).ele('MPD', {
+    xmlns: 'urn:mpeg:dash:schema:mpd:2011',
+    type: 'static',
+    mediaPresentationDuration: `PT${duration}S`,
+    minBufferTime: `PT${minBufferTime}S`,
+    profiles: 'urn:mpeg:dash:profile:isoff-on-demand:2011',
+  });
+
+  const period = root.ele('Period', { duration: `PT${duration}S` });
+
+  // Video AdaptationSet
+  const videoAdaptationSet = period.ele('AdaptationSet', {
+    segmentAlignment: 'true',
+    subsegmentAlignment: 'true',
+    subsegmentStartsWithSAP: '1',
+  });
+
+  let videoStreams = dashData.video || [];
+  // use sanitized codec when checking preferred
+  const preferredVideo = videoStreams.find((v) => sanitizeCodec(v.codecs) === 'avc1.64001F');
+  if (preferredVideo) videoStreams = [preferredVideo];
+
+  videoStreams.forEach((video) => {
+    const attributes: Record<string, string> = {
+      id: String(video.id),
+    };
+    const cleanMime = sanitizeMime(video.mime_type);
+    const cleanCodec = sanitizeCodec(video.codecs);
+    if (cleanMime) attributes.mimeType = cleanMime;
+    if (cleanCodec) attributes.codecs = cleanCodec;
+    if (video.width) attributes.width = String(video.width);
+    if (video.height) attributes.height = String(video.height);
+    if (video.frame_rate) attributes.frameRate = String(video.frame_rate);
+    if (video.sar) attributes.sar = String(video.sar);
+    if (video.start_with_sap !== undefined) attributes.startWithSAP = String(video.start_with_sap);
+    if (video.bandwidth !== undefined) attributes.bandwidth = String(video.bandwidth);
+
+    const rep = videoAdaptationSet.ele('Representation', attributes);
+    rep.ele('BaseURL').txt(replaceProxyUrl(video.base_url, baseUrl));
+    if (video.backup_url && video.backup_url.length > 0) {
+      video.backup_url.forEach((u) =>
+        rep.ele('BaseURL', { serviceLocation: 'backup' }).txt(replaceProxyUrl(u, baseUrl))
+      );
+    }
+    rep
+      .ele('SegmentBase', { indexRange: video.segment_base.index_range })
+      .ele('Initialization', { range: video.segment_base.initialization });
+  });
+
+  // Audio AdaptationSet
+  const audioAdaptationSet = period.ele('AdaptationSet', {
+    segmentAlignment: 'true',
+    subsegmentAlignment: 'true',
+    subsegmentStartsWithSAP: '1',
+  });
+
+  let audioStreams = dashData.audio || [];
+  const preferredAudio = audioStreams.find((a) => sanitizeCodec(a.codecs) === 'mp4a.40.2');
+  if (preferredAudio) audioStreams = [preferredAudio];
+
+  audioStreams.forEach((audio) => {
+    const attributes: Record<string, string> = {
+      id: String(audio.id),
+    };
+    const cleanMime = sanitizeMime(audio.mime_type);
+    const cleanCodec = sanitizeCodec(audio.codecs);
+    if (cleanMime) attributes.mimeType = cleanMime;
+    if (cleanCodec) attributes.codecs = cleanCodec;
+    if (audio.start_with_sap !== undefined) attributes.startWithSAP = String(audio.start_with_sap);
+    if (audio.bandwidth !== undefined) attributes.bandwidth = String(audio.bandwidth);
+    if ((audio as any).audioSamplingRate) attributes['audioSamplingRate'] = String((audio as any).audioSamplingRate);
+
+    const rep = audioAdaptationSet.ele('Representation', attributes);
+    rep.ele('AudioChannelConfiguration', {
+      schemeIdUri: 'urn:mpeg:dash:23003:3:audio_channel_configuration:2011',
+      value: '2',
+    });
+    rep.ele('BaseURL').txt(replaceProxyUrl(audio.base_url, baseUrl));
+    if (audio.backup_url && audio.backup_url.length > 0) {
+      audio.backup_url.forEach((u) =>
+        rep.ele('BaseURL', { serviceLocation: 'backup' }).txt(replaceProxyUrl(u, baseUrl))
+      );
+    }
+    rep
+      .ele('SegmentBase', { indexRange: audio.segment_base.index_range })
+      .ele('Initialization', { range: audio.segment_base.initialization });
+  });
+
+  return root.end({ prettyPrint: true });
+}
+
+/**
+ * 获取 DASH 信息（包含 WBI 签名）
+ */
+async function getDashInfo(bvid: string, sessdata?: string): Promise<{ dash: DashData }> {
+  if (!bvid || !bvid.trim()) {
+    throw new Error('bvid is required');
+  }
+
+  const headers = {
+    'User-Agent':
+      'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/91.0.4472.124 Safari/537.36',
+    Referer: 'https://www.bilibili.com',
+  };
+
+  // 获取 cid
+  const viewRes = await ofetch<BaseResponse<VideoViewData>>(
+    `https://api.bilibili.com/x/web-interface/view?bvid=${encodeURIComponent(bvid)}`,
+    { method: 'GET', headers, timeout: 5000 }
+  );
+
+  const cid = viewRes?.data?.cid;
+  if (!cid) throw new Error('Failed to fetch video cid');
+
+  const { img_key, sub_key } = await getWbiKeys(sessdata);
+
+  let params: EncWbiParams = {
+    bvid,
+    cid,
+    fnval: 80, // 请求 DASH
+    fnver: 0,
+    fourk: 1,
+  };
+
+  const sign = encWbi(params, img_key, sub_key);
+  params = { ...params, ...sign };
+
+  const playRes = await ofetch<BaseResponse<PlayVideoData>>('https://api.bilibili.com/x/player/wbi/playurl', {
+    method: 'GET',
+    headers,
+    query: params,
+    timeout: 5000,
+  });
+
+  const dash = playRes?.data?.dash ?? playRes?.data?.data?.dash;
+  if (!dash || !dash.video || dash.video.length === 0 || !dash.audio || dash.audio.length === 0) {
+    throw new Error('Unable to obtain DASH playurl (no audio/video streams)');
+  }
+
+  const videoStreams = (dash.video || []).slice().sort((a, b) => (b.bandwidth || 0) - (a.bandwidth || 0));
+  const audioStreams = (dash.audio || []).slice().sort((a, b) => (b.bandwidth || 0) - (a.bandwidth || 0));
+  const timelength = dash.timelength ?? (playRes.data?.timelength ?? 0);
+
+  return {
+    dash: {
+      ...dash,
+      video: videoStreams,
+      audio: audioStreams,
+      duration: dash.duration ?? Math.floor((timelength || 0) / 1000),
+      minBufferTime: dash.minBufferTime ?? 1,
+      timelength,
+    } as DashData,
+  };
+}
+
+/**
+ * Controller
+ */
+@Tags('B站视频代理')
+@Route('proxy/bilibili')
+export class BilibiliVideoController extends Controller {
+  /**
+   * 生成DASH格式视频清单(MPD)
+   *
+   * @param bvid Bilibili BV id
+   * @param req Request object (typed as any for tsoa compatibility)
+   * @param sessdata optional SESSDATA cookie value for higher quality streams
+   */
+  @Get('video-manifest')
+  public async getVideoManifest(
+    @Query() bvid: string,
+    @Request() req: any,
+    @Res() ok: TsoaResponse<200, string>,
+    @Res() badRequest: TsoaResponse<400, { error: string; message: string }>,
+    @Res() serverError: TsoaResponse<500, { error: string; message: string }>,
+    @Query() sessdata?: string,
+  ): Promise<void> {
+    try {
+      if (!bvid || !bvid.trim()) {
+        badRequest(400, { error: 'Bad Request', message: 'bvid parameter is required' });
+        return;
+      }
+
+      const protocol = (req && req.protocol) || 'http';
+      const host = (req && typeof req.get === 'function' && req.get('host')) || process.env.HOST || 'localhost:3000';
+      let baseUrl = `${protocol}://${host}`;
+
+      // adjust common port cases
+      if (protocol === 'http' && host.includes(':443')) {
+        baseUrl = `https://${host.split(':')[0]}`;
+      } else if (protocol === 'http' && host.includes(':80')) {
+        baseUrl = `http://${host.split(':')[0]}`;
+      }
+
+      const dashInfo = await getDashInfo(bvid, sessdata);
+      const mpdXML = generateMPD(dashInfo.dash, baseUrl);
+
+      // 优先使用 Express res（如果在 Express 环境中，可从 req.res 获取），直接发送原始 XML，避免被 JSON 序列化
+      const expressRes = req && (req.res || req.raw || (req as any).res);
+      if (expressRes && typeof expressRes.setHeader === 'function') {
+        // 使用 Express 原生返回
+        expressRes.setHeader('Content-Type', 'application/dash+xml; charset=utf-8');
+        // 一些环境没有 res.status 方法 on req.res, but express does, so guard:
+        if (typeof expressRes.status === 'function') {
+          expressRes.status(200).send(mpdXML);
+        } else {
+          expressRes.writeHead?.(200, { 'Content-Type': 'application/dash+xml; charset=utf-8' });
+          expressRes.end?.(mpdXML);
+        }
+        return;
+      }
+
+      // Fallback to tsoa response callback (ensure Content-Type)
+      ok(200, mpdXML, { 'Content-Type': 'application/dash+xml; charset=utf-8' });
+    } catch (err) {
+      const msg = err instanceof Error ? err.message : String(err);
+      console.error('[BilibiliVideoController.getVideoManifest] error:', msg);
+      serverError(500, { error: 'Failed to retrieve video manifest', message: msg });
+    }
+  }
+}
