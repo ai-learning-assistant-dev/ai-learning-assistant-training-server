@@ -9,51 +9,7 @@ import {
 } from '../llm/domain/learning_assistant';
 import { AppDataSource } from '../config/database';
 import { AiInteraction } from '../models/aiInteraction';
-
-/**
- * AI聊天接口请求体
- */
-interface ChatRequest {
-  userId: string;
-  sectionId: string;
-  message: string;
-  personaId?: string;
-  sessionId?: string;
-}
-
-/**
- * 会话创建请求体
- */
-interface CreateSessionRequest {
-  userId: string;
-  sectionId: string;
-  personaId?: string;
-}
-
-/**
- * AI聊天响应
- */
-interface ChatResponse {
-  interaction_id: string;
-  user_id: string;
-  section_id: string;
-  session_id: string;
-  user_message: string;
-  ai_response: string;
-  query_time: Date;
-  persona_id_in_use?: string;
-}
-
-/**
- * 会话信息
- */
-interface SessionInfo {
-  session_id: string;
-  user_id: string;
-  section_id: string;
-  persona_id?: string;
-  created_at: Date;
-}
+import { ApiResponse } from '../types/express';
 
 /**
  * 集成LLM Agent的AI聊天控制器
@@ -66,7 +22,7 @@ export class AiChatController extends BaseController {
    * 与AI助手进行对话
    */
   @Post('/chat')
-  public async chat(@Body() request: ChatRequest): Promise<ChatResponse> {
+  public async chat(@Body() request: ChatRequest): Promise<ApiResponse<ChatResponse>> {
     try {
       const { userId, sectionId, message, personaId, sessionId } = request;
 
@@ -102,12 +58,12 @@ export class AiChatController extends BaseController {
       // 清理资源
       await assistant.cleanup();
 
-      return result;
+      return this.ok(result);
 
     } catch (error) {
       console.error('AI助手对话失败:', error);
       const errorMessage = error instanceof Error ? error.message : String(error);
-      throw new Error(`AI助手对话失败: ${errorMessage}`);
+      throw this.fail(`AI助手对话失败`,errorMessage);
     }
   }
 
@@ -117,7 +73,7 @@ export class AiChatController extends BaseController {
   @Get('/sessions/{userId}')
   public async getUserSessions(
     @Path() userId: string
-  ): Promise<any[]> {
+  ): Promise<ApiResponse<any[]>> {
     try {
       if (!userId) {
         throw new Error('缺少用户ID参数');
@@ -130,12 +86,12 @@ export class AiChatController extends BaseController {
       const sessions = await assistant.getUserSectionSessions();
       await assistant.cleanup();
 
-      return sessions;
+      return this.ok(sessions);
 
     } catch (error) {
       console.error('获取用户会话失败:', error);
       const errorMessage = error instanceof Error ? error.message : String(error);
-      throw new Error(`获取用户会话失败: ${errorMessage}`);
+      throw this.fail("获取用户会话失败",errorMessage);
     }
   }
 
@@ -143,14 +99,14 @@ export class AiChatController extends BaseController {
    * 获取会话的对话历史
    */
   @Get('/history/{sessionId}')
-  public async getSessionHistory(@Path() sessionId: string): Promise<{
+  public async getSessionHistory(@Path() sessionId: string): Promise<ApiResponse<{
     session_id: string;
     message_count: number;
     history: any[];
-  }> {
+  }>> {
     try {
       if (!sessionId) {
-        throw new Error('缺少会话ID参数');
+          this.fail("缺少会话ID参数",null,404);
       }
 
       // 通过现有的 AiInteraction 表查询历史记录
@@ -172,16 +128,16 @@ export class AiChatController extends BaseController {
         persona_name: interaction.persona?.name
       }));
 
-      return {
+      return this.ok({
         session_id: sessionId,
         message_count: interactions.length,
         history: history
-      };
+      });
 
     } catch (error) {
       console.error('获取会话历史失败:', error);
       const errorMessage = error instanceof Error ? error.message : String(error);
-      throw new Error(`获取会话历史失败: ${errorMessage}`);
+      throw this.fail(`获取会话历史失败`,errorMessage);
     }
   }
 
@@ -189,7 +145,7 @@ export class AiChatController extends BaseController {
    * 开始新的学习会话
    */
   @Post('/sessions/new')
-  public async startNewSession(@Body() request: CreateSessionRequest): Promise<SessionInfo> {
+  public async startNewSession(@Body() request: CreateSessionRequest): Promise<ApiResponse<SessionInfo>> {
     try {
       const { userId, sectionId, personaId } = request;
 
@@ -201,18 +157,18 @@ export class AiChatController extends BaseController {
       const sessionId = assistant.getSessionId();
       await assistant.cleanup();
 
-      return {
+      return this.ok({
         session_id: sessionId,
         user_id: userId,
         section_id: sectionId,
         persona_id: personaId,
         created_at: new Date()
-      };
+      });
 
     } catch (error) {
       console.error('创建新会话失败:', error);
       const errorMessage = error instanceof Error ? error.message : String(error);
-      throw new Error(`创建新会话失败: ${errorMessage}`);
+      throw this.fail("创建新会话失败",errorMessage) ;
     }
   }
 
@@ -220,7 +176,7 @@ export class AiChatController extends BaseController {
    * 获取会话分析统计
    */
   @Get('/analytics/{sessionId}')
-  public async getSessionAnalytics(@Path() sessionId: string): Promise<any> {
+  public async getSessionAnalytics(@Path() sessionId: string): Promise<ApiResponse<any>> {
     try {
       if (!sessionId) {
         throw new Error('缺少会话ID参数');
@@ -240,12 +196,12 @@ export class AiChatController extends BaseController {
       const analytics = await assistant.getSessionAnalytics();
       await assistant.cleanup();
 
-      return analytics;
+      return this.ok(analytics);
 
     } catch (error) {
       console.error('获取会话分析失败:', error);
       const errorMessage = error instanceof Error ? error.message : String(error);
-      throw new Error(`获取会话分析失败: ${errorMessage}`);
+      throw this.fail("获取会话分析失败",errorMessage);
     }
   }
 }
