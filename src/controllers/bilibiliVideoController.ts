@@ -1,90 +1,13 @@
-import { Controller, Get, Query, Route, Res, Request, TsoaResponse, Tags } from 'tsoa';
-import { ofetch } from 'ofetch';
+
+import { Get, Query, Route, Request, Tags } from 'tsoa';
+import { Request as ExpressRequest } from 'express'; // 引入 Express 类型
 import md5 from 'md5';
 import { create } from 'xmlbuilder2';
+import { BaseController } from './baseController';
+import { ApiResponse } from '../types/express';
+import { ofetchJson } from '../utils/ofetch';
+import { BaseResponse, EncWbiParams, EncWbiResult, DashData, NavData, PlayVideoData, VideoViewData, WbiKeysResponse } from '../types/bilibili';
 
-/**
- * Types
- */
-interface BaseResponse<T> {
-  code: number;
-  message: string;
-  ttl: number;
-  data: T;
-}
-
-interface WbiKeysResponse {
-  img_key: string;
-  sub_key: string;
-}
-
-interface NavData {
-  wbi_img: {
-    img_url: string;
-    sub_url: string;
-  };
-}
-
-interface VideoViewData {
-  cid: number;
-}
-
-interface DashStream {
-  [x: string]: any;
-  id: number;
-  base_url: string;
-  backup_url: string[];
-  bandwidth?: number;
-  mime_type?: string;
-  codecs?: string;
-  width?: number;
-  height?: number;
-  frame_rate?: string;
-  sar?: string;
-  segment_base: {
-    index_range: string;
-    initialization: string;
-  };
-  start_with_sap?: number;
-  size: number;
-}
-
-interface DashData {
-  duration: number;
-  timelength: number;
-  minBufferTime: number;
-  video: DashStream[];
-  audio: DashStream[];
-}
-
-interface PlayVideoData {
-  timelength?: number;
-  dash?: {
-    timelength?: number;
-    duration?: number;
-    minBufferTime?: number;
-    video?: DashStream[];
-    audio?: DashStream[];
-  };
-  data?: {
-    timelength?: number;
-    dash?: {
-      duration?: number;
-      minBufferTime?: number;
-      timelength?: number;
-      video?: DashStream[];
-      audio?: DashStream[];
-    };
-  };
-  durl?: { url: string; size: number }[];
-}
-
-type EncWbiParams = Record<string, string | number | boolean>;
-
-interface EncWbiResult {
-  wts: number;
-  w_rid: string;
-}
 
 /**
  * mixinKey table (unchanged)
@@ -136,7 +59,7 @@ async function getWbiKeys(sessdata?: string): Promise<WbiKeysResponse> {
   };
   if (sessdata) headers.Cookie = `SESSDATA=${sessdata};`;
 
-  const res = await ofetch<BaseResponse<NavData>>('https://api.bilibili.com/x/web-interface/nav', {
+  const res = await ofetchJson<BaseResponse<NavData>>('https://api.bilibili.com/x/web-interface/nav', {
     method: 'GET',
     headers,
     timeout: 5000,
@@ -273,7 +196,7 @@ function generateMPD(dashData: DashData, baseUrl: string): string {
     if (cleanCodec) attributes.codecs = cleanCodec;
     if (audio.start_with_sap !== undefined) attributes.startWithSAP = String(audio.start_with_sap);
     if (audio.bandwidth !== undefined) attributes.bandwidth = String(audio.bandwidth);
-    if ((audio as any).audioSamplingRate) attributes['audioSamplingRate'] = String((audio as any).audioSamplingRate);
+    if (audio.audioSamplingRate !== undefined) attributes['audioSamplingRate'] = String(audio.audioSamplingRate);
 
     const rep = audioAdaptationSet.ele('Representation', attributes);
     rep.ele('AudioChannelConfiguration', {
@@ -309,7 +232,7 @@ async function getDashInfo(bvid: string, sessdata?: string): Promise<{ dash: Das
   };
 
   // 获取 cid
-  const viewRes = await ofetch<BaseResponse<VideoViewData>>(
+  const viewRes = await ofetchJson<BaseResponse<VideoViewData>>(
     `https://api.bilibili.com/x/web-interface/view?bvid=${encodeURIComponent(bvid)}`,
     { method: 'GET', headers, timeout: 5000 }
   );
@@ -330,7 +253,7 @@ async function getDashInfo(bvid: string, sessdata?: string): Promise<{ dash: Das
   const sign = encWbi(params, img_key, sub_key);
   params = { ...params, ...sign };
 
-  const playRes = await ofetch<BaseResponse<PlayVideoData>>('https://api.bilibili.com/x/player/wbi/playurl', {
+  const playRes = await ofetchJson<BaseResponse<PlayVideoData>>('https://api.bilibili.com/x/player/wbi/playurl', {
     method: 'GET',
     headers,
     query: params,
@@ -363,31 +286,28 @@ async function getDashInfo(bvid: string, sessdata?: string): Promise<{ dash: Das
  */
 @Tags('B站视频代理')
 @Route('proxy/bilibili')
-export class BilibiliVideoController extends Controller {
+export class BilibiliVideoController extends BaseController {
   /**
    * 生成DASH格式视频清单(MPD)
    *
    * @param bvid Bilibili BV id
-   * @param req Request object (typed as any for tsoa compatibility)
+   * @param req Request object
+   * @param res Response object
    * @param sessdata optional SESSDATA cookie value for higher quality streams
    */
   @Get('video-manifest')
   public async getVideoManifest(
     @Query() bvid: string,
-    @Request() req: any,
-    @Res() ok: TsoaResponse<200, string>,
-    @Res() badRequest: TsoaResponse<400, { error: string; message: string }>,
-    @Res() serverError: TsoaResponse<500, { error: string; message: string }>,
+    @Request() req: ExpressRequest,
     @Query() sessdata?: string,
-  ): Promise<void> {
+  ): Promise<ApiResponse> {
     try {
       if (!bvid || !bvid.trim()) {
-        badRequest(400, { error: 'Bad Request', message: 'bvid parameter is required' });
-        return;
+        return this.fail("bvid parameter is required", null, 400)
       }
 
-      const protocol = (req && req.protocol) || 'http';
-      const host = (req && typeof req.get === 'function' && req.get('host')) || process.env.HOST || 'localhost:3000';
+      const protocol = req.protocol || 'http';
+      const host = req.get('host') || process.env.HOST || 'localhost:3000';
       let baseUrl = `${protocol}://${host}`;
 
       // adjust common port cases
@@ -400,27 +320,13 @@ export class BilibiliVideoController extends Controller {
       const dashInfo = await getDashInfo(bvid, sessdata);
       const mpdXML = generateMPD(dashInfo.dash, baseUrl);
 
-      // 优先使用 Express res（如果在 Express 环境中，可从 req.res 获取），直接发送原始 XML，避免被 JSON 序列化
-      const expressRes = req && (req.res || req.raw || (req as any).res);
-      if (expressRes && typeof expressRes.setHeader === 'function') {
-        // 使用 Express 原生返回
-        expressRes.setHeader('Content-Type', 'application/dash+xml; charset=utf-8');
-        // 一些环境没有 res.status 方法 on req.res, but express does, so guard:
-        if (typeof expressRes.status === 'function') {
-          expressRes.status(200).send(mpdXML);
-        } else {
-          expressRes.writeHead?.(200, { 'Content-Type': 'application/dash+xml; charset=utf-8' });
-          expressRes.end?.(mpdXML);
-        }
-        return;
-      }
-
-      // Fallback to tsoa response callback (ensure Content-Type)
-      ok(200, mpdXML, { 'Content-Type': 'application/dash+xml; charset=utf-8' });
+      return this.ok({
+        xml: mpdXML,
+      });
     } catch (err) {
       const msg = err instanceof Error ? err.message : String(err);
       console.error('[BilibiliVideoController.getVideoManifest] error:', msg);
-      serverError(500, { error: 'Failed to retrieve video manifest', message: msg });
+      return this.fail(msg)
     }
   }
 }
