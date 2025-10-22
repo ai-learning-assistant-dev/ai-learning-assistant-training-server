@@ -124,6 +124,86 @@ export class LearningAssistant {
   }
 
   /**
+   * 与AI进行流式对话
+   * @param userMessage 用户消息
+   * @returns AsyncGenerator 流式返回AI响应
+   */
+  async* chatStream(userMessage: string): AsyncGenerator<string, void, unknown> {
+    try {
+      console.log("🔄 开始流式对话处理...");
+      
+      // 获取当前对话历史
+      const existingMessages = await this.agent.getConversationHistory(this.sessionId);
+
+      // 添加新的用户消息
+      const { HumanMessage } = await import("@langchain/core/messages");
+      const allMessages = [...existingMessages, new HumanMessage(userMessage)];
+      
+      // 使用ReactAgent的stream方法进行流式处理
+      const streamPromise = this.agent.stream(allMessages, {
+        configurable: { thread_id: this.sessionId },
+        streamMode: "messages" // 尝试使用messages模式而不是updates
+      });
+
+      // 等待stream返回并处理
+      const stream = await streamPromise;
+      let fullResponse = "";
+      let messageCount = 0;
+      
+      // 处理流式输出
+      for await (const chunk of stream) {
+        messageCount++;
+        
+        try {
+          let content = '';
+          
+          // 基于最新调试结果：chunk是数组格式，第一个对象包含content字段
+          if (Array.isArray(chunk) && chunk.length > 0) {
+            const messageObj = chunk[0];
+            if (messageObj && typeof messageObj.content === 'string') {
+              content = messageObj.content;
+            }
+          }
+          
+          if (content) {
+            fullResponse += content;
+            yield content;
+          } else {
+            // 只在前几个chunk显示无内容警告
+            if (messageCount <= 10) {
+              console.log(`Chunk ${messageCount}: 无内容`);
+            }
+          }
+        } catch (chunkError) {
+          console.warn(`Chunk ${messageCount} 处理错误:`, chunkError);
+          continue;
+        }
+      }
+      // 如果流式处理产生了结果，保存到数据库
+      if (fullResponse) {
+        await this.saveInteraction(userMessage, fullResponse);
+      } else {
+        // 如果流式处理没有产生结果，回退到普通chat
+        console.warn("流式处理未产生结果，回退到普通模式");
+        const response = await this.chat(userMessage);
+        yield response;
+      }
+
+    } catch (error) {
+      console.error("流式对话处理失败:", error);
+      // 回退到普通chat模式
+      try {
+        console.log("回退到普通聊天模式...");
+        const response = await this.chat(userMessage);
+        yield response;
+      } catch (fallbackError) {
+        const errorMessage = fallbackError instanceof Error ? fallbackError.message : String(fallbackError);
+        throw new Error(`流式对话处理失败: ${errorMessage}`);
+      }
+    }
+  }
+
+  /**
    * 获取对话历史
    */
   async getConversationHistory(): Promise<BaseMessage[]> {

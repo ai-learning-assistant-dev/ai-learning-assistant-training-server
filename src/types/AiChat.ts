@@ -7,6 +7,7 @@ interface ChatRequest {
   message: string;
   personaId?: string;
   sessionId?: string;
+  streamly?: boolean;
 }
 
 /**

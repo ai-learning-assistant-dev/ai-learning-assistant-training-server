@@ -24,7 +24,7 @@ export class AiChatController extends BaseController {
   @Post('/chat')
   public async chat(@Body() request: ChatRequest): Promise<ApiResponse<ChatResponse>> {
     try {
-      const { userId, sectionId, message, personaId, sessionId } = request;
+      const { userId, sectionId, message, personaId, sessionId, streamly } = request;
 
       // 验证必要参数
       if (!userId || !sectionId || !message) {
@@ -42,7 +42,19 @@ export class AiChatController extends BaseController {
       }
 
       // 与AI进行对话
-      const aiResponse = await assistant.chat(message);
+      let aiResponse: string;
+      if (streamly) {
+        // 流式输出 - 收集所有流式内容
+        console.log("🔄 使用流式输出模式");
+        const chunks: string[] = [];
+        for await (const chunk of assistant.chatStream(message)) {
+          chunks.push(chunk);
+        }
+        aiResponse = chunks.join('');
+      } else {
+        // 普通输出
+        aiResponse = await assistant.chat(message);
+      }
 
       const result: ChatResponse = {
         interaction_id: `${assistant.getSessionId()}_${Date.now()}`,
