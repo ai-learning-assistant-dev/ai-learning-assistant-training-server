@@ -1,11 +1,11 @@
 import { Get, Query, Route, Request, Tags } from 'tsoa';
 import type { Request as ExpressRequest, Response as ExpressResponse } from 'express';
 import { Readable } from 'stream';
-import { ofetch } from 'ofetch';
 import { ApiResponse } from '../types/express';
 import { pipeline } from 'stream';
 import { promisify } from 'util';
 import { BaseController } from './baseController';
+import { ofetchRawStream } from '../utils/ofetch';
 
 const pipelineAsync = promisify(pipeline);
 
@@ -53,7 +53,7 @@ export class BilibiliProxyController extends BaseController {
         headers['Range'] = rangeHeader;
       }
 
-      const response = await ofetch.raw(decodedUrl, {
+      const response = await ofetchRawStream(decodedUrl, {
         method: 'GET',
         headers,
         responseType: 'stream',

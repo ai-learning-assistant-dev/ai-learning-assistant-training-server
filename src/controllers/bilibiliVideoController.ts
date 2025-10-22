@@ -1,94 +1,13 @@
 
 import { Get, Query, Route, Request, Tags } from 'tsoa';
-import {  Request as ExpressRequest } from 'express'; // 引入 Express 类型
-import { ofetch } from 'ofetch';
+import { Request as ExpressRequest } from 'express'; // 引入 Express 类型
 import md5 from 'md5';
 import { create } from 'xmlbuilder2';
 import { BaseController } from './baseController';
 import { ApiResponse } from '../types/express';
+import { ofetchJson } from '../utils/ofetch';
+import { BaseResponse, EncWbiParams, EncWbiResult, DashData, NavData, PlayVideoData, VideoViewData, WbiKeysResponse } from '../types/bilibili';
 
-/**
- * Types
- */
-interface BaseResponse<T> {
-  code: number;
-  message: string;
-  ttl: number;
-  data: T;
-}
-
-interface WbiKeysResponse {
-  img_key: string;
-  sub_key: string;
-}
-
-interface NavData {
-  wbi_img: {
-    img_url: string;
-    sub_url: string;
-  };
-}
-
-interface VideoViewData {
-  cid: number;
-}
-
-interface DashStream {
-  id: number;
-  base_url: string;
-  backup_url: string[];
-  bandwidth?: number;
-  mime_type?: string;
-  codecs?: string;
-  width?: number;
-  height?: number;
-  frame_rate?: string;
-  sar?: string;
-  segment_base: {
-    index_range: string;
-    initialization: string;
-  };
-  start_with_sap?: number;
-  size: number;
-  audioSamplingRate?: number; // 添加可选的 audioSamplingRate 以避免类型转换
-}
-
-interface DashData {
-  duration: number;
-  timelength: number;
-  minBufferTime: number;
-  video: DashStream[];
-  audio: DashStream[];
-}
-
-interface PlayVideoData {
-  timelength?: number;
-  dash?: {
-    timelength?: number;
-    duration?: number;
-    minBufferTime?: number;
-    video?: DashStream[];
-    audio?: DashStream[];
-  };
-  data?: {
-    timelength?: number;
-    dash?: {
-      duration?: number;
-      minBufferTime?: number;
-      timelength?: number;
-      video?: DashStream[];
-      audio?: DashStream[];
-    };
-  };
-  durl?: { url: string; size: number }[];
-}
-
-type EncWbiParams = Record<string, string | number | boolean>;
-
-interface EncWbiResult {
-  wts: number;
-  w_rid: string;
-}
 
 /**
  * mixinKey table (unchanged)
@@ -140,7 +59,7 @@ async function getWbiKeys(sessdata?: string): Promise<WbiKeysResponse> {
   };
   if (sessdata) headers.Cookie = `SESSDATA=${sessdata};`;
 
-  const res = await ofetch<BaseResponse<NavData>>('https://api.bilibili.com/x/web-interface/nav', {
+  const res = await ofetchJson<BaseResponse<NavData>>('https://api.bilibili.com/x/web-interface/nav', {
     method: 'GET',
     headers,
     timeout: 5000,
@@ -313,7 +232,7 @@ async function getDashInfo(bvid: string, sessdata?: string): Promise<{ dash: Das
   };
 
   // 获取 cid
-  const viewRes = await ofetch<BaseResponse<VideoViewData>>(
+  const viewRes = await ofetchJson<BaseResponse<VideoViewData>>(
     `https://api.bilibili.com/x/web-interface/view?bvid=${encodeURIComponent(bvid)}`,
     { method: 'GET', headers, timeout: 5000 }
   );
@@ -334,7 +253,7 @@ async function getDashInfo(bvid: string, sessdata?: string): Promise<{ dash: Das
   const sign = encWbi(params, img_key, sub_key);
   params = { ...params, ...sign };
 
-  const playRes = await ofetch<BaseResponse<PlayVideoData>>('https://api.bilibili.com/x/player/wbi/playurl', {
+  const playRes = await ofetchJson<BaseResponse<PlayVideoData>>('https://api.bilibili.com/x/player/wbi/playurl', {
     method: 'GET',
     headers,
     query: params,
