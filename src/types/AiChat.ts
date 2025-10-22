@@ -7,7 +7,17 @@ interface ChatRequest {
   message: string;
   personaId?: string;
   sessionId?: string;
-  streamly?: boolean;
+}
+
+/**
+ * 流式聊天接口请求体
+ */
+interface StreamChatRequest {
+  userId: string;
+  sectionId: string;
+  message: string;
+  personaId?: string;
+  sessionId?: string;
 }
 
 /**
@@ -43,3 +53,11 @@ interface SessionInfo {
   persona_id?: string;
   created_at: Date;
 }
+
+export {
+  ChatRequest,
+  StreamChatRequest,
+  CreateSessionRequest,
+  ChatResponse,
+  SessionInfo
+};

@@ -1,5 +1,5 @@
 import { Request, Response } from 'express';
-import { Route, Get, Post, Body, Path, Tags } from 'tsoa';
+import { Route, Get, Post, Body, Path, Tags, Res, TsoaResponse } from 'tsoa';
 import { BaseController } from './baseController';
 import { 
   createLearningAssistant, 
@@ -10,6 +10,13 @@ import {
 import { AppDataSource } from '../config/database';
 import { AiInteraction } from '../models/aiInteraction';
 import { ApiResponse } from '../types/express';
+import { 
+  ChatRequest, 
+  StreamChatRequest, 
+  CreateSessionRequest, 
+  ChatResponse, 
+  SessionInfo 
+} from '../types/AiChat';
 
 /**
  * 集成LLM Agent的AI聊天控制器
@@ -24,7 +31,7 @@ export class AiChatController extends BaseController {
   @Post('/chat')
   public async chat(@Body() request: ChatRequest): Promise<ApiResponse<ChatResponse>> {
     try {
-      const { userId, sectionId, message, personaId, sessionId, streamly } = request;
+      const { userId, sectionId, message, personaId, sessionId } = request;
 
       // 验证必要参数
       if (!userId || !sectionId || !message) {
@@ -41,20 +48,8 @@ export class AiChatController extends BaseController {
         assistant = await createLearningAssistant(userId, sectionId, personaId);
       }
 
-      // 与AI进行对话
-      let aiResponse: string;
-      if (streamly) {
-        // 流式输出 - 收集所有流式内容
-        console.log("🔄 使用流式输出模式");
-        const chunks: string[] = [];
-        for await (const chunk of assistant.chatStream(message)) {
-          chunks.push(chunk);
-        }
-        aiResponse = chunks.join('');
-      } else {
-        // 普通输出
-        aiResponse = await assistant.chat(message);
-      }
+      // 与AI进行对话 - 普通模式
+      const aiResponse = await assistant.chat(message);
 
       const result: ChatResponse = {
         interaction_id: `${assistant.getSessionId()}_${Date.now()}`,
@@ -76,6 +71,73 @@ export class AiChatController extends BaseController {
       console.error('AI助手对话失败:', error);
       const errorMessage = error instanceof Error ? error.message : String(error);
       throw this.fail(`AI助手对话失败`,errorMessage);
+    }
+  }
+
+  /**
+   * 与AI助手进行流式对话
+   */
+  @Post('/chat/stream')
+  public async chatStream(
+    @Body() request: StreamChatRequest
+  ): Promise<ApiResponse<any>> {
+    try {
+      const { userId, sectionId, message, personaId, sessionId } = request;
+
+      // 验证必要参数
+      if (!userId || !sectionId || !message) {
+        throw new Error('缺少必要参数：userId, sectionId, message');
+      }
+
+      let assistant: LearningAssistant;
+
+      try {
+        if (sessionId) {
+          // 恢复现有会话
+          assistant = await resumeLearningSession(userId, sessionId);
+        } else {
+          // 创建新会话
+          assistant = await createLearningAssistant(userId, sectionId, personaId);
+        }
+
+        // 收集所有流式内容
+        const chunks: string[] = [];
+        let fullResponse = '';
+        
+        for await (const chunk of assistant.chatStream(message)) {
+          chunks.push(chunk);
+          fullResponse += chunk;
+        }
+
+        // 返回流式处理结果
+        const result = {
+          interaction_id: `${assistant.getSessionId()}_${Date.now()}`,
+          session_id: assistant.getSessionId(),
+          user_id: userId,
+          section_id: sectionId,
+          persona_id_in_use: personaId,
+          user_message: message,
+          ai_response: fullResponse,
+          chunks: chunks,
+          chunk_count: chunks.length,
+          query_time: new Date().toISOString(),
+          streaming: true
+        };
+
+        // 清理资源
+        await assistant.cleanup();
+
+        return this.ok(result);
+
+      } catch (streamError) {
+        const errorMessage = streamError instanceof Error ? streamError.message : String(streamError);
+        throw this.fail('流式处理错误', errorMessage);
+      }
+
+    } catch (error) {
+      console.error('流式AI对话失败:', error);
+      const errorMessage = error instanceof Error ? error.message : String(error);
+      throw this.fail('流式AI对话失败', errorMessage);
     }
   }
 
