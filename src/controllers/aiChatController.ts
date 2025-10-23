@@ -10,7 +10,7 @@ import {
 import { AppDataSource } from '../config/database';
 import { AiInteraction } from '../models/aiInteraction';
 import { ApiResponse } from '../types/express';
-
+import { ChatResponse,ChatRequest,CreateSessionRequest,SessionInfo} from '../types/aiChat';
 /**
  * 集成LLM Agent的AI聊天控制器
  */

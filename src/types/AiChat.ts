@@ -1,7 +1,7 @@
 /**
  * AI聊天接口请求体
  */
-interface ChatRequest {
+export interface ChatRequest {
   userId: string;
   sectionId: string;
   message: string;
@@ -12,7 +12,7 @@ interface ChatRequest {
 /**
  * 会话创建请求体
  */
-interface CreateSessionRequest {
+export interface CreateSessionRequest {
   userId: string;
   sectionId: string;
   personaId?: string;
@@ -21,7 +21,7 @@ interface CreateSessionRequest {
 /**
  * AI聊天响应
  */
-interface ChatResponse {
+export interface ChatResponse {
   interaction_id: string;
   user_id: string;
   section_id: string;
@@ -35,7 +35,7 @@ interface ChatResponse {
 /**
  * 会话信息
  */
-interface SessionInfo {
+export interface SessionInfo {
   session_id: string;
   user_id: string;
   section_id: string;
