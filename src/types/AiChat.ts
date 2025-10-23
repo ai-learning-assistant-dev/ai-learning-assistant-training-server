@@ -1,3 +1,5 @@
+import { Readable } from "stream";
+
 /**
  * AI聊天接口请求体
  */
@@ -44,6 +46,20 @@ interface ChatResponse {
 }
 
 /**
+ * AI流式聊天响应
+ */
+interface ChatStreamlyResponse {
+  interaction_id: string;
+  user_id: string;
+  section_id: string;
+  session_id: string;
+  user_message: string;
+  ai_response: Readable;
+  query_time: Date;
+  persona_id_in_use?: string;
+}
+
+/**
  * 会话信息
  */
 interface SessionInfo {
@@ -59,5 +75,6 @@ export {
   StreamChatRequest,
   CreateSessionRequest,
   ChatResponse,
+  ChatStreamlyResponse,
   SessionInfo
 };

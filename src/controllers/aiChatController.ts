@@ -14,7 +14,8 @@ import {
   ChatRequest, 
   StreamChatRequest, 
   CreateSessionRequest, 
-  ChatResponse, 
+  ChatResponse,
+  ChatStreamlyResponse, 
   SessionInfo 
 } from '../types/AiChat';
 
@@ -80,7 +81,7 @@ export class AiChatController extends BaseController {
   @Post('/chat/stream')
   public async chatStream(
     @Body() request: StreamChatRequest
-  ): Promise<ApiResponse<any>> {
+  ): Promise<ApiResponse<ChatStreamlyResponse>> {
     try {
       const { userId, sectionId, message, personaId, sessionId } = request;
 
@@ -100,28 +101,20 @@ export class AiChatController extends BaseController {
           assistant = await createLearningAssistant(userId, sectionId, personaId);
         }
 
-        // 收集所有流式内容
-        const chunks: string[] = [];
-        let fullResponse = '';
+        // 获取Readable流
+        const readableStream = assistant.chatStream(message);
         
-        for await (const chunk of assistant.chatStream(message)) {
-          chunks.push(chunk);
-          fullResponse += chunk;
-        }
 
         // 返回流式处理结果
-        const result = {
+        const result: ChatStreamlyResponse = {
           interaction_id: `${assistant.getSessionId()}_${Date.now()}`,
           session_id: assistant.getSessionId(),
           user_id: userId,
           section_id: sectionId,
           persona_id_in_use: personaId,
           user_message: message,
-          ai_response: fullResponse,
-          chunks: chunks,
-          chunk_count: chunks.length,
-          query_time: new Date().toISOString(),
-          streaming: true
+          ai_response: readableStream,
+          query_time: new Date()
         };
 
         // 清理资源
