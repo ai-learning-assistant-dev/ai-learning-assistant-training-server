@@ -11,7 +11,6 @@ export interface ApiResponse<T = any> {
     page: number;
     limit: number;
     total: number;
-    totalPages: number;
   };
 }
 
