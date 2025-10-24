@@ -22,6 +22,6 @@ export class Exercise {
   @Column({ type: 'int', default: 1 })
   score!: number;
 
-  @Column({ type: 'text' })
+  @Column({ type: 'text', nullable: true  })
   answer!: string;
 }
