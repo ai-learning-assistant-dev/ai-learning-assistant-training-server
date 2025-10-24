@@ -11,7 +11,11 @@ export class BaseController extends Controller {
   /**
    * 统一返回成功响应
    */
-  protected ok<T>(data: T, message?: string, pagination?: any) {
+  protected ok<T>(data: T, message?: string, pagination?: {
+    page: number;
+    limit: number;
+    total: number;
+  }) {
      message=message ?? "成功"
     return {
       success: true,
