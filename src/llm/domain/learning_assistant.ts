@@ -100,7 +100,7 @@ export class LearningAssistant {
     // 验证用户、章节、人设是否存在
     await this.validateEntities();
 
-    console.log(`🤖 学习助手已初始化 - 用户: ${this.userId}, 章节: ${this.sectionId}, 会话: ${this.sessionId}`);
+    console.log(`学习助手已初始化 - 用户: ${this.userId}, 章节: ${this.sectionId}, 会话: ${this.sessionId}`);
   }
 
   /**
@@ -118,7 +118,7 @@ export class LearningAssistant {
 
       return aiResponse;
     } catch (error) {
-      console.error("💬 对话处理失败:", error);
+      console.error("对话处理失败:", error);
       const errorMessage = error instanceof Error ? error.message : String(error);
       throw new Error(`对话处理失败: ${errorMessage}`);
     }
@@ -258,7 +258,7 @@ export class LearningAssistant {
     this.personaId = newPersonaId;
     
     // 可以考虑创建新的会话或在当前会话中标记人设切换
-    console.log(`🎭 已切换到AI人设: ${persona.name}`);
+    console.log(`已切换到AI人设: ${persona.name}`);
   }
 
   /**
@@ -483,7 +483,7 @@ ${personaPrompt}`;
    */
   async cleanup(): Promise<void> {
     if (this.storage.isConnected()) {
-      await this.storage.disconnect();
+      // await this.storage.disconnect();
     }
   }
 
