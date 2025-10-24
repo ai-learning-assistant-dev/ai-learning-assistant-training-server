@@ -24,4 +24,8 @@ export class Exercise {
 
   @Column({ type: 'text', nullable: true  })
   answer!: string;
+
+  @Column({ type: 'text', nullable: true  })
+  image!: string;
+  
 }

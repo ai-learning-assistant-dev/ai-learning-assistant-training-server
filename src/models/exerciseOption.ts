@@ -18,4 +18,7 @@ export class ExerciseOption {
 
   @Column({ type: 'boolean' })
   is_correct!: boolean;
+  
+  @Column({ type: 'text', nullable: true  })
+  image!: string;
 }
