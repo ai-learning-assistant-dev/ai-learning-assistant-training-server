@@ -16,12 +16,16 @@ export class Exercise {
   @Column({ type: 'text' })
   question!: string;
 
-  @Column({ type: 'varchar', length: 50 })
+  @Column({ type: 'varchar', length: 50, comment: '0: 单选, 1: 多选, 2: 简答' })
   type_status!: string;
 
   @Column({ type: 'int', default: 1 })
   score!: number;
 
-  @Column({ type: 'text' })
+  @Column({ type: 'text', nullable: true  })
   answer!: string;
+
+  @Column({ type: 'text', nullable: true  })
+  image!: string;
+  
 }

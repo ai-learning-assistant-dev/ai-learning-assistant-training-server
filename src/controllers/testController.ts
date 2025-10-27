@@ -1,3 +1,7 @@
+import { In } from 'typeorm';
+import { Exercise } from '../models/exercise';
+import { ExerciseOption } from '../models/exerciseOption';
+import { TestExercise } from '../models/testExercise';
 import { AppDataSource } from '../config/database';
 import { Test } from '../models/test';
 import { ApiResponse } from '../types/express';
@@ -8,6 +12,49 @@ import { BaseController } from './baseController';
 @Tags("测试表")
 @Route('tests')
 export class TestController extends BaseController {
+    /**
+   * 通过 course_id 查询 tests 及其下所有题目和选项
+   */
+  @Post('/getTestsWithExercisesByCourse')
+  public async getTestsWithExercisesByCourse(
+    @Body() body: { course_id: string }
+  ): Promise<ApiResponse<any>> {
+    try {
+      if (!body.course_id) {
+        return this.fail('course_id 必填', null, 400);
+      }
+      const testRepo = AppDataSource.getRepository(Test);
+      const testExerciseRepo = AppDataSource.getRepository(TestExercise);
+      const exerciseRepo = AppDataSource.getRepository(Exercise);
+      const optionRepo = AppDataSource.getRepository(ExerciseOption);
+      // 1. 查 tests
+      const tests = await testRepo.find({ where: { course_id: body.course_id }, order: { test_id: 'ASC' } });
+      if (!tests.length) return this.ok([]);
+      const testIds = tests.map(t => t.test_id);
+      // 2. 查 test_exercises
+      const testExercises = await testExerciseRepo.find({ where: { test_id: In(testIds) } });
+      const exerciseIds = testExercises.map(te => te.exercise_id);
+      // 3. 查 exercises
+      const exercises = exerciseIds.length > 0 ? await exerciseRepo.find({ where: { exercise_id: In(exerciseIds) } }) : [];
+      // 4. 查 exercise_options
+      const options = exerciseIds.length > 0 ? await optionRepo.find({ where: { exercise_id: In(exerciseIds) } }) : [];
+      // 组装
+      const exerciseMap = exercises.map(ex => ({
+        ...ex,
+        options: options.filter(opt => opt.exercise_id === ex.exercise_id)
+      }));
+      const testMap = tests.map(test => {
+        const rels = testExercises.filter(te => te.test_id === test.test_id);
+        return {
+          ...test,
+          exercises: rels.map(rel => exerciseMap.find(ex => ex.exercise_id === rel.exercise_id)).filter(Boolean)
+        };
+      });
+      return this.ok(testMap);
+    } catch (error) {
+      return this.fail('查询测试及题目失败', error);
+    }
+  }
   @Post('/search')
   public async searchTests(
     @Body() body: { page?: number; limit?: number }
