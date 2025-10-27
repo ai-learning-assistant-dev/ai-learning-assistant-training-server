@@ -176,6 +176,7 @@ export class LearningAssistant {
             
             if (content) {
               fullResponse += content;
+              // console.log(`Chunk ${messageCount}: ${content}`);
               // 实时将chunk写入到Readable流中
               readable.push(content);
             } else {

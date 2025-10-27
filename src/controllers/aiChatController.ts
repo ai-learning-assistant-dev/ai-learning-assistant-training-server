@@ -18,6 +18,7 @@ import {
   ChatStreamlyResponse, 
   SessionInfo 
 } from '../types/AiChat';
+import { Readable } from 'node:stream';
 
 /**
  * 集成LLM Agent的AI聊天控制器
@@ -81,7 +82,7 @@ export class AiChatController extends BaseController {
   @Post('/chat/stream')
   public async chatStream(
     @Body() request: StreamChatRequest
-  ): Promise<ApiResponse<ChatStreamlyResponse>> {
+  ): Promise<Readable> {
     try {
       const { userId, sectionId, message, personaId, sessionId } = request;
 
@@ -120,7 +121,7 @@ export class AiChatController extends BaseController {
         // 清理资源
         await assistant.cleanup();
 
-        return this.ok(result);
+        return readableStream;
 
       } catch (streamError) {
         const errorMessage = streamError instanceof Error ? streamError.message : String(streamError);
@@ -223,6 +224,11 @@ export class AiChatController extends BaseController {
       const assistant = await startNewLearningSession(userId, sectionId, personaId);
       const sessionId = assistant.getSessionId();
       await assistant.cleanup();
+
+      console.log('创建新会话ID:', sessionId);
+      console.log('用户ID:', userId);
+      console.log('章节ID:', sectionId);
+      console.log('人设ID:', personaId);
 
       return this.ok({
         session_id: sessionId,
