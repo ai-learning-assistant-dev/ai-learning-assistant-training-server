@@ -70,11 +70,33 @@ interface SessionInfo {
   created_at: Date;
 }
 
+/**
+ * 单个会话的详细信息
+ */
+interface SessionDetail {
+  session_id: string;
+  interaction_count: number;
+  first_interaction: Date;
+  last_interaction: Date;
+}
+
+/**
+ * 用户章节会话列表响应
+ */
+interface UserSectionSessionsResponse {
+  user_id: string;
+  section_id: string;
+  session_count: number;
+  sessions: SessionDetail[];
+}
+
 export {
   ChatRequest,
   StreamChatRequest,
   CreateSessionRequest,
   ChatResponse,
   ChatStreamlyResponse,
-  SessionInfo
+  SessionInfo,
+  SessionDetail,
+  UserSectionSessionsResponse
 };
