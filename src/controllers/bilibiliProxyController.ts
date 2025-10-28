@@ -1,15 +1,17 @@
-import { Controller, Get, Query, Route, Request, Res, TsoaResponse, Tags } from 'tsoa';
+import { Get, Query, Route, Request, Tags } from 'tsoa';
 import type { Request as ExpressRequest, Response as ExpressResponse } from 'express';
 import { Readable } from 'stream';
-import { ofetch } from 'ofetch';
+import { ApiResponse } from '../types/express';
 import { pipeline } from 'stream';
 import { promisify } from 'util';
+import { BaseController } from './baseController';
+import { ofetchRawStream } from '../utils/ofetch';
 
 const pipelineAsync = promisify(pipeline);
 
 @Tags('B站视频代理')
 @Route('proxy/bilibili')
-export class BilibiliProxyController extends Controller {
+export class BilibiliProxyController extends BaseController {
   /*
    * 代理转发B站视频流
    */
@@ -17,15 +19,15 @@ export class BilibiliProxyController extends Controller {
   public async proxyBilibiliStream(
     @Query() url: string,
     @Request() req: ExpressRequest,
-    @Res() badRequest: TsoaResponse<400, { error: string }>,
-    @Res() serverError: TsoaResponse<500, { error: string }>
-  ): Promise<void> {
+  ): Promise<ApiResponse | void> {
     try {
-      if (!url) return badRequest(400, { error: 'URL is required' });
+      if (!url) {
+        return this.fail('URL 参数不能为空', null, 400);
+      };
 
       const decodedUrl = decodeURIComponent(url);
       if (!/^https:\/\/[\w.-]*bilivideo\.com\//.test(decodedUrl)) {
-        return badRequest(400, { error: 'Invalid Bilibili video domain' });
+        return this.fail('非法的B站视频域名', null, 400);
       }
 
       const headers: Record<string, string> = {
@@ -44,14 +46,14 @@ export class BilibiliProxyController extends Controller {
       if (rangeHeader) {
         const rangeMatch = rangeHeader.match(/^bytes=(\d+)-(\d*)$/);
         if (!rangeMatch) {
-          return badRequest(400, { error: 'Invalid Range header format' });
+          return this.fail('Range 请求头格式无效', null, 400);
         }
         rangeStart = parseInt(rangeMatch[1], 10);
         rangeEnd = rangeMatch[2] ? parseInt(rangeMatch[2], 10) : undefined;
         headers['Range'] = rangeHeader;
       }
 
-      const response = await ofetch.raw(decodedUrl, {
+      const response = await ofetchRawStream(decodedUrl, {
         method: 'GET',
         headers,
         responseType: 'stream',
@@ -60,12 +62,12 @@ export class BilibiliProxyController extends Controller {
 
       if (response.status === 204) {
         console.error('❌ Bilibili returned 204 (missing Range?)');
-        return serverError(500, { error: 'Bilibili returned 204 (check Range/Referer)' });
+        return this.fail('B 站返回204错误 (请检查Range头或Referer设置) ');
       }
 
       const res = req.res as ExpressResponse;
       if (!res) {
-        return serverError(500, { error: 'Response object not available' });
+        return this.fail('响应对象不可用');
       }
 
       // Get content length from response headers
@@ -96,8 +98,8 @@ export class BilibiliProxyController extends Controller {
       const nodeStream = Readable.fromWeb(response.body as any);
       await pipelineAsync(nodeStream, res);
     } catch (error) {
-      console.error('Proxy error:', error);
-      serverError(500, { error: `Streaming failed: ${(error as Error).message}` });
+      console.error('代理错误:', error);
+      return this.fail(`视频流传输失败: ${(error as Error).message}`);
     }
   }
 }
