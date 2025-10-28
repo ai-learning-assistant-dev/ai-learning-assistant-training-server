@@ -116,7 +116,7 @@ export class ReactAgent {
   stream(messages: BaseMessageLike[], options?: StreamOptions) {
     const mergedOptions = {
       ...(options ?? {}),
-      streamMode: options?.streamMode ?? "values",
+      streamMode: options?.streamMode ?? "messages",
     } as StreamOptions | undefined;
 
     return this.graph.stream(

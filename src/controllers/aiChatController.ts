@@ -1,5 +1,5 @@
 import { Request, Response } from 'express';
-import { Route, Get, Post, Body, Path, Tags } from 'tsoa';
+import { Route, Get, Post, Body, Path, Tags, Res, TsoaResponse, Query } from 'tsoa';
 import { BaseController } from './baseController';
 import { 
   createLearningAssistant, 
@@ -10,7 +10,18 @@ import {
 import { AppDataSource } from '../config/database';
 import { AiInteraction } from '../models/aiInteraction';
 import { ApiResponse } from '../types/express';
-import { ChatResponse,ChatRequest,CreateSessionRequest,SessionInfo} from '../types/aiChat';
+import { 
+  ChatRequest, 
+  StreamChatRequest, 
+  CreateSessionRequest, 
+  ChatResponse,
+  ChatStreamlyResponse, 
+  SessionInfo,
+  UserSectionSessionsResponse
+} from '../types/AiChat';
+import { Readable } from 'node:stream';
+import { Section } from '@/models/section';
+
 /**
  * 集成LLM Agent的AI聊天控制器
  */
@@ -41,7 +52,7 @@ export class AiChatController extends BaseController {
         assistant = await createLearningAssistant(userId, sectionId, personaId);
       }
 
-      // 与AI进行对话
+      // 与AI进行对话 - 普通模式
       const aiResponse = await assistant.chat(message);
 
       const result: ChatResponse = {
@@ -64,6 +75,130 @@ export class AiChatController extends BaseController {
       console.error('AI助手对话失败:', error);
       const errorMessage = error instanceof Error ? error.message : String(error);
       throw this.fail(`AI助手对话失败`,errorMessage);
+    }
+  }
+
+  /**
+   * 与AI助手进行流式对话
+   */
+  @Post('/chat/stream')
+  public async chatStream(
+    @Body() request: StreamChatRequest
+  ): Promise<Readable> {
+    try {
+      const { userId, sectionId, message, personaId, sessionId } = request;
+
+      // 验证必要参数
+      if (!userId || !sectionId || !message) {
+        throw new Error('缺少必要参数：userId, sectionId, message');
+      }
+
+      let assistant: LearningAssistant;
+
+      try {
+        if (sessionId) {
+          // 恢复现有会话
+          assistant = await resumeLearningSession(userId, sessionId);
+        } else {
+          // 创建新会话
+          assistant = await createLearningAssistant(userId, sectionId, personaId);
+        }
+
+        // 获取Readable流
+        const readableStream = assistant.chatStream(message);
+        
+
+        // 返回流式处理结果
+        const result: ChatStreamlyResponse = {
+          interaction_id: `${assistant.getSessionId()}_${Date.now()}`,
+          session_id: assistant.getSessionId(),
+          user_id: userId,
+          section_id: sectionId,
+          persona_id_in_use: personaId,
+          user_message: message,
+          ai_response: readableStream,
+          query_time: new Date()
+        };
+
+        // 清理资源
+        await assistant.cleanup();
+
+        return readableStream;
+
+      } catch (streamError) {
+        const errorMessage = streamError instanceof Error ? streamError.message : String(streamError);
+        throw this.fail('流式处理错误', errorMessage);
+      }
+
+    } catch (error) {
+      console.error('流式AI对话失败:', error);
+      const errorMessage = error instanceof Error ? error.message : String(error);
+      throw this.fail('流式AI对话失败', errorMessage);
+    }
+  }
+
+  /**
+   * 通过用户ID和章节ID获取会话ID列表
+   */
+  @Get('/sessionID/by-user-section')
+  public async getSessionsByUserAndSection(
+    @Query() userId: string,
+    @Query() sectionId: string
+  ): Promise<ApiResponse<UserSectionSessionsResponse>> {
+    try {
+      if (!userId || !sectionId) {
+        throw new Error('缺少必要参数：userId 和 sectionId');
+      }
+
+      // 通过 AiInteraction 表查询该用户在该章节的所有会话
+      const aiInteractionRepo = AppDataSource.getRepository(AiInteraction);
+      const interactions = await aiInteractionRepo.find({
+        where: { 
+          user_id: userId,
+          section_id: sectionId 
+        },
+        order: { query_time: 'ASC' }
+      });
+
+      // 按 session_id 分组统计
+      const sessionMap = new Map<string, {
+        session_id: string;
+        interactions: AiInteraction[];
+      }>();
+
+      interactions.forEach(interaction => {
+        const sessionId = interaction.session_id;
+        if (!sessionMap.has(sessionId)) {
+          sessionMap.set(sessionId, {
+            session_id: sessionId,
+            interactions: []
+          });
+        }
+        sessionMap.get(sessionId)!.interactions.push(interaction);
+      });
+
+      // 构建返回结果
+      const sessions = Array.from(sessionMap.values()).map(session => ({
+        session_id: session.session_id,
+        interaction_count: session.interactions.length,
+        first_interaction: session.interactions[0].query_time!,
+        last_interaction: session.interactions[session.interactions.length - 1].query_time!
+      }));
+
+      // 按最后交互时间倒序排列
+      sessions.sort((a, b) => b.last_interaction.getTime() - a.last_interaction.getTime());
+
+      return this.ok({
+        user_id: userId,
+        section_id: sectionId,
+        session_count: sessions.length,
+        sessions: sessions
+      });
+
+    } catch (error) {
+      console.error('获取用户章节会话列表失败:', error);
+      const errorMessage = error instanceof Error ? error.message : String(error);
+      throw this.fail("获取用户章节会话列表失败", errorMessage);
     }
   }
 
@@ -94,6 +229,8 @@ export class AiChatController extends BaseController {
       throw this.fail("获取用户会话失败",errorMessage);
     }
   }
+
+
 
   /**
    * 获取会话的对话历史
@@ -156,6 +293,11 @@ export class AiChatController extends BaseController {
       const assistant = await startNewLearningSession(userId, sectionId, personaId);
       const sessionId = assistant.getSessionId();
       await assistant.cleanup();
+
+      console.log('创建新会话ID:', sessionId);
+      console.log('用户ID:', userId);
+      console.log('章节ID:', sectionId);
+      console.log('人设ID:', personaId);
 
       return this.ok({
         session_id: sessionId,

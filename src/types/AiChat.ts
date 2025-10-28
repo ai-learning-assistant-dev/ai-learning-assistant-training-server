@@ -1,7 +1,20 @@
+import { Readable } from "stream";
+
 /**
  * AI聊天接口请求体
  */
 export interface ChatRequest {
+  userId: string;
+  sectionId: string;
+  message: string;
+  personaId?: string;
+  sessionId?: string;
+}
+
+/**
+ * 流式聊天接口请求体
+ */
+interface StreamChatRequest {
   userId: string;
   sectionId: string;
   message: string;
@@ -33,6 +46,20 @@ export interface ChatResponse {
 }
 
 /**
+ * AI流式聊天响应
+ */
+interface ChatStreamlyResponse {
+  interaction_id: string;
+  user_id: string;
+  section_id: string;
+  session_id: string;
+  user_message: string;
+  ai_response: Readable;
+  query_time: Date;
+  persona_id_in_use?: string;
+}
+
+/**
  * 会话信息
  */
 export interface SessionInfo {
@@ -42,3 +69,34 @@ export interface SessionInfo {
   persona_id?: string;
   created_at: Date;
 }
+
+/**
+ * 单个会话的详细信息
+ */
+interface SessionDetail {
+  session_id: string;
+  interaction_count: number;
+  first_interaction: Date;
+  last_interaction: Date;
+}
+
+/**
+ * 用户章节会话列表响应
+ */
+interface UserSectionSessionsResponse {
+  user_id: string;
+  section_id: string;
+  session_count: number;
+  sessions: SessionDetail[];
+}
+
+export {
+  ChatRequest,
+  StreamChatRequest,
+  CreateSessionRequest,
+  ChatResponse,
+  ChatStreamlyResponse,
+  SessionInfo,
+  SessionDetail,
+  UserSectionSessionsResponse
+};
