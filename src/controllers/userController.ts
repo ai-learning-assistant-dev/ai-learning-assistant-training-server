@@ -32,8 +32,8 @@ export class UserController extends BaseController {
      * 通过学员ID查询在学课程
      */
     @Post('/courseChaptersSectionsByUser')
-    public async getChaptersAndSectionsByUserId(
-      @Body() body: { userId: string }
+    public async getChaptersAndSectionsByuser_id(
+      @Body() body: { user_id: string }
     ): Promise<ApiResponse<any>> {
       try {
         // 1. 查课程安排
@@ -41,7 +41,7 @@ export class UserController extends BaseController {
         const courseRepo = AppDataSource.getRepository(require('../models/course').Course);
         const chapterRepo = AppDataSource.getRepository(require('../models/chapter').Chapter);
         const sectionRepo = AppDataSource.getRepository(require('../models/section').Section);
-        const schedules = await courseScheduleRepo.find({ where: { user_id: body.userId } });
+        const schedules = await courseScheduleRepo.find({ where: { user_id: body.user_id } });
         const courseIds = schedules.map(s => s.course_id);
         // 2. 查课程
         const courses = await courseRepo.findByIds(courseIds);
@@ -94,7 +94,7 @@ export class UserController extends BaseController {
    */
   @Post('/testJoinById')
   public async testJoinById(
-    @Body() body: { userId: string }
+    @Body() body: { user_id: string }
   ): Promise<ApiResponse<any>> {
     try {
       // 使用原生 SQL 连表查询
@@ -103,12 +103,12 @@ export class UserController extends BaseController {
         SELECT u.*, s.*
         FROM users u
         LEFT JOIN daily_summaries  s ON u.user_id = s.user_id 
-        WHERE u.user_id = :userId
+        WHERE u.user_id = :user_id
       `;
       // TypeORM 可用 QueryBuilder 或 Repository 进行连表查询
       const repo = AppDataSource.getRepository(User);
       const user = await repo.findOne({
-        where: { user_id: body.userId },
+        where: { user_id: body.user_id },
         relations: ['dailySummaries'] // 需在实体中配置关系
       });
       if (!user) {
@@ -125,11 +125,11 @@ export class UserController extends BaseController {
    */
   @Post('/getById')
   public async getUserById(
-    @Body() body: { userId: string }
+    @Body() body: { user_id: string }
   ): Promise<ApiResponse<any>> {
     try {
       const repo = AppDataSource.getRepository(User);
-      const user = await repo.findOneBy({ user_id: body.userId });
+      const user = await repo.findOneBy({ user_id: body.user_id });
       if (!user) {
         return this.fail('用户不存在');
       }
