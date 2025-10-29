@@ -3,7 +3,7 @@ import { Readable } from "stream";
 /**
  * AI聊天接口请求体
  */
-export interface ChatRequest {
+ interface ChatRequest {
   userId: string;
   sectionId: string;
   message: string;
@@ -25,7 +25,7 @@ interface StreamChatRequest {
 /**
  * 会话创建请求体
  */
-export interface CreateSessionRequest {
+ interface CreateSessionRequest {
   userId: string;
   sectionId: string;
   personaId?: string;
@@ -34,7 +34,7 @@ export interface CreateSessionRequest {
 /**
  * AI聊天响应
  */
-export interface ChatResponse {
+ interface ChatResponse {
   interaction_id: string;
   user_id: string;
   section_id: string;
@@ -62,7 +62,7 @@ interface ChatStreamlyResponse {
 /**
  * 会话信息
  */
-export interface SessionInfo {
+ interface SessionInfo {
   session_id: string;
   user_id: string;
   section_id: string;
