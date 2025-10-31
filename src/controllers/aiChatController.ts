@@ -52,6 +52,7 @@ export class AiChatController extends BaseController {
         assistant = await createLearningAssistant(userId, sectionId, personaId);
       }
 
+      // const realMessage = message.replace("[inner]", "");
       // 与AI进行对话 - 普通模式
       const aiResponse = await assistant.chat(message);
 
@@ -104,21 +105,22 @@ export class AiChatController extends BaseController {
           assistant = await createLearningAssistant(userId, sectionId, personaId);
         }
 
+        // const realMessage = message.replace("[inner]", "");
         // 获取Readable流
         const readableStream = assistant.chatStream(message);
         
 
         // 返回流式处理结果
-        const result: ChatStreamlyResponse = {
-          interaction_id: `${assistant.getSessionId()}_${Date.now()}`,
-          session_id: assistant.getSessionId(),
-          user_id: userId,
-          section_id: sectionId,
-          persona_id_in_use: personaId,
-          user_message: message,
-          ai_response: readableStream,
-          query_time: new Date()
-        };
+        // const result: ChatStreamlyResponse = {
+        //   interaction_id: `${assistant.getSessionId()}_${Date.now()}`,
+        //   session_id: assistant.getSessionId(),
+        //   user_id: userId,
+        //   section_id: sectionId,
+        //   persona_id_in_use: personaId,
+        //   user_message: message,
+        //   ai_response: readableStream,
+        //   query_time: new Date()
+        // };
 
         // 清理资源
         await assistant.cleanup();
@@ -236,7 +238,10 @@ export class AiChatController extends BaseController {
    * 获取会话的对话历史
    */
   @Get('/history/{sessionId}')
-  public async getSessionHistory(@Path() sessionId: string): Promise<ApiResponse<{
+  public async getSessionHistory(
+    @Path() sessionId: string,
+    @Query() withoutInner?: boolean
+  ): Promise<ApiResponse<{
     session_id: string;
     message_count: number;
     history: any[];
@@ -255,7 +260,7 @@ export class AiChatController extends BaseController {
       });
 
       // 转换为对话格式
-      const history = interactions.map(interaction => ({
+      let history = interactions.map(interaction => ({
         interaction_id: interaction.interaction_id,
         user_message: interaction.user_message,
         ai_response: interaction.ai_response,
@@ -265,9 +270,18 @@ export class AiChatController extends BaseController {
         persona_name: interaction.persona?.name
       }));
 
+      // 如果请求中要求去除以 [inner] 开头的用户提问，则过滤掉这些记录
+      if (withoutInner) {
+        history = history.filter(item => {
+          const um = item.user_message;
+          if (!um) return true;
+          return !String(um).trim().startsWith('[inner]');
+        });
+      }
+
       return this.ok({
         session_id: sessionId,
-        message_count: interactions.length,
+        message_count: history.length,
         history: history
       });
 
