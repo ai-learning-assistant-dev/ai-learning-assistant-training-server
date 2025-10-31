@@ -28,6 +28,11 @@ export interface NavData {
 /** Minimal video view data used to obtain cid */
 export interface VideoViewData {
   cid: number;
+  pages: Array<{
+    cid: number;
+    page: number;
+    part: string;
+  }>;
 }
 
 /** Representation of a DASH stream (video or audio) */
@@ -115,4 +120,17 @@ export interface OfetchRawResponse {
   status: number;
   headers: OfetchHeaders;
   body: ReadableStream<Uint8Array> | null;
+}
+
+/**
+ * 如果你想为具体接口定义一个返回 DTO，可以在这里定义并导出
+ * 例如你在 getVideoManifest 中返回 { xml, pages }
+ */
+export interface VideoManifestResponse {
+  xml: string;
+  pages: Array<{
+    cid: number;
+    page: number;
+    part: string;
+  }>;
 }
