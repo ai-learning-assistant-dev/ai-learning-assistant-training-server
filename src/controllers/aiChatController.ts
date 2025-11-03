@@ -21,6 +21,7 @@ import {
 } from '../types/AiChat';
 import { Readable } from 'node:stream';
 import { Section } from '@/models/section';
+import { modelConfigManager } from '../llm/utils/modelConfigManager';
 
 /**
  * 集成LLM Agent的AI聊天控制器
@@ -35,7 +36,7 @@ export class AiChatController extends BaseController {
   @Post('/chat')
   public async chat(@Body() request: ChatRequest): Promise<ApiResponse<ChatResponse>> {
     try {
-      const { userId, sectionId, message, personaId, sessionId } = request;
+      const { userId, sectionId, message, personaId, sessionId, modelId } = request;
 
       // 验证必要参数
       if (!userId || !sectionId || !message) {
@@ -50,6 +51,15 @@ export class AiChatController extends BaseController {
       } else {
         // 创建新会话
         assistant = await createLearningAssistant(userId, sectionId, personaId);
+      }
+
+       // 如果提供了模型ID，则设置模型
+      if (modelId) {
+        try {
+          assistant.setModel(modelId);
+        } catch (error) {
+          throw new Error(`设置模型失败: ${error instanceof Error ? error.message : '未知错误'}`);
+        }
       }
 
       // 与AI进行对话 - 普通模式
@@ -86,7 +96,7 @@ export class AiChatController extends BaseController {
     @Body() request: StreamChatRequest
   ): Promise<Readable> {
     try {
-      const { userId, sectionId, message, personaId, sessionId } = request;
+      const { userId, sectionId, message, personaId, sessionId, modelId } = request;
 
       // 验证必要参数
       if (!userId || !sectionId || !message) {
@@ -102,6 +112,15 @@ export class AiChatController extends BaseController {
         } else {
           // 创建新会话
           assistant = await createLearningAssistant(userId, sectionId, personaId);
+        }
+
+        // 如果提供了模型ID，则设置模型
+        if (modelId) {
+          try {
+            assistant.setModel(modelId);
+          } catch (error) {
+            throw new Error(`设置模型失败: ${error instanceof Error ? error.message : '未知错误'}`);
+          }
         }
 
         // 获取Readable流
@@ -346,4 +365,29 @@ export class AiChatController extends BaseController {
       throw this.fail("获取会话分析失败",errorMessage);
     }
   }
+
+  /**
+   * 获取可用的大模型列表
+   */
+  @Get('/models')
+  public async getAvailableModels(): Promise<ApiResponse<any[]>> {
+    try {
+      // 获取所有非嵌入模型
+      const models = modelConfigManager.getNonEmbeddingModels();
+      
+      // 返回简化版的模型信息供前端使用
+      const modelList = models.map(model => ({
+        id: model.id,
+        name: model.displayName || model.name,
+        provider: model.provider
+      }));
+
+      return this.ok(modelList);
+    } catch (error) {
+      console.error('获取模型列表失败:', error);
+      const errorMessage = error instanceof Error ? error.message : String(error);
+      throw this.fail("获取模型列表失败", errorMessage);
+    }
+  }
 }
+

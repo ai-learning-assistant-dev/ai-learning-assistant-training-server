@@ -9,6 +9,7 @@ import { Readable } from "stream";
   message: string;
   personaId?: string;
   sessionId?: string;
+  modelId?: string;  // 添加模型ID字段
 }
 
 /**
@@ -20,6 +21,7 @@ export interface StreamChatRequest {
   message: string;
   personaId?: string;
   sessionId?: string;
+  modelId?: string;  // 添加模型ID字段
 }
 
 /**

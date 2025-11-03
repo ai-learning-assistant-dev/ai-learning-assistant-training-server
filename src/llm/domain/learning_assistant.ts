@@ -9,6 +9,7 @@ import { Course } from "../../models/course";
 import { Chapter } from "../../models/chapter";
 import { ReactAgent } from "../agent/react_agent_base";
 import { IntegratedPostgreSQLStorage } from "../storage/integrated_storage";
+import { modelConfigManager, ModelConfig } from "../utils/modelConfigManager";
 import { createLLM } from "../utils/create_llm";
 
 /**
@@ -44,7 +45,7 @@ export class LearningAssistant {
   private sectionId: string;
   private sessionId: string;
   private personaId?: string;
-
+  private selectedModelConfig?: ModelConfig;
   constructor(options: LearningAssistantOptions) {
     this.userId = options.userId;
     this.courseId = options.courseId;
@@ -68,6 +69,47 @@ export class LearningAssistant {
     this.agent = null as any; // 临时设置，将在 initialize 中正确创建
   }
 
+  public async setModel(modelId: string): Promise<void> {
+    const modelConfig = modelConfigManager.getModelConfig(modelId);
+    if (!modelConfig) {
+      throw new Error(`Model with id ${modelId} not found`);
+    }
+
+    // 检查是否为嵌入模型
+    if (modelConfig.isEmbeddingModel) {
+      throw new Error(`Model ${modelId} is an embedding model and cannot be used for chat`);
+    }
+
+    this.selectedModelConfig = modelConfig;
+    
+    // 重新初始化agent
+    await this.initializeAgent();
+  }
+
+  private async initializeAgent(): Promise<void> {
+    // 如果没有指定模型，使用默认模型
+    if (!this.selectedModelConfig) {
+      const defaultModelConfig = modelConfigManager.getModelConfig();
+      if (!defaultModelConfig) {
+        throw new Error("No available model configuration found");
+      }
+      this.selectedModelConfig = defaultModelConfig;
+    }
+
+    const llm = createLLM(this.selectedModelConfig);
+
+    // 创建系统提示
+    const systemPrompt = await this.createSystemPrompt();
+    
+    this.agent = new ReactAgent({
+      llm,
+      defaultThreadId: this.sessionId,
+      checkpointSaver: this.storage.getSaver(),
+      postgresStorage: this.storage as any,
+      prompt: systemPrompt,
+    });
+  }
+
   /**
    * 初始化助手（连接数据库、验证用户等）
    */
@@ -88,9 +130,19 @@ export class LearningAssistant {
     // 生成包含课程上下文的系统提示
     const systemPrompt = await this.createSystemPrompt();
 
+    // 获取默认模型配置
+    const defaultModelConfig = modelConfigManager.getModelConfig();
+    const llm = defaultModelConfig ? createLLM(defaultModelConfig) : createLLM({
+      id: 'default',
+      name: 'deepseek-chat',
+      provider: 'deepseek',
+      baseUrl: process.env.DEEPSEEK_API_BASE ?? "https://api.deepseek.com",
+      apiKey: process.env.DEEPSEEK_API_KEY || ''
+    } as ModelConfig);
+
     // 创建 ReactAgent（现在存储已经连接）
     this.agent = new ReactAgent({
-      llm: createLLM(),
+      llm,
       defaultThreadId: this.sessionId,
       checkpointSaver: this.storage.getSaver(),
       postgresStorage: this.storage as any,
@@ -98,7 +150,7 @@ export class LearningAssistant {
     });
 
     // 验证用户、章节、人设是否存在
-    await this.validateEntities();
+    // await this.validateEntities();
 
     console.log(`学习助手已初始化 - 用户: ${this.userId}, 章节: ${this.sectionId}, 会话: ${this.sessionId}`);
   }
@@ -107,6 +159,11 @@ export class LearningAssistant {
    * 与AI进行对话
    */
   async chat(userMessage: string): Promise<string> {
+    // 如果还没有初始化agent，先初始化
+    if (!this.agent) {
+      this.initializeAgent();
+    }
+
     try {
       // 使用 ReactAgent 处理对话
       const aiResponse = await this.agent.chat(userMessage, {
@@ -130,6 +187,11 @@ export class LearningAssistant {
    * @returns Readable 流式返回AI响应
    */
   chatStream(userMessage: string): Readable {
+    // 如果还没有初始化agent，先初始化
+    if (!this.agent) {
+      this.initializeAgent();
+    }
+
     const readable = new Readable({
       async read() {
         // read方法会在需要数据时自动调用
@@ -520,6 +582,7 @@ ${personaPrompt}`;
    * 验证用户、章节、人设实体是否存在
    */
   private async validateEntities(): Promise<void> {
+
     if (!AppDataSource.isInitialized) {
       throw new Error("TypeORM DataSource 未初始化");
     }

@@ -10,6 +10,7 @@ const {
   DB_PASSWORD = '',
 } = process.env;
 
+
 async function createDatabase() {
   const client = new Client({
     host: DB_HOST,
