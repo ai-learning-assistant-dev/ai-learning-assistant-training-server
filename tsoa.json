@@ -8,6 +8,7 @@
     "basePath": "/api"
   },
   "routes": {
+    "basePath": "/api",
     "routesDir": "build"
   }
 }
