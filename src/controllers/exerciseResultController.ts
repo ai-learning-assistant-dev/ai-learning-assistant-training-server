@@ -3,6 +3,7 @@ import { AppDataSource } from '../config/database';
 import { ExerciseResult } from '../models/exerciseResult';
 import { ExerciseOption } from '../models/exerciseOption';
 import { Exercise } from '../models/exercise';
+import AnswerEvaluator from '../llm/domain/answer_evaluator';
 import { ApiResponse } from '../types/express';
 import { Route, Post, Body, Tags } from 'tsoa';
 import { BaseController } from './baseController';
@@ -33,15 +34,38 @@ export class ExerciseResultController extends BaseController {
       const optionRepo = AppDataSource.getRepository(ExerciseOption);
       const results: any[] = [];
       let userTotalScore = 0;
+
+      // collect short answer tasks to evaluate with LLM concurrently
+      const shortAnswerTasks: Array<{
+        item: { exercise_id: string; user_answer?: string | null };
+        exercise: Exercise | null;
+        questionScore: number;
+        userAnswerRaw: string;
+        where: any;
+        exist: ExerciseResult | null;
+      }> = [];
+
       for (const item of body.list) {
         // 加载习题，计算题目分数
         const exercise = await exerciseRepo.findOneBy({ exercise_id: item.exercise_id });
         const questionScore = exercise?.score || 0;
 
-        // 判断是否正确，计算 user_score
-        let isCorrect = false;
         const userAnswerRaw = item.user_answer ?? '';
         const typeStatus = exercise?.type_status ?? '';
+
+        // 构造查重条件（不包含 user_answer）
+        const where: any = { user_id: body.user_id, exercise_id: item.exercise_id };
+        if (body.test_result_id != null) where.test_result_id = body.test_result_id;
+        let exist = await repo.findOneBy(where);
+
+        if (typeStatus === '2') {
+          // defer short-answer evaluation to LLM (collect task)
+          shortAnswerTasks.push({ item, exercise, questionScore, userAnswerRaw, where, exist });
+          continue; // skip local scoring for now
+        }
+
+        // 非简答题：本地判分逻辑（单选/多选/其它）
+        let isCorrect = false;
         if (typeStatus === '0' || typeStatus === '1') {
           // 单选/多选：通过 exercise_options 判断
           const options = await optionRepo.find({ where: { exercise_id: item.exercise_id } });
@@ -62,28 +86,20 @@ export class ExerciseResultController extends BaseController {
               isCorrect = false;
             }
           }
-        } else if (typeStatus === '2') {
-          // 简答：与 exercise.answer 比较（忽略大小写及首尾空格）
-          const expect = (exercise?.answer ?? '').toString().trim().toLowerCase();
-          const actual = (userAnswerRaw ?? '').toString().trim().toLowerCase();
-          isCorrect = expect !== '' && expect === actual;
         } else {
           // 未知题型，不计分
           isCorrect = false;
         }
+
         const user_score = isCorrect ? questionScore : 0;
         userTotalScore += user_score;
-        // 构造查重条件（不包含 user_answer）
-        const where: any = { user_id: body.user_id, exercise_id: item.exercise_id };
-        // if (body.section_id != null) where.section_id = body.section_id;
-        if (body.test_result_id != null) where.test_result_id = body.test_result_id;
-        let exist = await repo.findOneBy(where);
+
         if (exist) {
           exist.user_answer = userAnswerRaw;
           // 将用户得分写入 result.score 字段
           exist.score = user_score;
           await repo.save(exist);
-          results.push({ ...exist, _action: 'updated', score: questionScore, user_score ,ai_feedback:""});
+          results.push({ ...exist, _action: 'updated', score: questionScore, user_score, ai_feedback: '' });
         } else {
           const toCreate: Partial<ExerciseResult> = {
             user_id: body.user_id,
@@ -95,7 +111,72 @@ export class ExerciseResultController extends BaseController {
           if (body.test_result_id != null) (toCreate as any).test_result_id = body.test_result_id;
           const entity = repo.create(toCreate);
           const saved = await repo.save(entity);
-          results.push({ ...saved, _action: 'created', score: questionScore, user_score ,ai_feedback:""});
+          results.push({ ...saved, _action: 'created', score: questionScore, user_score, ai_feedback: '' });
+        }
+      }
+
+      // Evaluate short answer questions with LLM in concurrent batches
+      if (shortAnswerTasks.length > 0) {
+        const evaluator = new AnswerEvaluator();
+        const batchSize = 5; // limit concurrent LLM calls
+        for (let i = 0; i < shortAnswerTasks.length; i += batchSize) {
+          const batch = shortAnswerTasks.slice(i, i + batchSize);
+          await Promise.all(batch.map(async (task) => {
+            const { item, exercise, questionScore, userAnswerRaw, where, exist } = task;
+            // build request
+            const req = {
+              studentAnswer: userAnswerRaw,
+              prompt: '',
+              priorKnowledge: '',
+              question: (exercise?.question as any) || '',
+              standardAnswer: (exercise?.answer as any) || ''
+            };
+            let evalRes: any = null;
+            try {
+              evalRes = await evaluator.evaluate(req);
+            } catch (err) {
+              console.error('LLM 评估失败，回退到精确匹配:', err);
+            }
+
+            let user_score = 0;
+            let ai_feedback = '';
+
+            if (evalRes && typeof evalRes.score === 'number') {
+              // map 0-100 score to questionScore proportionally
+              user_score = Math.round((evalRes.score / 100) * questionScore);
+              ai_feedback = String(evalRes.reply ?? '');
+            } else {
+              // fallback to strict text match as before
+              const expect = (exercise?.answer ?? '').toString().trim().toLowerCase();
+              const actual = (userAnswerRaw ?? '').toString().trim().toLowerCase();
+              const isCorrect = expect !== '' && expect === actual;
+              user_score = isCorrect ? questionScore : 0;
+              ai_feedback = '大模型评分失败，采用完全匹配模式进行评分。';
+            }
+
+            userTotalScore += user_score;
+
+            if (exist) {
+              exist.user_answer = userAnswerRaw;
+              exist.score = user_score;
+              (exist as any).ai_feedback = ai_feedback;
+              await repo.save(exist);
+              results.push({ ...exist, _action: 'updated', score: questionScore, user_score, ai_feedback });
+            } else {
+              const toCreate: Partial<ExerciseResult> = {
+                user_id: body.user_id,
+                exercise_id: item.exercise_id,
+                user_answer: userAnswerRaw,
+                score: user_score,
+                ai_feedback
+              };
+              if (body.section_id != null) (toCreate as any).section_id = body.section_id;
+              if (body.test_result_id != null) (toCreate as any).test_result_id = body.test_result_id;
+              const entity = repo.create(toCreate);
+              const saved = await repo.save(entity);
+              results.push({ ...saved, _action: 'created', score: questionScore, user_score, ai_feedback });
+            }
+          }));
         }
       }
       // 查询 section_id 下所有习题并统计总分

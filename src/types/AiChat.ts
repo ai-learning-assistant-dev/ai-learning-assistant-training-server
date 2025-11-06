@@ -1,5 +1,19 @@
 import { Readable } from "stream";
 
+// 简易聊天，用于AI简答题评价。
+interface AnswerEvaluateRequest {
+  studentAnswer: string;
+  prompt?: string;
+  priorKnowledge?: string;
+  question: string;
+  standardAnswer: string;
+}
+
+interface AnswerEvaluateResponse {
+  reply: string;
+  score: number;
+}
+
 /**
  * AI聊天接口请求体
  */
@@ -98,5 +112,7 @@ export {
   ChatStreamlyResponse,
   SessionInfo,
   SessionDetail,
-  UserSectionSessionsResponse
+  UserSectionSessionsResponse,
+  AnswerEvaluateRequest,
+  AnswerEvaluateResponse
 };

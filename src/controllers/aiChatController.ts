@@ -19,6 +19,8 @@ import {
   SessionInfo,
   UserSectionSessionsResponse
 } from '../types/AiChat';
+import { AnswerEvaluateRequest, AnswerEvaluateResponse } from '../types/AiChat';
+import AnswerEvaluator from '../llm/domain/answer_evaluator';
 import { Readable } from 'node:stream';
 import { Section } from '@/models/section';
 
@@ -76,6 +78,27 @@ export class AiChatController extends BaseController {
       console.error('AI助手对话失败:', error);
       const errorMessage = error instanceof Error ? error.message : String(error);
       throw this.fail(`AI助手对话失败`,errorMessage);
+    }
+  }
+
+  /**
+   * 使用大模型对学生简答题进行评估，返回评语与分数
+   */
+  @Post('/evaluate')
+  public async evaluateAnswer(@Body() request: AnswerEvaluateRequest): Promise<ApiResponse<AnswerEvaluateResponse>> {
+    try {
+      const { studentAnswer, question, standardAnswer, priorKnowledge, prompt } = request;
+      if (!studentAnswer || !question || !standardAnswer) {
+        throw new Error('缺少必要参数：studentAnswer, question, standardAnswer');
+      }
+
+      const evaluator = new AnswerEvaluator();
+      const result = await evaluator.evaluate(request);
+      return this.ok(result);
+    } catch (error) {
+      console.error('答案评估失败:', error);
+      const errorMessage = error instanceof Error ? error.message : String(error);
+      throw this.fail('答案评估失败', errorMessage);
     }
   }
 
