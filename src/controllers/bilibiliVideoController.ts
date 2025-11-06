@@ -318,7 +318,7 @@ export class BilibiliVideoController extends BaseController {
       }
 
       const dashInfo = await getDashInfo(bvid, sessdata);
-      const mpdXML = generateMPD(dashInfo.dash, baseUrl);
+      const mpdXML = generateMPD(dashInfo.dash, baseUrl + "/api");
 
       return this.ok({
         xml: mpdXML,
