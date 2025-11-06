@@ -6,7 +6,7 @@ import { create } from 'xmlbuilder2';
 import { BaseController } from './baseController';
 import { ApiResponse } from '../types/express';
 import { ofetchJson } from '../utils/ofetch';
-import { BaseResponse, EncWbiParams, EncWbiResult, DashData, NavData, PlayVideoData, VideoViewData, WbiKeysResponse } from '../types/bilibili';
+import { BaseResponse, EncWbiParams, EncWbiResult, DashData, NavData, PlayVideoData, VideoViewData, WbiKeysResponse, VideoManifestResponse } from '../types/bilibili';
 
 
 /**
@@ -220,7 +220,7 @@ function generateMPD(dashData: DashData, baseUrl: string): string {
 /**
  * 获取 DASH 信息（包含 WBI 签名）
  */
-async function getDashInfo(bvid: string, sessdata?: string): Promise<{ dash: DashData }> {
+async function getDashInfo(bvid: string, sessdata?: string, cid?: number): Promise<{ dash: DashData, pages: VideoViewData['pages'] }> {
   if (!bvid || !bvid.trim()) {
     throw new Error('bvid is required');
   }
@@ -231,20 +231,26 @@ async function getDashInfo(bvid: string, sessdata?: string): Promise<{ dash: Das
     Referer: 'https://www.bilibili.com',
   };
 
+  let paramsCid = cid;
+
   // 获取 cid
   const viewRes = await ofetchJson<BaseResponse<VideoViewData>>(
     `https://api.bilibili.com/x/web-interface/view?bvid=${encodeURIComponent(bvid)}`,
     { method: 'GET', headers, timeout: 5000 }
   );
+  if (!cid) {
 
-  const cid = viewRes?.data?.cid;
-  if (!cid) throw new Error('Failed to fetch video cid');
+
+    paramsCid = viewRes?.data?.cid;
+    if (!paramsCid) throw new Error('Failed to fetch video cid');
+
+  }
 
   const { img_key, sub_key } = await getWbiKeys(sessdata);
 
   let params: EncWbiParams = {
     bvid,
-    cid,
+    cid: paramsCid as number,
     fnval: 80, // 请求 DASH
     fnver: 0,
     fourk: 1,
@@ -270,6 +276,7 @@ async function getDashInfo(bvid: string, sessdata?: string): Promise<{ dash: Das
   const timelength = dash.timelength ?? (playRes.data?.timelength ?? 0);
 
   return {
+    pages: viewRes.data.pages,
     dash: {
       ...dash,
       video: videoStreams,
@@ -291,16 +298,18 @@ export class BilibiliVideoController extends BaseController {
    * 生成DASH格式视频清单(MPD)
    *
    * @param bvid Bilibili BV id
+   * @param cid 通过cid获取不同的分p视频
    * @param req Request object
    * @param res Response object
    * @param sessdata optional SESSDATA cookie value for higher quality streams
    */
   @Get('video-manifest')
   public async getVideoManifest(
-    @Query() bvid: string,
     @Request() req: ExpressRequest,
+    @Query() bvid: string,
     @Query() sessdata?: string,
-  ): Promise<ApiResponse> {
+    @Query() cid?: number,
+  ): Promise<ApiResponse<VideoManifestResponse>> {
     try {
       if (!bvid || !bvid.trim()) {
         return this.fail("bvid parameter is required", null, 400)
@@ -322,6 +331,7 @@ export class BilibiliVideoController extends BaseController {
 
       return this.ok({
         xml: mpdXML,
+        pages: dashInfo.pages,
       });
     } catch (err) {
       const msg = err instanceof Error ? err.message : String(err);
