@@ -28,6 +28,11 @@ export interface NavData {
 /** Minimal video view data used to obtain cid */
 export interface VideoViewData {
   cid: number;
+  pages: Array<{
+    cid: number;
+    page: number;
+    part: string;
+  }>;
 }
 
 /** Representation of a DASH stream (video or audio) */
@@ -59,7 +64,26 @@ export interface DashData {
   minBufferTime: number;
   video: DashStream[];
   audio: DashStream[];
+  supportFormats: VideoFormate[];
 }
+export interface VideoFormate {
+  quality: number;
+  format: string;
+  new_description: string;
+  display_desc: string;
+}
+
+
+
+export interface XmlListItem {
+  xml: string;
+  id: number;
+  format?: string;
+  quality?: number;
+  display_desc?: string;
+  new_description?: string;
+}
+
 
 /** The full-ish playurl response data we expect from the API */
 export interface PlayVideoData {
@@ -71,8 +95,12 @@ export interface PlayVideoData {
     video?: DashStream[];
     audio?: DashStream[];
   };
+  accept_quality?: number[];
+  support_formats?: VideoFormate[];
   data?: {
     timelength?: number;
+    accept_quality?: number[];
+    support_formats?: VideoFormate[];
     dash?: {
       duration?: number;
       minBufferTime?: number;
@@ -115,4 +143,17 @@ export interface OfetchRawResponse {
   status: number;
   headers: OfetchHeaders;
   body: ReadableStream<Uint8Array> | null;
+}
+
+/**
+ * 如果你想为具体接口定义一个返回 DTO，可以在这里定义并导出
+ * 例如你在 getVideoManifest 中返回 { xml, pages }
+ */
+export interface VideoManifestResponse {
+  xml: string;
+  pages: Array<{
+    cid: number;
+    page: number;
+    part: string;
+  }>;
 }
