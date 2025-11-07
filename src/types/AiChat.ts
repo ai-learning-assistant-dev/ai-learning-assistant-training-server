@@ -14,6 +14,15 @@ interface AnswerEvaluateResponse {
   score: number;
 }
 
+// 每日聊天，上下文存储于内存中，用于主页会话。
+export interface DailyChatRequest {
+  message: string;
+}
+
+interface DailyChatResponse {
+  ai_response: Readable
+}
+
 /**
  * AI聊天接口请求体
  */

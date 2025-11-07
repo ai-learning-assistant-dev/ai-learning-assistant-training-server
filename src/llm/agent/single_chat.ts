@@ -2,11 +2,14 @@ import { HumanMessage } from "@langchain/core/messages";
 import type { BaseMessageLike } from "@langchain/core/messages";
 import ReactAgent from "./react_agent_base";
 import { createLLM } from "../utils/create_llm";
+import { MemorySaver } from "@langchain/langgraph";
+import e from "express";
 
 export type SingleChatOptions = {
   llm?: any;
   prompt?: any;
   tools?: any[];
+  enableMemory?: boolean;
 };
 
 /**
@@ -28,6 +31,7 @@ export class SingleChat {
       prompt: options?.prompt,
       tools: options?.tools ?? [],
       defaultThreadId: undefined,
+      checkpointSaver: options?.enableMemory ? new MemorySaver() : undefined,
     };
 
     this.agent = new ReactAgent(agentOpts as any);

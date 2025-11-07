@@ -23,6 +23,7 @@ import { AnswerEvaluateRequest, AnswerEvaluateResponse } from '../types/AiChat';
 import AnswerEvaluator from '../llm/domain/answer_evaluator';
 import { Readable } from 'node:stream';
 import { Section } from '@/models/section';
+import DailyChat from '../llm/domain/daily_chat';
 
 /**
  * 集成LLM Agent的AI聊天控制器
@@ -78,6 +79,61 @@ export class AiChatController extends BaseController {
       console.error('AI助手对话失败:', error);
       const errorMessage = error instanceof Error ? error.message : String(error);
       throw this.fail(`AI助手对话失败`,errorMessage);
+    }
+  }
+
+  /**
+   * DailyChat 流式对话接口（轻量一次性 agent）
+   */
+  @Post('/daily')
+  public async daily(
+    @Body() request: StreamChatRequest
+  ): Promise<Readable> {
+    try {
+      const { message } = request;
+
+      if (!message) {
+        throw new Error('缺少必要参数： message');
+      }
+
+      // 创建 DailyChat（短期有记忆的 SingleChat 封装）
+      const dc = new DailyChat({  });
+
+      // 获取 Readable 流
+      const readable = dc.stream(message, { configurable: { thread_id: dc['sessionId'] } });
+
+      // 当流结束或出错时，清理 DailyChat 资源
+      readable.on('end', async () => {
+        try {
+          await dc.cleanup();
+        } catch (e) {
+          console.warn('DailyChat cleanup on end failed:', e);
+        }
+      });
+
+      readable.on('close', async () => {
+        try {
+          await dc.cleanup();
+        } catch (e) {
+          console.warn('DailyChat cleanup on close failed:', e);
+        }
+      });
+
+      readable.on('error', async (err) => {
+        console.warn('DailyChat stream error:', err);
+        try {
+          await dc.cleanup();
+        } catch (e) {
+          console.warn('DailyChat cleanup on error failed:', e);
+        }
+      });
+
+      return readable;
+
+    } catch (error) {
+      console.error('Daily 流式AI对话失败:', error);
+      const errorMessage = error instanceof Error ? error.message : String(error);
+      throw this.fail('Daily 流式AI对话失败', errorMessage);
     }
   }
 
