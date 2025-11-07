@@ -29,7 +29,9 @@ app.use(helmet({
       connectSrc: ["'self'", "blob:"],  // 添加blob:允许blob URL连接
       mediaSrc: ["'self'", "blob:"],
       scriptSrc: ["'self'"],
-      styleSrc: ["'self'", "'unsafe-inline'"]
+      styleSrc: ["'self'", "'unsafe-inline'"],
+      // TODO 这个代码会导致隐私泄漏，只在开发或本地环境使用，不要用在远程生产环境
+      "upgrade-insecure-requests": null,
     }
   }
 })); // 安全头部
