@@ -19,6 +19,13 @@ export class AnswerEvaluator {
    * 返回结构：{ reply: string, score: number }
    */
   async evaluate(req: AnswerEvaluateRequest): Promise<AnswerEvaluateResponse> {
+    // Print the full request object so nested fields are visible in logs
+    try {
+      console.log('正在评估学生答案:', JSON.stringify(req, null, 2));
+    } catch (e) {
+      // Fallback in case of circular references
+      console.log('正在评估学生答案 (非序列化):', req);
+    }
     const sc = new SingleChat(this.chatOptions);
     try {
       // Compose an instruction prompt that asks the model to reply in JSON
@@ -43,6 +50,7 @@ export class AnswerEvaluator {
       if (json) {
         const score = Number(json.score ?? json.sc ?? json.points ?? 0) || 0;
         const text = String(json.reply ?? json.comment ?? json.feedback ?? json.text ?? reply);
+        console.log(`评估结果解析为JSON: reply=${text}, score=${score}`);
         return { reply: text, score: Math.max(0, Math.min(100, Math.round(score))) };
       }
 
@@ -53,6 +61,7 @@ export class AnswerEvaluator {
         score = Math.max(0, Math.min(100, parseInt(numMatch[1], 10)));
       }
       const text = reply.trim();
+      console.log(`评估结果未能解析为JSON，采用文本解析结果: reply=${text}, score=${score}`);
       return { reply: text, score };
 
     } finally {

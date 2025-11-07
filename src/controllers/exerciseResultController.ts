@@ -99,7 +99,7 @@ export class ExerciseResultController extends BaseController {
           // 将用户得分写入 result.score 字段
           exist.score = user_score;
           await repo.save(exist);
-          results.push({ ...exist, _action: 'updated', score: questionScore, user_score, ai_feedback: '' });
+          results.push({ ...exist, _action: 'updated', score: questionScore, user_score, ai_feedback: (exist as any).ai_feedback ?? '' });
         } else {
           const toCreate: Partial<ExerciseResult> = {
             user_id: body.user_id,
@@ -111,7 +111,7 @@ export class ExerciseResultController extends BaseController {
           if (body.test_result_id != null) (toCreate as any).test_result_id = body.test_result_id;
           const entity = repo.create(toCreate);
           const saved = await repo.save(entity);
-          results.push({ ...saved, _action: 'created', score: questionScore, user_score, ai_feedback: '' });
+          results.push({ ...saved, _action: 'created', score: questionScore, user_score, ai_feedback: (saved as any).ai_feedback ?? '' });
         }
       }
 
@@ -161,6 +161,8 @@ export class ExerciseResultController extends BaseController {
               exist.score = user_score;
               (exist as any).ai_feedback = ai_feedback;
               await repo.save(exist);
+
+              // console.log(`Short answer question ${item.exercise_id} for user ${body.user_id} updated: score=${user_score}, feedback=${ai_feedback}`);
               results.push({ ...exist, _action: 'updated', score: questionScore, user_score, ai_feedback });
             } else {
               const toCreate: Partial<ExerciseResult> = {
@@ -174,6 +176,7 @@ export class ExerciseResultController extends BaseController {
               if (body.test_result_id != null) (toCreate as any).test_result_id = body.test_result_id;
               const entity = repo.create(toCreate);
               const saved = await repo.save(entity);
+              // console.log(`Short answer question ${item.exercise_id} for user ${body.user_id} created: score=${user_score}, feedback=${ai_feedback}`);
               results.push({ ...saved, _action: 'created', score: questionScore, user_score, ai_feedback });
             }
           }));
@@ -262,11 +265,12 @@ export class ExerciseResultController extends BaseController {
           user_score,
           isCorrect,
           _action: exist ? 'exist' : 'not_exist',
-          ai_feedback: ''
+          ai_feedback: exist?.ai_feedback ?? ''
         });
       }
       // 及格判断
       const pass = score > 0 ? (userTotalScore / score) > 0.6 : false;
+      console.log(`User ${body.user_id} exercise results for section ${body.section_id}: results=${JSON.stringify(results)}`);
       return this.ok({ results, score,user_score:userTotalScore, pass }, '查询答题结果成功');
     } catch (error) {
       return this.fail('查询答题结果失败', error);
