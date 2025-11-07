@@ -30,6 +30,9 @@ export class Section {
   @Column({ type: 'varchar', length: 255, nullable: true })
   video_subtitles?: string;
 
+  @Column({ type: 'varchar', length: 512, nullable: true })
+  srt_path?: string;
+
   @Column({ type: 'varchar', length: 255, nullable: true })
   knowledge_content?: string;
 

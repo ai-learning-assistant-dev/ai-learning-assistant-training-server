@@ -161,6 +161,8 @@ async function main() {
       const questions = questionsPath ? await readJsonSafe(questionsPath) : null;
       const summary = summaryPath ? await readJsonSafe(summaryPath) : null;
       const md = mdPath ? await fs.readFile(mdPath, 'utf8') : undefined;
+  // find a .srt file for this resource, if any
+  const srtPath = paths.find(p => p.toLowerCase().endsWith('.srt'));
 
       const course = courseRepo.create({
         name: truncateString(base, 255) || base,
@@ -208,6 +210,8 @@ async function main() {
         video_url: truncateString(videoLink, 255),
         knowledge_content: truncateString(summary?.summary || summary?.raw_text || undefined, 255),
         video_subtitles: truncateString(videoInfo?.subtitle ? JSON.stringify(videoInfo.subtitle) : undefined, 255),
+        // store absolute path to srt file if present
+        srt_path: srtPath ? truncateString(path.resolve(srtPath), 512) : undefined,
         estimated_time: estimatedTime,
         section_order: 1,
       });
