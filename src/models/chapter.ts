@@ -17,7 +17,7 @@ export class Chapter {
   title!: string;
 
   @Column({ type: 'int',comment: '0: lock, 1: learning, 2: pass',default:0 ,nullable:true}) //默认为 0 状态，添加时候每个第一章第一节都为learning
-  state!: number;
+  unlocked!: number;
 
   @Column({ type: 'int' })
   chapter_order!: number;

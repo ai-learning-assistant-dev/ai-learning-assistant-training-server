@@ -99,7 +99,7 @@ public async addSection(
     
     const item = sectionRepo.create({
       ...requestBody,
-      state: State
+      unlocked: State
     });
     
     const saved = await sectionRepo.save(item);

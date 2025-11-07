@@ -135,7 +135,7 @@ public async saveExerciseResults(
       // 1. 将当前节状态设置为1（通过）
       await sectionRepo.update(
         { section_id: currentSection.section_id },
-        { state: 1 }
+        { unlocked: 1 }
       );
       
       // 2. 检查当前章节的所有节是否都通过
@@ -143,13 +143,13 @@ public async saveExerciseResults(
         where: { chapter_id: currentChapter.chapter_id }
       });
       
-      const allSectionsPassed = allSectionsInChapter.every(section => section.state === 1);
+      const allSectionsPassed = allSectionsInChapter.every(section => section.unlocked === 1);
       
       // 如果所有节都通过，将章节状态设置为1
       if (allSectionsPassed) {
         await chapterRepo.update(
           { chapter_id: currentChapter.chapter_id },
-          { state: 1 }
+          { unlocked: 1 }
         );
       }
       
@@ -172,7 +172,7 @@ public async saveExerciseResults(
         const nextSection = allSectionsInChapterOrdered[currentSectionIndex + 1];
         await sectionRepo.update(
           { section_id: nextSection.section_id },
-          { state: 2 }
+          { unlocked: 2 }
         );
       } else {
         // 如果是最后一个节，解锁下一章的第一个节
@@ -188,7 +188,7 @@ public async saveExerciseResults(
           // 解锁下一章
           await chapterRepo.update(
             { chapter_id: nextChapter.chapter_id },
-            { state: 2 }
+            { unlocked: 2 }
           );
           
           // 获取下一章的第一个节（按 section_order 排序）
@@ -201,7 +201,7 @@ public async saveExerciseResults(
             // 解锁下一章的第一个节
             await sectionRepo.update(
               { section_id: firstSectionOfNextChapter.section_id },
-              { state: 2 }
+              { unlocked: 2 }
             );
           }
         }
