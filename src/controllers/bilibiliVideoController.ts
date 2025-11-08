@@ -1,12 +1,12 @@
 
-import { Get, Query, Route, Request, Tags } from 'tsoa';
+import { Get, Query, Route, Request, Tags, Header } from 'tsoa';
 import { Request as ExpressRequest } from 'express'; // 引入 Express 类型
 import md5 from 'md5';
 import { create } from 'xmlbuilder2';
 import { BaseController } from './baseController';
 import { ApiResponse } from '../types/express';
 import { ofetchJson } from '../utils/ofetch';
-import { BaseResponse, EncWbiParams, EncWbiResult, DashData, NavData, PlayVideoData, VideoViewData, WbiKeysResponse, VideoManifestResponse } from '../types/bilibili';
+import { BaseResponse, EncWbiParams, EncWbiResult, DashData, NavData, PlayVideoData, VideoViewData, WbiKeysResponse, VideoManifestResponse, XmlListItem } from '../types/bilibili';
 
 
 /**
@@ -119,13 +119,14 @@ function sanitizeMime(val?: string): string | undefined {
   return val.replace(/["'\\]/g, '').trim() || undefined;
 }
 
+
 /**
  * Generate MPD (DASH manifest) - using sanitized codec/mime and safe url encoding
  */
-function generateMPD(dashData: DashData, baseUrl: string): string {
+function generateMPD(dashData: DashData, baseUrl: string, videoIndex?: number): string {
   const duration = dashData.duration || Math.floor((dashData.timelength || 0) / 1000);
   const minBufferTime = dashData.minBufferTime || 1;
-
+  
   const root = create({ version: '1.0', encoding: 'UTF-8' }).ele('MPD', {
     xmlns: 'urn:mpeg:dash:schema:mpd:2011',
     type: 'static',
@@ -144,8 +145,15 @@ function generateMPD(dashData: DashData, baseUrl: string): string {
   });
 
   let videoStreams = dashData.video || [];
+
   // use sanitized codec when checking preferred
-  const preferredVideo = videoStreams.find((v) => sanitizeCodec(v.codecs) === 'avc1.64001F');
+  let preferredVideo = null;
+  if(typeof videoIndex === "number" && videoIndex >= 0) {
+    preferredVideo = videoStreams[videoIndex];
+  }else {
+    preferredVideo = videoStreams.find((v) => sanitizeCodec(v.codecs)?.startsWith('avc1.64'));
+  }
+  // const preferredVideoList = videoStreams.filter((v) => sanitizeCodec(v.codecs) === 'avc1.64');
   if (preferredVideo) videoStreams = [preferredVideo];
 
   videoStreams.forEach((video) => {
@@ -216,6 +224,37 @@ function generateMPD(dashData: DashData, baseUrl: string): string {
 
   return root.end({ prettyPrint: true });
 }
+function generateMPDList(dashData: DashData, baseUrl: string): XmlListItem[] {
+  let videoStreams = dashData.video || [];
+  const mpdList: XmlListItem[] = [];
+  dashData.supportFormats.forEach(v => { 
+    mpdList.push({
+      id: v.quality,
+      format: v.format,
+      new_description: v.new_description,
+      display_desc: v.display_desc,
+      xml:""
+    })
+  });
+
+  videoStreams.forEach((v, index) => { 
+    if(sanitizeCodec(v.codecs)?.startsWith('avc1.64')) {
+      if(mpdList.find(mpdI => mpdI.id === v.id)) {
+        mpdList.find(mpdI => mpdI.id === v.id)!.xml = generateMPD(dashData, baseUrl, index);
+      }else {
+        mpdList.push({
+          id: v.id,
+          xml: generateMPD(dashData, baseUrl, index)
+        })
+
+      }
+    }
+  });
+  return mpdList;
+
+}
+
+
 
 /**
  * 获取 DASH 信息（包含 WBI 签名）
@@ -229,6 +268,7 @@ async function getDashInfo(bvid: string, sessdata?: string, cid?: number): Promi
     'User-Agent':
       'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/91.0.4472.124 Safari/537.36',
     Referer: 'https://www.bilibili.com',
+    Cookie: sessdata ? `SESSDATA=${sessdata}` : '',
   };
 
   let paramsCid = cid;
@@ -265,7 +305,10 @@ async function getDashInfo(bvid: string, sessdata?: string, cid?: number): Promi
     query: params,
     timeout: 5000,
   });
+  
 
+
+  const supportFormats = playRes?.data?.support_formats ?? playRes?.data?.data?.support_formats;
   const dash = playRes?.data?.dash ?? playRes?.data?.data?.dash;
   if (!dash || !dash.video || dash.video.length === 0 || !dash.audio || dash.audio.length === 0) {
     throw new Error('Unable to obtain DASH playurl (no audio/video streams)');
@@ -281,6 +324,7 @@ async function getDashInfo(bvid: string, sessdata?: string, cid?: number): Promi
       ...dash,
       video: videoStreams,
       audio: audioStreams,
+      supportFormats,
       duration: dash.duration ?? Math.floor((timelength || 0) / 1000),
       minBufferTime: dash.minBufferTime ?? 1,
       timelength,
@@ -301,13 +345,11 @@ export class BilibiliVideoController extends BaseController {
    * @param cid 通过cid获取不同的分p视频
    * @param req Request object
    * @param res Response object
-   * @param sessdata optional SESSDATA cookie value for higher quality streams
    */
   @Get('video-manifest')
   public async getVideoManifest(
     @Request() req: ExpressRequest,
     @Query() bvid: string,
-    @Query() sessdata?: string,
     @Query() cid?: number,
   ): Promise<ApiResponse<VideoManifestResponse>> {
     try {
@@ -325,12 +367,34 @@ export class BilibiliVideoController extends BaseController {
       } else if (protocol === 'http' && host.includes(':80')) {
         baseUrl = `http://${host.split(':')[0]}`;
       }
+      function getCookieValue(cookieString: string, cookieName: string): string {
+        if (!cookieString) {
+          return "";
+        }
+        const cookies = cookieString.split(';');
+        for (const cookie of cookies) {
+          const [name, value] = cookie.trim().split('=');
+          if (name === cookieName) {
+            return value;
+          }
+        }
+        return "";
+      }
 
-      const dashInfo = await getDashInfo(bvid, sessdata);
+      console.log("cookieHeader:", req.headers)
+
+      // 获取 cookie 中的 SESSDATA
+      const cookieHeader = typeof req?.headers?.cookie === 'string' ? req.headers.cookie : '';
+      const sessionDataCookie = getCookieValue(cookieHeader, 'SESSDATA');
+
+      const dashInfo = await getDashInfo(bvid, sessionDataCookie, cid);
       const mpdXML = generateMPD(dashInfo.dash, baseUrl + "/api");
+      const mpdList = generateMPDList(dashInfo.dash, baseUrl + "/api")
+
 
       return this.ok({
         xml: mpdXML,
+        mpdList,
         pages: dashInfo.pages,
       });
     } catch (err) {

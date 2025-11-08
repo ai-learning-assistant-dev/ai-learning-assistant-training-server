@@ -99,7 +99,7 @@ CREATE TABLE public.chapters (
     chapter_id uuid DEFAULT public.uuid_generate_v4() NOT NULL,
     course_id uuid NOT NULL,
     title character varying(255) NOT NULL,
-    state integer,
+    unlocked integer,
     chapter_order integer NOT NULL
 );
 
@@ -312,7 +312,7 @@ CREATE TABLE public.sections (
     video_subtitles character varying(255),
     knowledge_content character varying(255),
     estimated_time integer,
-    state integer,
+    unlocked integer,
     section_order integer NOT NULL
 );
 

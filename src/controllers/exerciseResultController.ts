@@ -187,22 +187,32 @@ export class ExerciseResultController extends BaseController {
           }));
         }
       }
-      // 查询 section_id 下所有习题并统计总分
-      let score = 0;
-      let currentSection = null;
-      let currentChapter = null;
-
-      if (body.section_id) {
-        const exerciseRepo = AppDataSource.getRepository(Exercise);
-        const exercises = await exerciseRepo.find({ where: { section_id: body.section_id } });
-        score = exercises.reduce((sum, ex) => sum + (ex.score || 0), 0);
-
-        // 获取当前节的信息
-        currentSection = await sectionRepo.findOneBy({ section_id: body.section_id });
-        if (currentSection) {
-          // 获取当前章节的信息
-          currentChapter = await chapterRepo.findOneBy({ chapter_id: currentSection.chapter_id });
-        }
+    }
+    
+    // 及格判断
+    const pass = score > 0 ? (userTotalScore / score) > 0.6 : false;
+    
+    // 如果通过，更新当前节状态并解锁下一个内容
+    if (pass && currentChapter && currentSection) {
+      // 1. 将当前节状态设置为1（通过）
+      await sectionRepo.update(
+        { section_id: currentSection.section_id },
+        { unlocked: 1 }
+      );
+      
+      // 2. 检查当前章节的所有节是否都通过
+      const allSectionsInChapter = await sectionRepo.find({
+        where: { chapter_id: currentChapter.chapter_id }
+      });
+      
+      const allSectionsPassed = allSectionsInChapter.every(section => section.unlocked === 1);
+      
+      // 如果所有节都通过，将章节状态设置为1
+      if (allSectionsPassed) {
+        await chapterRepo.update(
+          { chapter_id: currentChapter.chapter_id },
+          { unlocked: 1 }
+        );
       }
 
       // 及格判断
@@ -212,8 +222,8 @@ export class ExerciseResultController extends BaseController {
       if (pass && currentChapter && currentSection) {
         // 1. 将当前节状态设置为1（通过）
         await sectionRepo.update(
-          { section_id: currentSection.section_id },
-          { state: 1 }
+          { section_id: nextSection.section_id },
+          { unlocked: 2 }
         );
 
         // 2. 检查当前章节的所有节是否都通过
@@ -226,31 +236,8 @@ export class ExerciseResultController extends BaseController {
         // 如果所有节都通过，将章节状态设置为1
         if (allSectionsPassed) {
           await chapterRepo.update(
-            { chapter_id: currentChapter.chapter_id },
-            { state: 1 }
-          );
-        }
-
-        // 3. 解锁下一个内容
-        // 获取当前章节的所有节，按 section_order 排序
-        const allSectionsInChapterOrdered = await sectionRepo.find({
-          where: { chapter_id: currentChapter.chapter_id },
-          order: { section_order: 'ASC' }
-        });
-
-        // 检查当前节是否是当前章节的最后一个节
-        const currentSectionIndex = allSectionsInChapterOrdered.findIndex(
-          section => section.section_id === currentSection.section_id
-        );
-
-        const isLastSectionInChapter = currentSectionIndex === allSectionsInChapterOrdered.length - 1;
-
-        if (!isLastSectionInChapter) {
-          // 如果不是最后一个节，解锁同一章节的下一个节
-          const nextSection = allSectionsInChapterOrdered[currentSectionIndex + 1];
-          await sectionRepo.update(
-            { section_id: nextSection.section_id },
-            { state: 2 }
+            { chapter_id: nextChapter.chapter_id },
+            { unlocked: 2 }
           );
         } else {
           // 如果是最后一个节，解锁下一章的第一个节
@@ -261,12 +248,12 @@ export class ExerciseResultController extends BaseController {
               chapter_order: currentChapter.chapter_order + 1
             }
           });
-
-          if (nextChapter) {
-            // 解锁下一章
-            await chapterRepo.update(
-              { chapter_id: nextChapter.chapter_id },
-              { state: 2 }
+          
+          if (firstSectionOfNextChapter) {
+            // 解锁下一章的第一个节
+            await sectionRepo.update(
+              { section_id: firstSectionOfNextChapter.section_id },
+              { unlocked: 2 }
             );
 
             // 获取下一章的第一个节（按 section_order 排序）

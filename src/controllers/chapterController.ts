@@ -72,7 +72,7 @@ public async addChapter(
     }
     const item = repo.create({
       ...requestBody,
-      state: chapterState
+      unlocked: chapterState
     });
     const saved = await repo.save(item);
     return this.ok(saved, '章节创建成功');
