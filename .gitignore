@@ -3,3 +3,5 @@ dist/
 .vscode/
 *.log
 build/
+AI使用/
+.idea/

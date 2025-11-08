@@ -10,6 +10,7 @@ import { Chapter } from "../../models/chapter";
 import { ReactAgent } from "../agent/react_agent_base";
 import { IntegratedPostgreSQLStorage } from "../storage/integrated_storage";
 import { createLLM } from "../utils/create_llm";
+import { createSrtTools } from "../tool/srt_tools";
 
 /**
  * 学习助手配置选项
@@ -89,12 +90,33 @@ export class LearningAssistant {
     const systemPrompt = await this.createSystemPrompt();
 
     // 创建 ReactAgent（现在存储已经连接）
+    // attempt to load srt file path from DB and create tools
+    let tools: any[] | undefined = undefined;
+    try {
+      const sectionRepo = AppDataSource.getRepository(Section);
+      const section = await sectionRepo.findOne({ where: { section_id: this.sectionId } });
+      const srtPath = section?.srt_path;
+      if (srtPath) {
+        try {
+          tools = createSrtTools(srtPath);
+          console.log(`Loaded SRT tools for section ${this.sectionId}: ${srtPath}`);
+        } catch (toolErr) {
+          console.warn(`Failed to create SRT tools for path ${srtPath}:`, toolErr);
+        }
+      } else {
+        console.log(`No srt_path found for section ${this.sectionId}, SRT tools not attached.`);
+      }
+    } catch (err) {
+      console.warn(`Failed to load section ${this.sectionId} for SRT tools:`, err);
+    }
+
     this.agent = new ReactAgent({
       llm: createLLM(),
       defaultThreadId: this.sessionId,
       checkpointSaver: this.storage.getSaver(),
       postgresStorage: this.storage as any,
       prompt: systemPrompt,
+      tools,
     });
 
     // 验证用户、章节、人设是否存在

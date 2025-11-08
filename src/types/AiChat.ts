@@ -1,5 +1,28 @@
 import { Readable } from "stream";
 
+// 简易聊天，用于AI简答题评价。
+export interface AnswerEvaluateRequest {
+  studentAnswer: string;
+  prompt?: string;
+  priorKnowledge?: string;
+  question: string;
+  standardAnswer: string;
+}
+
+export interface AnswerEvaluateResponse {
+  reply: string;
+  score: number;
+}
+
+// 每日聊天，上下文存储于内存中，用于主页会话。
+export interface DailyChatRequest {
+  message: string;
+}
+
+export interface DailyChatResponse {
+  ai_response: Readable
+}
+
 /**
  * AI聊天接口请求体
  */
@@ -89,4 +112,3 @@ export interface UserSectionSessionsResponse {
   session_count: number;
   sessions: SessionDetail[];
 }
-

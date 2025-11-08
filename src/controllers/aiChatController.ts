@@ -19,8 +19,11 @@ import {
   SessionInfo,
   UserSectionSessionsResponse
 } from '../types/AiChat';
+import { AnswerEvaluateRequest, AnswerEvaluateResponse } from '../types/AiChat';
+import AnswerEvaluator from '../llm/domain/answer_evaluator';
 import { Readable } from 'node:stream';
 import { Section } from '@/models/section';
+import DailyChat from '../llm/domain/daily_chat';
 
 /**
  * 集成LLM Agent的AI聊天控制器
@@ -52,6 +55,7 @@ export class AiChatController extends BaseController {
         assistant = await createLearningAssistant(userId, sectionId, personaId);
       }
 
+      // const realMessage = message.replace("[inner]", "");
       // 与AI进行对话 - 普通模式
       const aiResponse = await assistant.chat(message);
 
@@ -75,6 +79,82 @@ export class AiChatController extends BaseController {
       console.error('AI助手对话失败:', error);
       const errorMessage = error instanceof Error ? error.message : String(error);
       throw this.fail(`AI助手对话失败`,errorMessage);
+    }
+  }
+
+  /**
+   * DailyChat 流式对话接口（轻量一次性 agent）
+   */
+  @Post('/daily')
+  public async daily(
+    @Body() request: StreamChatRequest
+  ): Promise<Readable> {
+    try {
+      const { message } = request;
+
+      if (!message) {
+        throw new Error('缺少必要参数： message');
+      }
+
+      // 创建 DailyChat（短期有记忆的 SingleChat 封装）
+      const dc = new DailyChat({  });
+
+      // 获取 Readable 流
+      const readable = dc.stream(message, { configurable: { thread_id: dc['sessionId'] } });
+
+      // 当流结束或出错时，清理 DailyChat 资源
+      readable.on('end', async () => {
+        try {
+          await dc.cleanup();
+        } catch (e) {
+          console.warn('DailyChat cleanup on end failed:', e);
+        }
+      });
+
+      readable.on('close', async () => {
+        try {
+          await dc.cleanup();
+        } catch (e) {
+          console.warn('DailyChat cleanup on close failed:', e);
+        }
+      });
+
+      readable.on('error', async (err) => {
+        console.warn('DailyChat stream error:', err);
+        try {
+          await dc.cleanup();
+        } catch (e) {
+          console.warn('DailyChat cleanup on error failed:', e);
+        }
+      });
+
+      return readable;
+
+    } catch (error) {
+      console.error('Daily 流式AI对话失败:', error);
+      const errorMessage = error instanceof Error ? error.message : String(error);
+      throw this.fail('Daily 流式AI对话失败', errorMessage);
+    }
+  }
+
+  /**
+   * 使用大模型对学生简答题进行评估，返回评语与分数
+   */
+  @Post('/evaluate')
+  public async evaluateAnswer(@Body() request: AnswerEvaluateRequest): Promise<ApiResponse<AnswerEvaluateResponse>> {
+    try {
+      const { studentAnswer, question, standardAnswer, priorKnowledge, prompt } = request;
+      if (!studentAnswer || !question || !standardAnswer) {
+        throw new Error('缺少必要参数：studentAnswer, question, standardAnswer');
+      }
+
+      const evaluator = new AnswerEvaluator();
+      const result = await evaluator.evaluate(request);
+      return this.ok(result);
+    } catch (error) {
+      console.error('答案评估失败:', error);
+      const errorMessage = error instanceof Error ? error.message : String(error);
+      throw this.fail('答案评估失败', errorMessage);
     }
   }
 
@@ -104,21 +184,22 @@ export class AiChatController extends BaseController {
           assistant = await createLearningAssistant(userId, sectionId, personaId);
         }
 
+        // const realMessage = message.replace("[inner]", "");
         // 获取Readable流
         const readableStream = assistant.chatStream(message);
         
 
         // 返回流式处理结果
-        const result: ChatStreamlyResponse = {
-          interaction_id: `${assistant.getSessionId()}_${Date.now()}`,
-          session_id: assistant.getSessionId(),
-          user_id: userId,
-          section_id: sectionId,
-          persona_id_in_use: personaId,
-          user_message: message,
-          ai_response: readableStream,
-          query_time: new Date()
-        };
+        // const result: ChatStreamlyResponse = {
+        //   interaction_id: `${assistant.getSessionId()}_${Date.now()}`,
+        //   session_id: assistant.getSessionId(),
+        //   user_id: userId,
+        //   section_id: sectionId,
+        //   persona_id_in_use: personaId,
+        //   user_message: message,
+        //   ai_response: readableStream,
+        //   query_time: new Date()
+        // };
 
         // 清理资源
         await assistant.cleanup();
@@ -236,7 +317,10 @@ export class AiChatController extends BaseController {
    * 获取会话的对话历史
    */
   @Get('/history/{sessionId}')
-  public async getSessionHistory(@Path() sessionId: string): Promise<ApiResponse<{
+  public async getSessionHistory(
+    @Path() sessionId: string,
+    @Query() withoutInner?: boolean
+  ): Promise<ApiResponse<{
     session_id: string;
     message_count: number;
     history: any[];
@@ -255,7 +339,7 @@ export class AiChatController extends BaseController {
       });
 
       // 转换为对话格式
-      const history = interactions.map(interaction => ({
+      let history = interactions.map(interaction => ({
         interaction_id: interaction.interaction_id,
         user_message: interaction.user_message,
         ai_response: interaction.ai_response,
@@ -265,9 +349,18 @@ export class AiChatController extends BaseController {
         persona_name: interaction.persona?.name
       }));
 
+      // 如果请求中要求去除以 [inner] 开头的用户提问，则过滤掉这些记录
+      if (withoutInner) {
+        history = history.filter(item => {
+          const um = item.user_message;
+          if (!um) return true;
+          return !String(um).trim().startsWith('[inner]');
+        });
+      }
+
       return this.ok({
         session_id: sessionId,
-        message_count: interactions.length,
+        message_count: history.length,
         history: history
       });
 
