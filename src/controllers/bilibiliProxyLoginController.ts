@@ -59,7 +59,7 @@ export class BilibiliProxyLoginController extends BaseController {
       body.append('seccode', params.seccode);
       body.append('challenge', params.challenge);
 
-      const res = await ofetch(urlString, {
+      const res = await ofetch(urlString, ({
         method: "POST",
         headers: {
           'accept': '*/*',
@@ -77,7 +77,7 @@ export class BilibiliProxyLoginController extends BaseController {
           'user-agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/141.0.0.0 Safari/537.36'
         },
         body
-      });
+      } as any));
 
       return this.ok(res, "短信发送成功");
     } catch (error) {
@@ -102,7 +102,7 @@ export class BilibiliProxyLoginController extends BaseController {
       body.append('cid', params.cid.toString());
       body.append('captcha_key', params.captcha_key);
 
-      const resRaw = await ofetch.raw(urlString, {
+      const resRaw = await ofetch.raw(urlString, ({
         method: "POST",
         headers: {
           'accept': '*/*',
@@ -120,10 +120,10 @@ export class BilibiliProxyLoginController extends BaseController {
           'user-agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/141.0.0.0 Safari/537.36'
         },
         body
-      });
+      } as any));
 
       // 处理所有 set-cookie 头（假设 headers.get('set-cookie') 返回数组）
-      const setCookies = resRaw.headers.get('set-cookie');
+  const setCookies = (resRaw as any)?.headers?.get?.('set-cookie');
       if (setCookies) {
         const cookiesArray = Array.isArray(setCookies) ? setCookies : [setCookies];
         cookiesArray.forEach(cookie => {
