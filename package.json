@@ -64,7 +64,6 @@
     "eslint": "^8.50.0",
     "nodemon": "^3.0.1",
     "rimraf": "^5.0.5",
-    "ts-deepmerge": "^7.0.3",
     "ts-node": "^10.9.1",
     "tsx": "^4.19.1",
     "typescript": "^5.9.3",
