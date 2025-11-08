@@ -64,7 +64,26 @@ export interface DashData {
   minBufferTime: number;
   video: DashStream[];
   audio: DashStream[];
+  supportFormats: VideoFormate[];
 }
+export interface VideoFormate {
+  quality: number;
+  format: string;
+  new_description: string;
+  display_desc: string;
+}
+
+
+
+export interface XmlListItem {
+  xml: string;
+  id: number;
+  format?: string;
+  quality?: number;
+  display_desc?: string;
+  new_description?: string;
+}
+
 
 /** The full-ish playurl response data we expect from the API */
 export interface PlayVideoData {
@@ -76,8 +95,12 @@ export interface PlayVideoData {
     video?: DashStream[];
     audio?: DashStream[];
   };
+  accept_quality?: number[];
+  support_formats?: VideoFormate[];
   data?: {
     timelength?: number;
+    accept_quality?: number[];
+    support_formats?: VideoFormate[];
     dash?: {
       duration?: number;
       minBufferTime?: number;
