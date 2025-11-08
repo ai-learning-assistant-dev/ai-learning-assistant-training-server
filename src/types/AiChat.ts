@@ -1,7 +1,7 @@
 import { Readable } from "stream";
 
 // 简易聊天，用于AI简答题评价。
-interface AnswerEvaluateRequest {
+export interface AnswerEvaluateRequest {
   studentAnswer: string;
   prompt?: string;
   priorKnowledge?: string;
@@ -9,7 +9,7 @@ interface AnswerEvaluateRequest {
   standardAnswer: string;
 }
 
-interface AnswerEvaluateResponse {
+export interface AnswerEvaluateResponse {
   reply: string;
   score: number;
 }
@@ -19,7 +19,7 @@ export interface DailyChatRequest {
   message: string;
 }
 
-interface DailyChatResponse {
+export interface DailyChatResponse {
   ai_response: Readable
 }
 
@@ -112,16 +112,3 @@ export interface UserSectionSessionsResponse {
   session_count: number;
   sessions: SessionDetail[];
 }
-
-export {
-  ChatRequest,
-  StreamChatRequest,
-  CreateSessionRequest,
-  ChatResponse,
-  ChatStreamlyResponse,
-  SessionInfo,
-  SessionDetail,
-  UserSectionSessionsResponse,
-  AnswerEvaluateRequest,
-  AnswerEvaluateResponse
-};
