@@ -4,3 +4,4 @@ dist/
 *.log
 build/
 AI使用/
+.idea/
