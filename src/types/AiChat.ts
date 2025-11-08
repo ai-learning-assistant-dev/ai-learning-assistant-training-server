@@ -26,7 +26,7 @@ interface DailyChatResponse {
 /**
  * AI聊天接口请求体
  */
- interface ChatRequest {
+ export interface ChatRequest {
   userId: string;
   sectionId: string;
   message: string;
@@ -37,7 +37,7 @@ interface DailyChatResponse {
 /**
  * 流式聊天接口请求体
  */
-interface StreamChatRequest {
+export interface StreamChatRequest {
   userId: string;
   sectionId: string;
   message: string;
@@ -48,7 +48,7 @@ interface StreamChatRequest {
 /**
  * 会话创建请求体
  */
- interface CreateSessionRequest {
+export interface CreateSessionRequest {
   userId: string;
   sectionId: string;
   personaId?: string;
@@ -57,7 +57,7 @@ interface StreamChatRequest {
 /**
  * AI聊天响应
  */
- interface ChatResponse {
+export interface ChatResponse {
   interaction_id: string;
   user_id: string;
   section_id: string;
@@ -71,7 +71,7 @@ interface StreamChatRequest {
 /**
  * AI流式聊天响应
  */
-interface ChatStreamlyResponse {
+export interface ChatStreamlyResponse {
   interaction_id: string;
   user_id: string;
   section_id: string;
@@ -85,7 +85,7 @@ interface ChatStreamlyResponse {
 /**
  * 会话信息
  */
- interface SessionInfo {
+export interface SessionInfo {
   session_id: string;
   user_id: string;
   section_id: string;
@@ -96,7 +96,7 @@ interface ChatStreamlyResponse {
 /**
  * 单个会话的详细信息
  */
-interface SessionDetail {
+export interface SessionDetail {
   session_id: string;
   interaction_count: number;
   first_interaction: Date;
@@ -106,7 +106,7 @@ interface SessionDetail {
 /**
  * 用户章节会话列表响应
  */
-interface UserSectionSessionsResponse {
+export interface UserSectionSessionsResponse {
   user_id: string;
   section_id: string;
   session_count: number;

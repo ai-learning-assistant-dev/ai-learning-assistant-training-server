@@ -7,6 +7,8 @@ import AnswerEvaluator from '../llm/domain/answer_evaluator';
 import { ApiResponse } from '../types/express';
 import { Route, Post, Body, Tags } from 'tsoa';
 import { BaseController } from './baseController';
+import { Section } from '../models/section';
+import { Chapter } from '../models/chapter';
 // list 只包含 exercise_id/user_answer，顶层有 user_id/section_id/test_result_id
 
 @Tags('习题结果表')
@@ -190,13 +192,94 @@ export class ExerciseResultController extends BaseController {
         score = exercises.reduce((sum, ex) => sum + (ex.score || 0), 0);
         
       }
-      // 及格判断
-      const pass = score > 0 ? (userTotalScore / score) > 0.6 : false;
-      return this.ok({ results, score, user_score:userTotalScore, pass }, '答题结果批量保存/更新成功');
-    } catch (error) {
-      return this.fail('保存答题结果失败', error);
     }
+
+    // 及格判断
+    const pass = score > 0 ? (userTotalScore / score) > 0.6 : false;
+
+    // 如果通过，更新当前节状态并解锁下一个内容
+    if (pass && currentChapter && currentSection) {
+      // 1. 将当前节状态设置为1（通过）
+      await sectionRepo.update(
+        { section_id: currentSection.section_id },
+        { state: 1 }
+      );
+
+      // 2. 检查当前章节的所有节是否都通过
+      const allSectionsInChapter = await sectionRepo.find({
+        where: { chapter_id: currentChapter.chapter_id }
+      });
+
+      const allSectionsPassed = allSectionsInChapter.every(section => section.state === 1);
+
+      // 如果所有节都通过，将章节状态设置为1
+      if (allSectionsPassed) {
+        await chapterRepo.update(
+          { chapter_id: currentChapter.chapter_id },
+          { state: 1 }
+        );
+      }
+
+      // 3. 解锁下一个内容
+      // 获取当前章节的所有节，按 section_order 排序
+      const allSectionsInChapterOrdered = await sectionRepo.find({
+        where: { chapter_id: currentChapter.chapter_id },
+        order: { section_order: 'ASC' }
+      });
+
+      // 检查当前节是否是当前章节的最后一个节
+      const currentSectionIndex = allSectionsInChapterOrdered.findIndex(
+        section => section.section_id === currentSection.section_id
+      );
+
+      const isLastSectionInChapter = currentSectionIndex === allSectionsInChapterOrdered.length - 1;
+
+      if (!isLastSectionInChapter) {
+        // 如果不是最后一个节，解锁同一章节的下一个节
+        const nextSection = allSectionsInChapterOrdered[currentSectionIndex + 1];
+        await sectionRepo.update(
+          { section_id: nextSection.section_id },
+          { state: 2 }
+        );
+      } else {
+        // 如果是最后一个节，解锁下一章的第一个节
+        // 获取下一章（按 chapter_order 排序）
+        const nextChapter = await chapterRepo.findOne({
+          where: {
+            course_id: currentChapter.course_id,
+            chapter_order: currentChapter.chapter_order + 1
+          }
+        });
+
+        if (nextChapter) {
+          // 解锁下一章
+          await chapterRepo.update(
+            { chapter_id: nextChapter.chapter_id },
+            { state: 2 }
+          );
+
+          // 获取下一章的第一个节（按 section_order 排序）
+          const firstSectionOfNextChapter = await sectionRepo.findOne({
+            where: { chapter_id: nextChapter.chapter_id },
+            order: { section_order: 'ASC' }
+          });
+
+          if (firstSectionOfNextChapter) {
+            // 解锁下一章的第一个节
+            await sectionRepo.update(
+              { section_id: firstSectionOfNextChapter.section_id },
+              { state: 2 }
+            );
+          }
+        }
+      }
+    }
+
+    return this.ok({ results, score, user_score: userTotalScore, pass }, '答题结果批量保存/更新成功');
+  } catch (error) {
+    return this.fail('保存答题结果失败', error);
   }
+}
 
   /**
    * 查询用户在某节下的答题结果及得分统计
