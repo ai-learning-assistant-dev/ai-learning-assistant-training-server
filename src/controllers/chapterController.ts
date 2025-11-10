@@ -53,26 +53,9 @@ public async addChapter(
       return this.fail('course_id、title、chapter_order 必填', null, 400);
     }
     const repo = AppDataSource.getRepository(Chapter);
-    // 查询该课程的所有章节，按 chapter_order 排序
-    const existingChapters = await repo.find({
-      where: { course_id: requestBody.course_id },
-      order: { chapter_order: 'ASC' }
-    });
-    // 检查当前章节是否是课程的第一个章节
-    // 如果该课程还没有任何章节，或者当前章节的 chapter_order 是最小的
-    let chapterState = 0; // 默认值
-    if (existingChapters.length === 0) {
-      chapterState = 2; // 如果是第一个章节，设置为 2
-    } else {
-      // 检查当前章节的 chapter_order 是否小于已存在章节的最小 chapter_order 为了调试方便
-      const minChapterOrder = existingChapters[0].chapter_order; 
-      if (requestBody.chapter_order < minChapterOrder) {
-        chapterState = 2;
-      }
-    }
+    // 只做章节的基本创建
     const item = repo.create({
-      ...requestBody,
-      unlocked: chapterState
+      ...requestBody
     });
     const saved = await repo.save(item);
     return this.ok(saved, '章节创建成功');
