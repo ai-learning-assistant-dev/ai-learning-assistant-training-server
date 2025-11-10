@@ -13,9 +13,9 @@ export class DailyChat {
   private sc: SingleChat;
   private sessionId = '12345672';
 
-  constructor(options?: any) {
+  constructor(options?: DailyChatOptions) {
     // simple system prompt can be passed via options.prompt or default
-    const prompt = options?.prompt || '你是一个友好的学习助理，简短回答用户问题。';
+    const prompt = options?.systemPrompt || '你是一个友好的学习助理，简短回答用户问题。';
 
     this.sc = new SingleChat({ prompt, enableMemory: true, tools: options?.tools });
     console.log(`DailyChat created with sessionId=${this.sessionId}, memory enabled=${true}`);
@@ -124,5 +124,10 @@ export class DailyChat {
     }
   }
 }
+
+export class DailyChatOptions {
+  systemPrompt?: string;
+  tools?: any[];
+} 
 
 export default DailyChat;

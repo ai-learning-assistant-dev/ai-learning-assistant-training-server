@@ -86,8 +86,9 @@ export class AiChatController extends BaseController {
    * DailyChat 流式对话接口（轻量一次性 agent）
    */
   @Post('/daily')
-  public async daily(
-    @Body() request: StreamChatRequest
+  public async chatDaily(
+    @Body() request: StreamChatRequest,
+    @Query() useAudio?: boolean
   ): Promise<Readable> {
     try {
       const { message } = request;
@@ -95,9 +96,14 @@ export class AiChatController extends BaseController {
       if (!message) {
         throw new Error('缺少必要参数： message');
       }
+      
+      let systemPrompt: string | undefined = undefined;
+      if (useAudio) {
+        systemPrompt = "You are an AI learning assistant that communicates with the user through audio messages. Please respond in a concise manner suitable for audio delivery.";
+      }
 
       // 创建 DailyChat（短期有记忆的 SingleChat 封装）
-      const dc = new DailyChat({  });
+      const dc = new DailyChat({ systemPrompt });
 
       // 获取 Readable 流
       const readable = dc.stream(message, { configurable: { thread_id: dc['sessionId'] } });
@@ -163,9 +169,20 @@ export class AiChatController extends BaseController {
    */
   @Post('/chat/stream')
   public async chatStream(
-    @Body() request: StreamChatRequest
+    @Body() request: StreamChatRequest,
+    @Query() useAudio?: boolean,
+    @Query() daily?: boolean
   ): Promise<Readable> {
     try {
+      if (daily) {
+        this.chatDaily(request, useAudio);
+      }
+
+      let systemPrompt: string | undefined = undefined;
+      if (useAudio) {
+        systemPrompt = "You are an AI learning assistant that communicates with the user through audio messages. Please respond in a concise manner suitable for audio delivery.";
+      }
+
       const { userId, sectionId, message, personaId, sessionId } = request;
 
       // 验证必要参数
@@ -187,19 +204,6 @@ export class AiChatController extends BaseController {
         // const realMessage = message.replace("[inner]", "");
         // 获取Readable流
         const readableStream = assistant.chatStream(message);
-        
-
-        // 返回流式处理结果
-        // const result: ChatStreamlyResponse = {
-        //   interaction_id: `${assistant.getSessionId()}_${Date.now()}`,
-        //   session_id: assistant.getSessionId(),
-        //   user_id: userId,
-        //   section_id: sectionId,
-        //   persona_id_in_use: personaId,
-        //   user_message: message,
-        //   ai_response: readableStream,
-        //   query_time: new Date()
-        // };
 
         // 清理资源
         await assistant.cleanup();

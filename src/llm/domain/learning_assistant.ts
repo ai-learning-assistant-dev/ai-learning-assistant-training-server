@@ -28,6 +28,8 @@ export interface LearningAssistantOptions {
   sessionId?: string;
   /** 自定义存储实例（可选） */
   storage?: IntegratedPostgreSQLStorage;
+  /** 自定义系统提示（可选） */
+  systemPrompt?: string;
 }
 
 /**
@@ -45,6 +47,7 @@ export class LearningAssistant {
   private sectionId: string;
   private sessionId: string;
   private personaId?: string;
+  private systemPrompt?: string;
 
   constructor(options: LearningAssistantOptions) {
     this.userId = options.userId;
@@ -608,14 +611,16 @@ export async function createLearningAssistant(
   sectionId: string,
   personaId?: string,
   sessionId?: string,
-  courseId?: string
+  courseId?: string,
+  systemPrompt?: string
 ): Promise<LearningAssistant> {
   const assistant = new LearningAssistant({
     userId,
     courseId,
     sectionId,
     personaId,
-    sessionId
+    sessionId,
+    systemPrompt
   });
   
   await assistant.initialize();
@@ -642,7 +647,8 @@ export async function startNewLearningSession(
  */
 export async function resumeLearningSession(
   userId: string,
-  sessionId: string
+  sessionId: string,
+  systemPrompt?: string
 ): Promise<LearningAssistant> {
   // 从会话ID中解析章节ID（假设使用标准格式）
   const parts = sessionId.split('_');
@@ -661,7 +667,8 @@ export async function resumeLearningSession(
 export async function createCourseAssistant(
   userId: string,
   courseId: string,
-  sectionId?: string
+  sectionId?: string,
+  systemPrompt?: string
 ): Promise<LearningAssistant> {
   // 如果没有指定章节，使用第一个章节
   let finalSectionId = sectionId;
