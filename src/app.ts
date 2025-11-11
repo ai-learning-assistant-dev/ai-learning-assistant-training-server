@@ -4,7 +4,8 @@ import helmet from 'helmet';
 import morgan from 'morgan';
 import dotenv from 'dotenv';
 
-import { connectDatabase } from './config/database';
+import { initializeDataSources } from './config/database';
+// 不再单独导入 initDB；数据库创建逻辑已内置于 initializeDataSources()
 import { createInitialData } from './models/index';
 import { notFoundHandler, errorHandler } from './middleware/errorHandler';
 import logger from './utils/logger';
@@ -69,7 +70,7 @@ app.use(errorHandler);
 const startServer = async (): Promise<void> => {
   try {
     // 初始化 TypeORM 数据库连接
-    await connectDatabase();
+    await initializeDataSources();
     // 初始化测试数据（如无用户则插入）
     await createInitialData();
     // 启动HTTP服务器

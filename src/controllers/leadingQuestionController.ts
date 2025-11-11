@@ -1,4 +1,4 @@
-import { AppDataSource } from '../config/database';
+import { MainDataSource } from '../config/database';
 import { LeadingQuestion } from '../models/leadingQuestion';
 import { ApiResponse } from '../types/express';
 import { LeadingQuestionResponse, CreateLeadingQuestionRequest, UpdateLeadingQuestionRequest } from '../types/leadingQuestion';
@@ -16,7 +16,7 @@ export class LeadingQuestionController extends BaseController {
       const pageNum = body.page || 1;
       const limitNum = body.limit || 10;
       const offset = (pageNum - 1) * limitNum;
-      const repo = AppDataSource.getRepository(LeadingQuestion);
+  const repo = MainDataSource.getRepository(LeadingQuestion);
       const [items, count] = await repo.findAndCount({
         skip: offset,
         take: limitNum,
@@ -33,7 +33,7 @@ export class LeadingQuestionController extends BaseController {
       @Body() body: { question_id: string }
     ): Promise<ApiResponse<LeadingQuestionResponse>> {
     try {
-      const repo = AppDataSource.getRepository(LeadingQuestion);
+  const repo = MainDataSource.getRepository(LeadingQuestion);
           const item = await repo.findOneBy({ question_id: body.question_id });
       if (!item) {
         return this.fail('预设问题不存在');
@@ -52,7 +52,7 @@ export class LeadingQuestionController extends BaseController {
       if (!requestBody.section_id || !requestBody.question || !requestBody.answer) {
         return this.fail('section_id、question、answer 必填', null, 400);
       }
-      const repo = AppDataSource.getRepository(LeadingQuestion);
+  const repo = MainDataSource.getRepository(LeadingQuestion);
       const item = repo.create(requestBody);
       const saved = await repo.save(item);
       return this.ok(saved, '预设问题创建成功');
@@ -69,7 +69,7 @@ export class LeadingQuestionController extends BaseController {
       if (!requestBody.question_id) {
         return this.fail('question_id 必填', null, 400);
       }
-      const repo = AppDataSource.getRepository(LeadingQuestion);
+  const repo = MainDataSource.getRepository(LeadingQuestion);
       const item = await repo.findOneBy({ question_id: requestBody.question_id });
       if (!item) {
         return this.fail('预设问题不存在');
@@ -87,7 +87,7 @@ export class LeadingQuestionController extends BaseController {
     @Body() body: { question_id: string }
   ): Promise<ApiResponse<any>> {
     try {
-      const repo = AppDataSource.getRepository(LeadingQuestion);
+  const repo = MainDataSource.getRepository(LeadingQuestion);
       const item = await repo.findOneBy({ question_id: body.question_id });
       if (!item) {
         return this.fail('预设问题不存在');

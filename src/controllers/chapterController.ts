@@ -1,4 +1,4 @@
-import { AppDataSource } from '../config/database';
+import { MainDataSource } from '../config/database';
 import { Chapter } from '../models/chapter';
 import { ApiResponse } from '../types/express';
 import { ChapterResponse, CreateChapterRequest, UpdateChapterRequest } from '../types/chapter';
@@ -16,7 +16,7 @@ export class ChapterController extends BaseController {
       const pageNum = body.page || 1;
       const limitNum = body.limit || 10;
       const offset = (pageNum - 1) * limitNum;
-      const repo = AppDataSource.getRepository(Chapter);
+  const repo = MainDataSource.getRepository(Chapter);
       const [items, count] = await repo.findAndCount({
         skip: offset,
         take: limitNum,
@@ -33,7 +33,7 @@ export class ChapterController extends BaseController {
       @Body() body: { chapter_id: string }
     ): Promise<ApiResponse<ChapterResponse>> {
     try {
-      const repo = AppDataSource.getRepository(Chapter);
+  const repo = MainDataSource.getRepository(Chapter);
           const chapter = await repo.findOneBy({ chapter_id: body.chapter_id });
       if (!chapter) {
         return this.fail('章节不存在');
@@ -52,7 +52,7 @@ public async addChapter(
     if (!requestBody.course_id || !requestBody.title || requestBody.chapter_order === undefined) {
       return this.fail('course_id、title、chapter_order 必填', null, 400);
     }
-    const repo = AppDataSource.getRepository(Chapter);
+  const repo = MainDataSource.getRepository(Chapter);
     // 只做章节的基本创建
     const item = repo.create({
       ...requestBody
@@ -73,7 +73,7 @@ public async addChapter(
       if (!requestBody.chapter_id) {
         return this.fail('chapter_id 必填', null, 400);
       }
-      const repo = AppDataSource.getRepository(Chapter);
+  const repo = MainDataSource.getRepository(Chapter);
       const item = await repo.findOneBy({ chapter_id: requestBody.chapter_id });
       if (!item) {
         return this.fail('章节不存在');
@@ -91,7 +91,7 @@ public async addChapter(
     @Body() body: { chapter_id: string }
   ): Promise<ApiResponse<any>> {
     try {
-      const repo = AppDataSource.getRepository(Chapter);
+  const repo = MainDataSource.getRepository(Chapter);
       const item = await repo.findOneBy({ chapter_id: body.chapter_id });
       if (!item) {
         return this.fail('章节不存在');

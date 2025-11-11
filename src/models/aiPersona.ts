@@ -14,6 +14,5 @@ export class AiPersona {
   @Column({ type: 'boolean', default: false })
   is_default_template!: boolean;
       // AI交互反向关联
-  @OneToMany(() => AiInteraction, ai => ai.persona, { createForeignKeyConstraints: false })
-   aiInteractions!: AiInteraction[];
+  // 移除与 AiInteraction 的反向关联（跨库）。使用用户库仓库单独查询。
 }

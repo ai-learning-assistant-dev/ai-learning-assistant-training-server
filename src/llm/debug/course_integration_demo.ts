@@ -2,7 +2,7 @@
  * 测试 LearningAssistant 的课程集成功能
  */
 
-import { AppDataSource } from "../../config/database";
+import { MainDataSource, UserDataSource, initializeDataSources } from "../../config/database";
 import { 
   createLearningAssistant, 
   createCourseAssistant,
@@ -23,7 +23,7 @@ async function cleanupTestSessions(userId: string) {
   
   try {
     // 清理 AI 交互记录
-    const aiInteractionRepo = AppDataSource.getRepository(AiInteraction);
+  const aiInteractionRepo = UserDataSource.getRepository(AiInteraction);
     const deleteResult = await aiInteractionRepo
       .createQueryBuilder()
       .delete()
@@ -34,7 +34,7 @@ async function cleanupTestSessions(userId: string) {
 
     // 清理 LangGraph checkpoint 数据 (如果有的话)
     try {
-      const checkpointResult = await AppDataSource.query(
+  const checkpointResult = await UserDataSource.query(
         "DELETE FROM checkpoints WHERE thread_id LIKE $1",
         [`session_${userId}_%`]
       );
@@ -46,7 +46,7 @@ async function cleanupTestSessions(userId: string) {
 
     // 清理 checkpoint_writes 表数据 (如果有的话)
     try {
-      const writesResult = await AppDataSource.query(
+  const writesResult = await UserDataSource.query(
         "DELETE FROM checkpoint_writes WHERE thread_id LIKE $1",
         [`session_${userId}_%`]
       );
@@ -68,9 +68,9 @@ async function demonstrateCourseIntegration() {
 
   try {
     // 确保数据库连接
-    if (!AppDataSource.isInitialized) {
-      await AppDataSource.initialize();
-      console.log("✅ TypeORM 数据库连接已建立");
+    if (!MainDataSource.isInitialized || !UserDataSource.isInitialized) {
+      await initializeDataSources();
+      console.log("✅ 双数据源已初始化");
     }
 
     // 1. 查找测试数据
@@ -147,11 +147,11 @@ async function demonstrateCourseIntegration() {
  * 设置测试课程数据
  */
 async function setupTestCourseData() {
-  const userRepo = AppDataSource.getRepository(User);
-  const courseRepo = AppDataSource.getRepository(Course);
-  const chapterRepo = AppDataSource.getRepository(Chapter);
-  const sectionRepo = AppDataSource.getRepository(Section);
-  const personaRepo = AppDataSource.getRepository(AiPersona);
+  const userRepo = UserDataSource.getRepository(User);
+  const courseRepo = MainDataSource.getRepository(Course);
+  const chapterRepo = MainDataSource.getRepository(Chapter);
+  const sectionRepo = MainDataSource.getRepository(Section);
+  const personaRepo = MainDataSource.getRepository(AiPersona);
 
   // 查找或创建测试用户
   let user = await userRepo.findOne({ where: { name: "课程测试用户" } });
@@ -272,8 +272,11 @@ async function main() {
   await demonstrateCourseIntegration();
   
   // 清理资源
-  if (AppDataSource.isInitialized) {
-    await AppDataSource.destroy();
+  if (MainDataSource.isInitialized) {
+    await MainDataSource.destroy();
+  }
+  if (UserDataSource.isInitialized) {
+    await UserDataSource.destroy();
   }
 }
 

@@ -3,6 +3,64 @@
 本项目为 AI 学习助理启动器后端服务，基于 TypeScript、Express、TypeORM、PostgreSQL 构建，支持用户管理、每日总结、课程安排、学习记录、AI 交互等功能。
 
 ## 注意事项
+## 分库架构迁移说明
+
+项目现已采用“双数据源”模式：
+
+1. 主库(MainDataSource)：课程结构与静态内容。实体包含：Course, Chapter, Section, Exercise, ExerciseOption, Test, TestExercise, LeadingQuestion, AiPersona。
+2. 用户库(UserDataSource)：用户相关动态数据。实体包含：User, CourseSchedule, LearningRecord, Title, AiInteraction, DailySummary, UserSessionMapping, ConversationAnalytics, UserSectionUnlock, ExerciseResult, TestResult。
+
+### 环境变量（统一命名）
+
+采用统一命名：`DB_HOST / DB_PORT / DB_USERNAME / DB_PASSWORD / DB_DATABASE` 用于主库；不再使用旧的 `DB_NAME / DB_USER`。新增用户库：
+
+```
+USER_DB_HOST
+USER_DB_PORT
+USER_DB_USERNAME
+USER_DB_PASSWORD
+USER_DB_DATABASE
+```
+
+若未设置用户库变量，将默认与主库相同主机及端口（代码内回退逻辑），请在生产环境明确区分。
+
+### 初始化方式
+
+应用启动时调用 `initializeDataSources()` 同时初始化两个 DataSource；旧的 `AppDataSource` 已移除，请勿再引用。
+
+### 从单库迁移步骤
+
+1. 备份旧数据库：`pg_dump` 导出原库。
+2. 在新用户库中创建与用户相关表（首次运行自动 `synchronize` 即可生成，建议之后改用 migration）。
+3. 将以下表数据迁移到用户库：`user`, `course_schedule`, `learning_record`, `title`, `ai_interaction`, `daily_summary`, `user_session_mapping`, `conversation_analytics`, `user_section_unlock`, `exercise_result`, `test_result`。
+4. 保留或清理主库中对应的旧用户表（若曾与课程表混在一起）。
+5. 搜索代码中所有 `AppDataSource` 并替换为 `MainDataSource` 或 `UserDataSource`（本仓库已完成）。
+6. 删除兼容导出：`export const AppDataSource = MainDataSource;`（已删除）。
+7. 验证：启动服务，分别执行用户相关与课程相关接口，确认无跨库错误。
+
+### 编码规范（分库后）
+
+- 引用课程结构 / 静态内容：使用 `MainDataSource.getRepository(Entity)`。
+- 引用用户态数据：使用 `UserDataSource.getRepository(Entity)`。
+- 需要组合数据时，分别查询再在内存层进行合并，避免跨库 join。
+
+### 常见问题
+
+| 问题 | 处理 |
+|------|------|
+| 用户相关查询报错实体不存在 | 确认是否误用了 MainDataSource 获取用户实体 |
+| 课程列表缺少标题/称号信息 | Title 属于用户库，需单独再查一次用户库并合并 |
+| 同步性能慢 | 关闭 `synchronize`，改用 migration；为两个库分别维护迁移脚本 |
+| 难以维护分库映射 | 可新增一个轻量层 utilities 根据实体名返回正确 DataSource |
+
+### 后续建议
+
+- 添加 TypeORM migration 配置分离两个库的迁移。
+- 封装 `getRepositoryFor(Entity)` 工具减少重复判断。
+- 在监控层记录两库查询耗时用于性能分析。
+
+---
+
 
 每当修改或新增接口的方法名、路由、参数或返回值时，需重启项目服务，才能在接口文档和实际 API 中看到最新的变更。否则文档和接口不会自动更新。
 

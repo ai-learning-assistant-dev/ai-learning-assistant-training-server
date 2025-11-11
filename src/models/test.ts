@@ -21,7 +21,5 @@ export class Test {
   @Column({ type: 'varchar', length: 255 })
   title!: string;
 
-    // 测试结果反向关联
-  @OneToMany(() => TestResult, result => result.test, { createForeignKeyConstraints: false })
-  testResults!: TestResult[];
+
 }

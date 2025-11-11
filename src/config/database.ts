@@ -1,91 +1,152 @@
-
-
+import 'reflect-metadata';
 import { DataSource } from 'typeorm';
+import * as dotenv from 'dotenv';
+import { Client } from 'pg';
+
+// --- 导入所有实体 ---
 import { User } from '../models/user';
-import { Title } from '../models/title';
-import { LearningRecord } from '../models/learningRecord';
-import { DailySummary } from '../models/dailySummary';
-import { CourseSchedule } from '../models/courseSchedule';
-import { AiInteraction } from '../models/aiInteraction';
-import { AiPersona } from '../models/aiPersona';
 import { Course } from '../models/course';
 import { Chapter } from '../models/chapter';
 import { Section } from '../models/section';
-import { LeadingQuestion } from '../models/leadingQuestion';
 import { Exercise } from '../models/exercise';
 import { ExerciseOption } from '../models/exerciseOption';
 import { Test } from '../models/test';
-import { TestResult } from '../models/testResult';
-import { ExerciseResult } from '../models/exerciseResult';
 import { TestExercise } from '../models/testExercise';
+import { LeadingQuestion } from '../models/leadingQuestion';
+import { AiPersona } from '../models/aiPersona';
+import { CourseSchedule } from '../models/courseSchedule';
+import { LearningRecord } from '../models/learningRecord';
+import { Title } from '../models/title';
+import { AiInteraction } from '../models/aiInteraction';
+import { DailySummary } from '../models/dailySummary';
 import { UserSessionMapping } from '../models/UserSessionMapping';
 import { ConversationAnalytics } from '../models/ConversationAnalytics';
 import { UserSectionUnlock } from '../models/userSectionUnlock';
-import dotenv from 'dotenv';
-import { Client } from 'pg';
+import { ExerciseResult } from '../models/exerciseResult';
+import { TestResult } from '../models/testResult';
+
 dotenv.config();
 
-const {
-  DB_HOST = '',
-  DB_PORT = '',
-  DB_NAME = '',
-  DB_USER = '',
-  DB_PASSWORD = '',
-} = process.env;
+// --- 实体分组 ---
+const mainEntities = [
+  Course,
+  Chapter,
+  Section,
+  Exercise,
+  ExerciseOption,
+  Test,
+  TestExercise,
+  LeadingQuestion,
+  AiPersona,
+];
 
-export const AppDataSource = new DataSource({
+const userEntities = [
+  User,
+  CourseSchedule,
+  LearningRecord,
+  Title,
+  AiInteraction,
+  DailySummary,
+  UserSessionMapping,
+  ConversationAnalytics,
+  UserSectionUnlock,
+  ExerciseResult,
+  TestResult,
+];
+
+// --- 主数据库连接 ---
+export const MainDataSource = new DataSource({
   type: 'postgres',
-  host: DB_HOST,
-  port: parseInt(DB_PORT),
-  username: DB_USER,
-  password: DB_PASSWORD,
-  database: DB_NAME,
-  synchronize: true, // 生产环境建议关闭
+  host: process.env.DB_HOST || 'localhost',
+  port: parseInt(process.env.DB_PORT || '5432', 10),
+  username: process.env.DB_USERNAME || 'postgres',
+  password: process.env.DB_PASSWORD || 'password',
+  database: process.env.DB_DATABASE || 'ai_learning_assistant',
+  // 是否由 TypeORM 自动同步结构（仅开发使用）。生产建议关闭并改用 migration。
+  synchronize: (process.env.TYPEORM_SYNC ?? 'true') === 'true',
   logging: false,
-  entities: [
-    User, Title, LearningRecord, DailySummary, CourseSchedule, AiInteraction,
-    AiPersona, Course, Chapter, Section, LeadingQuestion,
-    Exercise, ExerciseOption, Test, TestResult, ExerciseResult, TestExercise,
-    UserSessionMapping, ConversationAnalytics,UserSectionUnlock
-  ], // 创建model后要在此处添加
+  entities: mainEntities,
   migrations: [],
   subscribers: [],
 });
 
+// --- 用户数据库连接 ---
+export const UserDataSource = new DataSource({
+  type: 'postgres',
+  host: process.env.USER_DB_HOST || 'localhost',
+  port: parseInt(process.env.USER_DB_PORT || '5432', 10),
+  username: process.env.USER_DB_USERNAME || 'postgres',
+  password: process.env.USER_DB_PASSWORD || 'password',
+  database: process.env.USER_DB_DATABASE || 'ai_learning_assistant_users',
+  synchronize: (process.env.TYPEORM_SYNC ?? 'true') === 'true',
+  logging: false,
+  entities: userEntities,
+  migrations: [],
+  subscribers: [],
+});
 
-// 启动时自动检查并创建数据库（如不存在）
-async function ensureDatabaseExists() {
-  const client = new Client({
-    host: DB_HOST,
-    port: parseInt(DB_PORT),
-    user: DB_USER,
-    password: DB_PASSWORD,
-    database: 'postgres',
-  });
+// --- 数据库存在性检查与创建 ---
+async function ensureDatabase(host: string, port: number, username: string, password: string, dbName: string) {
+  const client = new Client({ host, port, user: username, password, database: 'postgres' });
   try {
     await client.connect();
-    const res = await client.query('SELECT 1 FROM pg_database WHERE datname = $1', [DB_NAME]);
+    const res = await client.query('SELECT 1 FROM pg_database WHERE datname = $1', [dbName]);
     if (res.rowCount === 0) {
-      await client.query(`CREATE DATABASE "${DB_NAME}"`);
-      console.log(`✅ 数据库 ${DB_NAME} 创建成功`);
+      await client.query(`CREATE DATABASE "${dbName}"`);
+      console.log(`✅ 已创建数据库 ${dbName} (${host}:${port})`);
     } else {
-      console.log(`ℹ️ 数据库 ${DB_NAME} 已存在`);
+      console.log(`ℹ️ 数据库 ${dbName} 已存在 (${host}:${port})`);
     }
-  } catch (err) {
-    console.error('❌ 检查/创建数据库失败:', err);
-    throw err;
   } finally {
     await client.end();
   }
 }
 
-export const connectDatabase = async () => {
+async function ensureAllDatabases() {
+  const autoCreate = (process.env.AUTO_CREATE_DB ?? 'true') === 'true';
+  if (!autoCreate) {
+    console.log('ℹ️ AUTO_CREATE_DB=false 跳过数据库存在性自动创建');
+    return;
+  }
+  await ensureDatabase(
+    process.env.DB_HOST || 'localhost',
+    parseInt(process.env.DB_PORT || '5432', 10),
+    process.env.DB_USERNAME || 'postgres',
+    process.env.DB_PASSWORD || 'password',
+    process.env.DB_DATABASE || 'ai_learning_assistant'
+  );
+  await ensureDatabase(
+    process.env.USER_DB_HOST || process.env.DB_HOST || 'localhost',
+    parseInt(process.env.USER_DB_PORT || process.env.DB_PORT || '5432', 10),
+    process.env.USER_DB_USERNAME || process.env.DB_USERNAME || 'postgres',
+    process.env.USER_DB_PASSWORD || process.env.DB_PASSWORD || 'password',
+    process.env.USER_DB_DATABASE || 'ai_learning_assistant_users'
+  );
+}
+
+// --- 初始化函数（带数据库自动创建与可选迁移逻辑） ---
+export const initializeDataSources = async () => {
   try {
-    await ensureDatabaseExists();
-    await AppDataSource.initialize();
-    console.log('✅ TypeORM 数据库连接成功');
-  } catch (error) {
-    console.error('❌ TypeORM 数据库连接失败:', error);
-    throw error;
+    await ensureAllDatabases();
+    await MainDataSource.initialize();
+    console.log('Main Data Source has been initialized!');
+    await UserDataSource.initialize();
+    console.log('User Data Source has been initialized!');
+
+    const useMigrations = (process.env.TYPEORM_MIGRATIONS ?? 'false') === 'true';
+    if (useMigrations) {
+      console.log('🚧 TYPEORM_MIGRATIONS=true: 运行迁移（当前 migrations 数组为空，需后续添加）。');
+      await MainDataSource.runMigrations();
+      await UserDataSource.runMigrations();
+    } else {
+      if ((process.env.TYPEORM_SYNC ?? 'true') !== 'true') {
+        console.warn('⚠️ 未启用 synchronize，也未启用 migrations：请确保 schema 已手动迁移。');
+      }
+    }
+  } catch (err) {
+    console.error('Error during Data Source initialization:', err);
+    throw err;
   }
 };
+
+// 已移除旧的 AppDataSource 兼容导出；请直接使用 MainDataSource / UserDataSource。

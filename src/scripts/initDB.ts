@@ -2,39 +2,48 @@ import { Client } from 'pg';
 import dotenv from 'dotenv';
 dotenv.config();
 
+// 统一命名 (主库 + 用户库)，保留旧变量回退
 const {
-  DB_HOST = '',
-  DB_PORT = '',
-  DB_NAME = '',
-  DB_USER = '',
-  DB_PASSWORD = '',
-} = process.env;
+  DB_HOST = 'localhost',
+  DB_PORT = '5432',
+  DB_DATABASE = process.env.DB_DATABASE || process.env.DB_NAME || 'ai_learning_assistant',
+  DB_USERNAME = process.env.DB_USERNAME || process.env.DB_USER || 'postgres',
+  DB_PASSWORD = process.env.DB_PASSWORD || 'password',
+  USER_DB_HOST = process.env.USER_DB_HOST || DB_HOST,
+  USER_DB_PORT = process.env.USER_DB_PORT || DB_PORT,
+  USER_DB_DATABASE = process.env.USER_DB_DATABASE || 'ai_learning_assistant_users',
+  USER_DB_USERNAME = process.env.USER_DB_USERNAME || DB_USERNAME,
+  USER_DB_PASSWORD = process.env.USER_DB_PASSWORD || DB_PASSWORD,
+} = process.env as any;
 
-async function createDatabase() {
+async function ensureDatabase(host: string, port: string, database: string, user: string, password: string) {
   const client = new Client({
-    host: DB_HOST,
-    port: parseInt(DB_PORT),
-    user: DB_USER,
-    password: DB_PASSWORD,
-    database: 'postgres', // 连接到默认数据库
+    host,
+    port: parseInt(port, 10),
+    user,
+    password,
+    database: 'postgres',
   });
-
   try {
     await client.connect();
-    // 检查数据库是否存在
-    const res = await client.query(`SELECT 1 FROM pg_database WHERE datname = $1`, [DB_NAME]);
+    const res = await client.query('SELECT 1 FROM pg_database WHERE datname = $1', [database]);
     if (res.rowCount === 0) {
-      await client.query(`CREATE DATABASE "${DB_NAME}"`);
-      console.log(`✅ 数据库 ${DB_NAME} 创建成功`);
+      await client.query(`CREATE DATABASE "${database}"`);
+      console.log(`✅ 数据库 ${database} 创建成功 (${host}:${port})`);
     } else {
-      console.log(`ℹ️ 数据库 ${DB_NAME} 已存在`);
+      console.log(`ℹ️ 数据库 ${database} 已存在 (${host}:${port})`);
     }
   } catch (err) {
-    console.error('❌ 创建数据库失败:', err);
-    process.exit(1);
+    console.error(`❌ 数据库 ${database} 检查/创建失败:`, err);
+    throw err;
   } finally {
     await client.end();
   }
 }
 
-createDatabase();
+async function createDatabases() {
+  await ensureDatabase(DB_HOST, DB_PORT, DB_DATABASE, DB_USERNAME, DB_PASSWORD);
+  await ensureDatabase(USER_DB_HOST, USER_DB_PORT, USER_DB_DATABASE, USER_DB_USERNAME, USER_DB_PASSWORD);
+}
+
+createDatabases().catch(() => process.exit(1));

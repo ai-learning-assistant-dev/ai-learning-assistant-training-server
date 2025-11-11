@@ -2,7 +2,7 @@ import { In } from 'typeorm';
 import { Exercise } from '../models/exercise';
 import { ExerciseOption } from '../models/exerciseOption';
 import { TestExercise } from '../models/testExercise';
-import { AppDataSource } from '../config/database';
+import { MainDataSource, UserDataSource } from '../config/database';
 import { Test } from '../models/test';
 import { ApiResponse } from '../types/express';
 import { TestResponse, CreateTestRequest, UpdateTestRequest } from '../types/test';
@@ -25,10 +25,10 @@ export class TestController extends BaseController {
       if (!body.course_id) {
         return this.fail('course_id 必填', null, 400);    
       }
-      const testRepo = AppDataSource.getRepository(Test);
-      const testExerciseRepo = AppDataSource.getRepository(TestExercise);
-      const exerciseRepo = AppDataSource.getRepository(Exercise);
-      const optionRepo = AppDataSource.getRepository(ExerciseOption);
+  const testRepo = MainDataSource.getRepository(Test);
+  const testExerciseRepo = MainDataSource.getRepository(TestExercise);
+  const exerciseRepo = MainDataSource.getRepository(Exercise);
+  const optionRepo = MainDataSource.getRepository(ExerciseOption);
       // 1. 查 tests
       const tests = await testRepo.find({ where: { course_id: body.course_id }, order: { test_id: 'ASC' } });
       if (!tests.length) return this.ok([]);
@@ -77,11 +77,11 @@ public async saveTestResults(
       return this.fail('user_id、test_id 和 list 必须传，且 list 为非空数组', null, 400);
     }
 
-    const repo = AppDataSource.getRepository(TestResult);
-    const exerciseRepo = AppDataSource.getRepository(Exercise);
-    const optionRepo = AppDataSource.getRepository(ExerciseOption);
-    const testRepo = AppDataSource.getRepository(Test);
-    const exerciseResultRepo = AppDataSource.getRepository(ExerciseResult);
+  const repo = UserDataSource.getRepository(TestResult);
+  const exerciseRepo = MainDataSource.getRepository(Exercise);
+  const optionRepo = MainDataSource.getRepository(ExerciseOption);
+  const testRepo = MainDataSource.getRepository(Test);
+  const exerciseResultRepo = UserDataSource.getRepository(ExerciseResult);
 
     const results: any[] = [];
     let userTotalScore = 0;
@@ -221,7 +221,7 @@ public async saveTestResults(
       const pageNum = body.page || 1;
       const limitNum = body.limit || 10;
       const offset = (pageNum - 1) * limitNum;
-      const repo = AppDataSource.getRepository(Test);
+  const repo = MainDataSource.getRepository(Test);
       const [items, count] = await repo.findAndCount({
         skip: offset,
         take: limitNum,
@@ -238,7 +238,7 @@ public async saveTestResults(
     @Body() body: { test_id: string }
   ): Promise<ApiResponse<TestResponse>> {
     try {
-      const repo = AppDataSource.getRepository(Test);
+  const repo = MainDataSource.getRepository(Test);
       const item = await repo.findOneBy({ test_id: body.test_id });
       if (!item) {
         return this.fail('测试不存在');
@@ -257,7 +257,7 @@ public async saveTestResults(
       if (!requestBody.type_status || !requestBody.title) {
         return this.fail('type_status 和 title 必填', null, 400);
       }
-      const repo = AppDataSource.getRepository(Test);
+  const repo = MainDataSource.getRepository(Test);
       const item = repo.create(requestBody);
       const saved = await repo.save(item);
       return this.ok(saved, '测试创建成功');
@@ -274,7 +274,7 @@ public async saveTestResults(
       if (!requestBody.test_id) {
         return this.fail('test_id 必填', null, 400);
       }
-      const repo = AppDataSource.getRepository(Test);
+  const repo = MainDataSource.getRepository(Test);
       const item = await repo.findOneBy({ test_id: requestBody.test_id });
       if (!item) {
         return this.fail('测试不存在');
@@ -292,7 +292,7 @@ public async saveTestResults(
     @Body() body: { test_id: string }
   ): Promise<ApiResponse<any>> {
     try {
-      const repo = AppDataSource.getRepository(Test);
+  const repo = MainDataSource.getRepository(Test);
       const item = await repo.findOneBy({ test_id: body.test_id });
       if (!item) {
         return this.fail('测试不存在');

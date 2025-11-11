@@ -36,15 +36,8 @@ export class User {
   @OneToMany(() => DailySummary, summary => summary.user, { createForeignKeyConstraints: false })
   dailySummaries!: DailySummary[];
 
-  // 用户的课程安排关联
-  @OneToMany(() => CourseSchedule, schedule => schedule.user, { createForeignKeyConstraints: false })
-  courseSchedules!: CourseSchedule[];
-
   // 用户的学习记录关联
   @OneToMany(() => LearningRecord, record => record.user, { createForeignKeyConstraints: false })
   learningRecords!: LearningRecord[];
 
-  // 用户的AI交互关联
-  @OneToMany(() => AiInteraction, ai => ai.user, { createForeignKeyConstraints: false })
-  aiInteractions!: AiInteraction[];
 }

@@ -1,4 +1,4 @@
-import { AppDataSource } from '../config/database';
+import { MainDataSource } from '../config/database';
 import { AiPersona } from '../models/aiPersona';
 import { ApiResponse } from '../types/express';
 import { AiPersonaResponse, CreateAiPersonaRequest, UpdateAiPersonaRequest } from '../types/aiPersona';
@@ -16,7 +16,7 @@ export class AiPersonaController extends BaseController {
       const pageNum = body.page || 1;
       const limitNum = body.limit || 10;
       const offset = (pageNum - 1) * limitNum;
-      const repo = AppDataSource.getRepository(AiPersona);
+  const repo = MainDataSource.getRepository(AiPersona);
       const [items, count] = await repo.findAndCount({
         skip: offset,
         take: limitNum,
@@ -33,7 +33,7 @@ export class AiPersonaController extends BaseController {
       @Body() body: { persona_id: string }
   ): Promise<ApiResponse<AiPersonaResponse>> {
     try {
-      const repo = AppDataSource.getRepository(AiPersona);
+  const repo = MainDataSource.getRepository(AiPersona);
         const item = await repo.findOneBy({ persona_id: body.persona_id });
       if (!item) {
         return this.fail('AI人设不存在');
@@ -52,7 +52,7 @@ export class AiPersonaController extends BaseController {
       if (!requestBody.name || !requestBody.prompt) {
         return this.fail('名称和提示词必填', null, 400);
       }
-      const repo = AppDataSource.getRepository(AiPersona);
+  const repo = MainDataSource.getRepository(AiPersona);
       const item = repo.create(requestBody);
       const saved = await repo.save(item);
       return this.ok(saved, 'AI人设创建成功');
@@ -69,7 +69,7 @@ export class AiPersonaController extends BaseController {
       if (!requestBody.persona_id) {
         return this.fail('persona_id 必填', null, 400);
       }
-      const repo = AppDataSource.getRepository(AiPersona);
+  const repo = MainDataSource.getRepository(AiPersona);
       const item = await repo.findOneBy({ persona_id: requestBody.persona_id });
       if (!item) {
         return this.fail('AI人设不存在');
@@ -87,7 +87,7 @@ export class AiPersonaController extends BaseController {
     @Body() body: { persona_id: string }
   ): Promise<ApiResponse<any>> {
     try {
-      const repo = AppDataSource.getRepository(AiPersona);
+  const repo = MainDataSource.getRepository(AiPersona);
       const item = await repo.findOneBy({ persona_id: body.persona_id });
       if (!item) {
         return this.fail('AI人设不存在');

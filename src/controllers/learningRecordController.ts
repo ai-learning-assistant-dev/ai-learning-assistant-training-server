@@ -1,4 +1,4 @@
-import { AppDataSource } from '../config/database';
+import { UserDataSource } from '../config/database';
 import { LearningRecord } from '../models/learningRecord';
 import { ApiResponse } from '../types/express';
 import { LearningRecordResponse, CreateLearningRecordRequest, UpdateLearningRecordRequest } from '../types/learningRecord';
@@ -16,7 +16,7 @@ export class LearningRecordController extends BaseController {
       const pageNum = body.page || 1;
       const limitNum = body.limit || 10;
       const offset = (pageNum - 1) * limitNum;
-      const repo = AppDataSource.getRepository(LearningRecord);
+      const repo = UserDataSource.getRepository(LearningRecord);
       const [items, count] = await repo.findAndCount({
         skip: offset,
         take: limitNum
@@ -32,7 +32,7 @@ export class LearningRecordController extends BaseController {
       @Body() body: { task_id: string }
     ): Promise<ApiResponse<LearningRecordResponse>> {
     try {
-      const repo = AppDataSource.getRepository(LearningRecord);
+      const repo = UserDataSource.getRepository(LearningRecord);
         const item = await repo.findOneBy({ task_id: body.task_id });
       if (!item) {
         return this.fail('学习记录不存在');
@@ -51,7 +51,7 @@ export class LearningRecordController extends BaseController {
       if (!requestBody.plan_id || !requestBody.user_id || !requestBody.section_id) {
         return this.fail('plan_id、user_id、section_id 必填', null, 400);
       }
-      const repo = AppDataSource.getRepository(LearningRecord);
+  const repo = UserDataSource.getRepository(LearningRecord);
       const item = repo.create(requestBody);
       const saved = await repo.save(item);
       return this.ok(saved, '学习记录创建成功');
@@ -68,7 +68,7 @@ export class LearningRecordController extends BaseController {
       if (!requestBody.task_id) {
         return this.fail('task_id 必填', null, 400);
       }
-      const repo = AppDataSource.getRepository(LearningRecord);
+  const repo = UserDataSource.getRepository(LearningRecord);
       const item = await repo.findOneBy({ task_id: requestBody.task_id });
       if (!item) {
         return this.fail('学习记录不存在');
@@ -86,7 +86,7 @@ export class LearningRecordController extends BaseController {
     @Body() body: { task_id: string }
   ): Promise<ApiResponse<any>> {
     try {
-      const repo = AppDataSource.getRepository(LearningRecord);
+  const repo = UserDataSource.getRepository(LearningRecord);
       const item = await repo.findOneBy({ task_id: body.task_id });
       if (!item) {
         return this.fail('学习记录不存在');

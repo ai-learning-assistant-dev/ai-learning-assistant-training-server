@@ -7,7 +7,7 @@ import {
   resumeLearningSession,
   LearningAssistant 
 } from '../llm/domain/learning_assistant';
-import { AppDataSource } from '../config/database';
+import { MainDataSource, UserDataSource } from '../config/database';
 import { AiInteraction } from '../models/aiInteraction';
 import { ApiResponse } from '../types/express';
 import { 
@@ -22,7 +22,9 @@ import {
 import { AnswerEvaluateRequest, AnswerEvaluateResponse } from '../types/AiChat';
 import AnswerEvaluator from '../llm/domain/answer_evaluator';
 import { Readable } from 'node:stream';
-import { Section } from '@/models/section';
+import { Section } from '../models/section';
+import { User } from '../models/user';
+import { AiPersona } from '../models/aiPersona';
 import DailyChat from '../llm/domain/daily_chat';
 
 /**
@@ -232,7 +234,7 @@ export class AiChatController extends BaseController {
       }
 
       // 通过 AiInteraction 表查询该用户在该章节的所有会话
-      const aiInteractionRepo = AppDataSource.getRepository(AiInteraction);
+  const aiInteractionRepo = UserDataSource.getRepository(AiInteraction);
       const interactions = await aiInteractionRepo.find({
         where: { 
           user_id: userId,
@@ -330,23 +332,63 @@ export class AiChatController extends BaseController {
           this.fail("缺少会话ID参数",null,404);
       }
 
-      // 通过现有的 AiInteraction 表查询历史记录
-      const aiInteractionRepo = AppDataSource.getRepository(AiInteraction);
+      // 查询交互列表（不使用 relations，跨库手动加载）
+      const aiInteractionRepo = UserDataSource.getRepository(AiInteraction);
       const interactions = await aiInteractionRepo.find({
         where: { session_id: sessionId },
-        order: { query_time: 'ASC' },
-        relations: ['user', 'section', 'persona']
+        order: { query_time: 'ASC' }
       });
 
-      // 转换为对话格式
-      let history = interactions.map(interaction => ({
-        interaction_id: interaction.interaction_id,
-        user_message: interaction.user_message,
-        ai_response: interaction.ai_response,
-        query_time: interaction.query_time,
-        user_name: interaction.user?.name,
-        section_title: interaction.section?.title,
-        persona_name: interaction.persona?.name
+      // 手动批量加载关联实体，避免 N+1：使用简单内存缓存
+      const userRepo = UserDataSource.getRepository(User);
+      const sectionRepo = MainDataSource.getRepository(Section);
+      const personaRepo = MainDataSource.getRepository(AiPersona);
+
+      const userCache = new Map<string, User>();
+      const sectionCache = new Map<string, Section>();
+      const personaCache = new Map<string, AiPersona>();
+
+      // 转换为对话格式并填充名称
+      let history = await Promise.all(interactions.map(async (interaction) => {
+        // 用户（同库）
+        let userName: string | undefined;
+        if (interaction.user_id) {
+          if (!userCache.has(interaction.user_id)) {
+            const u = await userRepo.findOneBy({ user_id: interaction.user_id });
+            if (u) userCache.set(interaction.user_id, u);
+          }
+          userName = userCache.get(interaction.user_id)?.name;
+        }
+
+        // 章节（主库）
+        let sectionTitle: string | undefined;
+        if (interaction.section_id) {
+          if (!sectionCache.has(interaction.section_id)) {
+            const s = await sectionRepo.findOneBy({ section_id: interaction.section_id });
+            if (s) sectionCache.set(interaction.section_id, s);
+          }
+          sectionTitle = sectionCache.get(interaction.section_id)?.title;
+        }
+
+        // 人设（主库）
+        let personaName: string | undefined;
+        if (interaction.persona_id_in_use) {
+          if (!personaCache.has(interaction.persona_id_in_use)) {
+            const p = await personaRepo.findOneBy({ persona_id: interaction.persona_id_in_use });
+            if (p) personaCache.set(interaction.persona_id_in_use, p);
+          }
+          personaName = personaCache.get(interaction.persona_id_in_use)?.name;
+        }
+
+        return {
+          interaction_id: interaction.interaction_id,
+          user_message: interaction.user_message,
+          ai_response: interaction.ai_response,
+          query_time: interaction.query_time,
+          user_name: userName,
+          section_title: sectionTitle,
+          persona_name: personaName
+        };
       }));
 
       // 如果请求中要求去除以 [inner] 开头的用户提问，则过滤掉这些记录

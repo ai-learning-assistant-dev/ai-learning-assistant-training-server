@@ -1,7 +1,4 @@
-import { Entity, PrimaryGeneratedColumn, Column, ManyToOne, JoinColumn } from 'typeorm';
-import { User } from './user';
-import { Section } from './section';
-import { AiPersona } from './aiPersona';
+import { Entity, PrimaryGeneratedColumn, Column } from 'typeorm';
 
 
 @Entity({ name: 'ai_interactions' })
@@ -29,18 +26,6 @@ export class AiInteraction {
 
   @Column({ type: 'uuid', nullable: true })
   persona_id_in_use?: string;
-    // 用户关联（仅模型查找，不生成数据库外键）
-  @ManyToOne(() => User, user => user.aiInteractions, { createForeignKeyConstraints: false })
-  @JoinColumn({ name: 'user_id' })
-  user!: User;
-
-  // 节关联
-  @ManyToOne(() => Section, section => section.aiInteractions, { createForeignKeyConstraints: false })
-  @JoinColumn({ name: 'section_id' })
-  section!: Section;
-
-  // AI人设关联
-  @ManyToOne(() => AiPersona, persona => persona.aiInteractions, { createForeignKeyConstraints: false })
-  @JoinColumn({ name: 'persona_id' })
-  persona!: AiPersona;
+  // 说明：移除跨数据库的关系映射（User/Section/AiPersona 属于不同数据源）。
+  // 如需获取关联名称或标题，请在控制器里通过 MainDataSource 或 UserDataSource 手动查询并拼接。
 }
