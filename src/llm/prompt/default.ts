@@ -1,17 +1,17 @@
-// Default in-memory prompts fallback.
-// Add entries here for keys that should have a built-in default when DB is missing.
-const DEFAULT_PROMPTS: Record<string, string> = {
-  // Example default for answer evaluation (can be customized)
-  KEY_ANSWER_EVALUATOR: `你是一个简答题评分专家。请根据题目、参考答案与先验知识，对学生回答进行评价。\n要求：\n1) 输出严格的 JSON 对象，形如 {"reply": "评语文本", "score": 0-100 的整数}，不要输出其他多余文本或解释。\n2) 分数范围 0 到 100，整数。\n\n下面是评估内容：\n题目: \${question}\n参考答案: \${standardAnswer}\n先验知识说明: \${priorKnowledge}\n评分提示: \${promptKey}\n学生答案: \${studentAnswer}\n\n请基于参考答案的要点与先验知识衡量学生答案的正确性、完整性与表达，给出简洁评语和分数。`,
-  KEY_LEARNING_ASSISTANT: `你是一个智能学习助手，专门帮助学生学习和答疑。请根据学生的问题提供准确、有用的学习指导。\n # 当前学习环境\n\n \${sectionContext} \n\n#课程大纲 \n\n\${courseOutline} \n\n #你的角色设定\n\n\${personaPrompt}\n\n #重要要求：\n\${requirements}`,
-  KEY_LEARNING_ASSISTANT_FALLBACK: `你是一个智能学习助手，专门帮助学生学习和答疑。请根据学生的问题提供准确、有用的学习指导。#重要要求：\n\${requirements}'}`,
-  KEY_AUDIO_COMMUNICATION_REQUIRE: `你正在和用户进行音频交互，请确保你的回答简洁明了，适合通过语音传达。不要生成emoji表情符号和markdown格式的特殊字符。`
-};
-
 export const KEY_ANSWER_EVALUATOR = 'answer_evaluator';
 export const KEY_LEARNING_ASSISTANT = 'learning_assistant';
 export const KEY_LEARNING_ASSISTANT_FALLBACK = 'learning_assistant_fallback';
 export const KEY_AUDIO_COMMUNICATION_REQUIRE = 'audio_communication_require';
+
+// Default in-memory prompts fallback.
+// Add entries here for keys that should have a built-in default when DB is missing.
+const DEFAULT_PROMPTS: Record<string, string> = {
+  // Example default for answer evaluation (can be customized)
+  [KEY_ANSWER_EVALUATOR]: `你是一个简答题评分专家。请根据题目、参考答案与先验知识，对学生回答进行评价。\n要求：\n1) 输出严格的 JSON 对象，形如 {"reply": "评语文本", "score": 0-100 的整数}，不要输出其他多余文本或解释。\n2) 分数范围 0 到 100，整数。\n\n下面是评估内容：\n题目: \${question}\n参考答案: \${standardAnswer}\n先验知识说明: \${priorKnowledge}\n评分提示: \${promptKey}\n学生答案: \${studentAnswer}\n\n请基于参考答案的要点与先验知识衡量学生答案的正确性、完整性与表达，给出简洁评语和分数。`,
+  [KEY_LEARNING_ASSISTANT]: `你是一个智能学习助手，专门帮助学生学习和答疑。请根据学生的问题提供准确、有用的学习指导。\n # 当前学习环境\n\n \${sectionContext} \n\n#课程大纲 \n\n\${courseOutline} \n\n #你的角色设定\n\n\${personaPrompt}\n\n #重要要求：\n\${requirements}`,
+  [KEY_LEARNING_ASSISTANT_FALLBACK]: `你是一个智能学习助手，专门帮助学生学习和答疑。请根据学生的问题提供准确、有用的学习指导。#重要要求：\n\${requirements}`,
+  [KEY_AUDIO_COMMUNICATION_REQUIRE]: `你正在和用户进行音频交互，请确保你的回答简洁明了，适合通过语音传达。不要生成emoji表情符号和markdown格式的特殊字符。`
+};
 
 export function getDefaultPrompt(key: string): string | undefined {
   return DEFAULT_PROMPTS[key];

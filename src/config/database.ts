@@ -21,6 +21,7 @@ import { TestExercise } from '../models/testExercise';
 import { UserSessionMapping } from '../models/UserSessionMapping';
 import { ConversationAnalytics } from '../models/ConversationAnalytics';
 import { UserSectionUnlock } from '../models/userSectionUnlock';
+import { SystemPrompt } from '../models/systemPrompt';
 import dotenv from 'dotenv';
 import { Client } from 'pg';
 dotenv.config();
@@ -45,8 +46,8 @@ export const AppDataSource = new DataSource({
   entities: [
     User, Title, LearningRecord, DailySummary, CourseSchedule, AiInteraction,
     AiPersona, Course, Chapter, Section, LeadingQuestion,
-    Exercise, ExerciseOption, Test, TestResult, ExerciseResult, TestExercise,
-    UserSessionMapping, ConversationAnalytics,UserSectionUnlock
+  Exercise, ExerciseOption, Test, TestResult, ExerciseResult, TestExercise,
+  UserSessionMapping, ConversationAnalytics, UserSectionUnlock, SystemPrompt
   ], // 创建model后要在此处添加
   migrations: [],
   subscribers: [],
