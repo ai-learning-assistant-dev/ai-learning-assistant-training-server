@@ -24,6 +24,8 @@ import AnswerEvaluator from '../llm/domain/answer_evaluator';
 import { Readable } from 'node:stream';
 import { Section } from '@/models/section';
 import DailyChat from '../llm/domain/daily_chat';
+import { getPromptWithArgs } from '../llm/prompt/manager';
+import { KEY_AUDIO_COMMUNICATION_REQUIRE } from '@/llm/prompt/default';
 
 /**
  * 集成LLM Agent的AI聊天控制器
@@ -178,9 +180,9 @@ export class AiChatController extends BaseController {
         this.chatDaily(request, useAudio);
       }
 
-      let systemPrompt: string | undefined = undefined;
+      let requirements: string | undefined = undefined;
       if (useAudio) {
-        systemPrompt = "You are an AI learning assistant that communicates with the user through audio messages. Please respond in a concise manner suitable for audio delivery.";
+        requirements = await getPromptWithArgs(KEY_AUDIO_COMMUNICATION_REQUIRE, {});
       }
 
       const { userId, sectionId, message, personaId, sessionId } = request;
@@ -195,10 +197,10 @@ export class AiChatController extends BaseController {
       try {
         if (sessionId) {
           // 恢复现有会话
-          assistant = await resumeLearningSession(userId, sessionId);
+          assistant = await resumeLearningSession(userId, sessionId, requirements);
         } else {
           // 创建新会话
-          assistant = await createLearningAssistant(userId, sectionId, personaId);
+          assistant = await createLearningAssistant(userId, sectionId, personaId,undefined,undefined, requirements);
         }
 
         // const realMessage = message.replace("[inner]", "");
