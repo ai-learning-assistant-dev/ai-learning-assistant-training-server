@@ -6,7 +6,7 @@ import { ofetch } from 'ofetch';
  */
 export interface OfetchRequestOptions {
   method?: 'GET' | 'POST' | 'PUT' | 'DELETE';
-  headers?: Record<string, string>;
+  headers?: Record<string, string | string[]>;
   query?: Record<string, string | number | boolean>;
   responseType?: 'json' | 'text' | 'stream' | 'blob';
   timeout?: number;
