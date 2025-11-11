@@ -1,4 +1,4 @@
-import { Get, Query, Route, Request, Tags } from 'tsoa';
+import { Get, Route, Request, Tags } from 'tsoa';
 import type { Request as ExpressRequest, Response as ExpressResponse } from 'express';
 import { Readable } from 'stream';
 import { ApiResponse } from '../types/express';
@@ -9,6 +9,16 @@ import { ofetchRawStream } from '../utils/ofetch';
 
 const pipelineAsync = promisify(pipeline);
 
+function extractHostFromUrl(urlString: string) {
+  try {
+    const urlObj = new URL(urlString);
+    return urlObj.host;   // 直接返回 host（包含端口）
+  } catch (e) {
+    console.error(" 无效的 URL:", e);
+    return "";
+  }
+}
+
 @Tags('B站视频代理')
 @Route('proxy/bilibili')
 export class BilibiliProxyController extends BaseController {
@@ -17,32 +27,61 @@ export class BilibiliProxyController extends BaseController {
    */
   @Get('stream')
   public async proxyBilibiliStream(
-    @Query() url: string,
-    @Request() req: ExpressRequest,
+    @Request() req: ExpressRequest
   ): Promise<ApiResponse | void> {
     try {
+      const url = req.query.url as string;
+      const bvid = req.query.bvid as string | undefined;
+      const sign = req.query.sign as string | undefined;
+      const platform = req.query.platform as string | undefined;
+      const traceid = req.query.traceid as string | undefined;
+
       if (!url) {
         return this.fail('URL 参数不能为空', null, 400);
       };
-
-      const decodedUrl = decodeURIComponent(url);
-      if (!/^https:\/\/[\w.-]*bilivideo\.com\//.test(decodedUrl)) {
-        return this.fail('非法的B站视频域名', null, 400);
+      let newUrl = "";
+      if (platform && sign) {
+        newUrl = `${url}&sign=${sign}&platform=${platform}&traceid=${traceid}`
       }
 
-      const headers: Record<string, string> = {
-        'Referer': 'https://www.bilibili.com/',
-        'Origin': 'https://www.bilibili.com',
-        'User-Agent':
-          'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/127.0.0.0 Safari/537.36',
-        'Accept-Encoding': 'identity',
+      const decodedUrl = decodeURIComponent(newUrl ? newUrl : url);
+      
+      let hostHeader = ""
+      if (decodedUrl.includes('mcdn.bilivideo')) {
+        hostHeader = extractHostFromUrl(decodedUrl)
+
+      }
+
+      const clientHeaders = req.headers;
+      const headers: Record<string, string | string[]> = {
+        'Accept': clientHeaders.accept || '*/*',
+        'Accept-Language': clientHeaders['accept-language'] || 'zh-CN,zh;q=0.9,en;q=0.8',
+        'Origin': clientHeaders.origin || 'https://www.bilibili.com',
+        'Referer': bvid ? `https://www.bilibili.com/video/${bvid}/` : (clientHeaders.referer || 'https://www.bilibili.com/'),
+        'User-Agent': clientHeaders['user-agent'] || 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/142.0.0.0 Safari/537.36',
+        'sec-ch-ua': clientHeaders['sec-ch-ua'] || '"Chromium";v="142", "Google Chrome";v="142", "Not_A Brand";v="99"',
+        'sec-ch-ua-mobile': clientHeaders['sec-ch-ua-mobile'] || '?0',
+        'sec-ch-ua-platform': clientHeaders['sec-ch-ua-platform'] || '"Windows"',
+        'Sec-Fetch-Dest': clientHeaders['sec-fetch-dest'] || 'empty',
+        'Sec-Fetch-Mode': clientHeaders['sec-fetch-mode'] || 'cors',
+        'Sec-Fetch-Site': clientHeaders['sec-fetch-site'] || 'cross-site',
+        'Priority': clientHeaders.priority || 'u=1, i',
         'Connection': 'keep-alive',
+
       };
+      if (hostHeader) {
+        headers['Host'] = hostHeader;
+      }
+
+      if (clientHeaders['if-range']) {
+        headers['If-Range'] = clientHeaders['if-range'] as string;
+      }
 
       // Parse and validate Range header
       let rangeStart: number | undefined;
       let rangeEnd: number | undefined;
-      const rangeHeader = req.headers.range;
+
+      const rangeHeader = req.headers.range as string | undefined;
       if (rangeHeader) {
         const rangeMatch = rangeHeader.match(/^bytes=(\d+)-(\d*)$/);
         if (!rangeMatch) {
@@ -89,6 +128,7 @@ export class BilibiliProxyController extends BaseController {
 
       // Set other response headers
       this.setHeader('Accept-Ranges', 'bytes');
+
       for (const [key, value] of response.headers.entries()) {
         if (key.toLowerCase() !== 'content-length' && key.toLowerCase() !== 'content-range') {
           this.setHeader(key, value);
