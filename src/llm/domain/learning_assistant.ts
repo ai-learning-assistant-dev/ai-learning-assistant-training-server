@@ -28,8 +28,8 @@ export interface LearningAssistantOptions {
   sessionId?: string;
   /** 自定义存储实例（可选） */
   storage?: IntegratedPostgreSQLStorage;
-  /** 自定义系统提示（可选） */
-  systemPrompt?: string;
+  /** 附加在系统提示词中的额外要求 */
+  requirements?: string;
 }
 
 /**
@@ -47,7 +47,7 @@ export class LearningAssistant {
   private sectionId: string;
   private sessionId: string;
   private personaId?: string;
-  private systemPrompt?: string;
+  private requirements?: string;
 
   constructor(options: LearningAssistantOptions) {
     this.userId = options.userId;
@@ -58,6 +58,7 @@ export class LearningAssistant {
       this.userId, 
       this.sectionId
     );
+    this.requirements = options.requirements;
     
     // 使用集成存储
     this.storage = options.storage || new IntegratedPostgreSQLStorage({
@@ -612,7 +613,7 @@ export async function createLearningAssistant(
   personaId?: string,
   sessionId?: string,
   courseId?: string,
-  systemPrompt?: string
+  requirements?: string
 ): Promise<LearningAssistant> {
   const assistant = new LearningAssistant({
     userId,
@@ -620,7 +621,7 @@ export async function createLearningAssistant(
     sectionId,
     personaId,
     sessionId,
-    systemPrompt
+    requirements
   });
   
   await assistant.initialize();
