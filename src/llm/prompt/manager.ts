@@ -1,5 +1,4 @@
-import { AppDataSource } from '../../config/database';
-import { SystemPrompt } from '../../models/systemPrompt';
+import { getSystemPromptByTitle } from '../../services/systemPromptService';
 
 function getByPath(obj: Record<string, any>, path: string): any {
     const parts = path.split('.');
@@ -12,8 +11,8 @@ function getByPath(obj: Record<string, any>, path: string): any {
 }
 
 export async function getPromptWithArgs(key: string, args: Record<string, any>): Promise<string> {
-    const repo = AppDataSource.getRepository(SystemPrompt);
-    const prompt = await repo.findOne({ where: { title: key } });
+    // Use service layer which handles DB + default fallback
+    const prompt = await getSystemPromptByTitle(key);
     if (!prompt) {
         throw new Error(`SystemPrompt not found for key=${key}`);
     }
