@@ -1,6 +1,7 @@
 import SingleChat from '../agent/single_chat';
 import type { AnswerEvaluateRequest, AnswerEvaluateResponse } from '../../types/AiChat';
 import { getPromptWithArgs } from '../prompt/manager';
+import { KEY_ANSWER_EVALUATOR } from '../prompt/default';
 
 /**
  * AnswerEvaluator
@@ -33,13 +34,12 @@ export class AnswerEvaluator {
       let instruction: string;
       if (req.prompt) {
         try {
-          instruction = await getPromptWithArgs(req.prompt, {
+          instruction = await getPromptWithArgs(KEY_ANSWER_EVALUATOR, {
             question: req.question,
             standardAnswer: req.standardAnswer,
-            priorKnowledge: req.priorKnowledge,
+            priorKnowledge: req.priorKnowledge ?? '无',
             studentAnswer: req.studentAnswer,
-            // keep original prompt key available if template needs it
-            promptKey: req.prompt,
+            promptKey: req.prompt ?? '请自行评分',
           });
         } catch (err) {
           console.warn('Failed to instantiate prompt template from DB, falling back to inline instruction:', err);
