@@ -21,20 +21,20 @@ export class Section {
   @JoinColumn({ name: 'chapter_id' })
   chapter!: Chapter;
 
-  @Column({ type: 'varchar', length: 255, nullable: true })
+  @Column({ type: 'text',  nullable: true })
   video_url?: string;
 
-  @Column({ type: 'varchar', length: 255, nullable: true })
-  knowledge_points?: string;
+  @Column({ type: 'jsonb',  nullable: true })
+  knowledge_points?: any;
 
-  @Column({ type: 'varchar', length: 255, nullable: true })
-  video_subtitles?: string;
+  @Column({ type: 'jsonb',  nullable: true })
+  video_subtitles?: any;
 
   @Column({ type: 'varchar', length: 512, nullable: true })
   srt_path?: string;
 
-  @Column({ type: 'varchar', length: 255, nullable: true })
-  knowledge_content?: string;
+  @Column({ type: 'jsonb',  nullable: true })
+  knowledge_content?: any;
 
   @Column({ type: 'int', nullable: true })
   estimated_time?: number;

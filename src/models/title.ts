@@ -14,7 +14,7 @@ export class Title {
   @Column({ type: 'varchar', length: 255 })
   name!: string;
 
-  @Column({ type: 'varchar', length: 255, nullable: true })
+  @Column({ type: 'text'})
   icon_url?: string;
 
   @Column({ type: 'int', nullable: true })
