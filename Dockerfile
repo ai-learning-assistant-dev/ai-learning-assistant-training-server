@@ -42,7 +42,7 @@ RUN npm run build
 FROM postgres:17-alpine
 
 # 安装Node.js运行时
-RUN apk add --no-cache nodejs npm
+RUN apk add --no-cache nodejs npm curl
 
 # 设置工作目录
 WORKDIR /app
@@ -68,8 +68,8 @@ ENV NODE_ENV=production
 ENV POSTGRES_PASSWORD=123456
 
 # 健康检查
-HEALTHCHECK --interval=30s --timeout=10s --start-period=5s --retries=3 \
-  CMD pg_isready -U postgres || exit 1
+HEALTHCHECK --interval=3s --timeout=1s --start-period=10s --retries=10 \
+  CMD pg_isready -U postgres && curl -f http://127.0.0.1:3000/health || exit 1
 
 # 启动命令 - 同时启动PostgreSQL和应用
 CMD ["sh", "-c", "docker-entrypoint.sh postgres & sleep 10 && node dist/src/app.js"]
