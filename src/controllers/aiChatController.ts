@@ -25,7 +25,7 @@ import { Readable } from 'node:stream';
 import { Section } from '@/models/section';
 import DailyChat from '../llm/domain/daily_chat';
 import { getPromptWithArgs } from '../llm/prompt/manager';
-import { KEY_AUDIO_COMMUNICATION_REQUIRE } from '@/llm/prompt/default';
+import { KEY_AUDIO_COMMUNICATION_REQUIRE } from '../llm/prompt/default';
 
 /**
  * 集成LLM Agent的AI聊天控制器
