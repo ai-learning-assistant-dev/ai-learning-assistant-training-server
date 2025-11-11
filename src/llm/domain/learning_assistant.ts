@@ -468,7 +468,7 @@ export class LearningAssistant {
    */
   private async createSystemPrompt(): Promise<any> {
     let systemPromptText = "";
-    let personaPrompt = "你是一个智能学习助手，专门帮助学生学习和答疑。请根据学生的问题提供准确、有用的学习指导.";
+    let personaPrompt = "信心十足的教育家，耐心且乐于助人。";
 
     // 获取AI人设的提示
     if (this.personaId && AppDataSource.isInitialized) {
@@ -494,7 +494,7 @@ ${courseOutline}
 ${personaPrompt}`;
     } else {
       // 如果没有课程信息，提供通用的学习助手提示
-      systemPromptText += `## 🤖 AI学习助手
+      systemPromptText += `##AI学习助手
 
 你是一个智能学习助手，专门帮助学生学习和答疑。请根据学生的问题提供准确、有用的学习指导。`;
     }
