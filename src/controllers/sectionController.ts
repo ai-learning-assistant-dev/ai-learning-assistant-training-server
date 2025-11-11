@@ -55,53 +55,11 @@ public async addSection(
     }
     
     const sectionRepo = AppDataSource.getRepository(Section);
-    const chapterRepo = AppDataSource.getRepository(Chapter);
     
-    // 查询对应的章节信息
-    const chapter = await chapterRepo.findOne({
-      where: { chapter_id: requestBody.chapter_id }
-    });
-    
-    if (!chapter) {
-      return this.fail('章节不存在', null, 404);
-    }
-    
-    // 查询该课程中是否有比当前章节 order 更小的章节
-    const firstChapter = await chapterRepo.findOne({
-      where: { 
-        course_id: chapter.course_id 
-      },
-      order: { chapter_order: 'ASC' }
-    });
-    
-    // 检查当前章节是否是课程的第一个章节
-    const isFirstChapter = firstChapter && firstChapter.chapter_id === requestBody.chapter_id;
-    
-    // 查询该章节中已存在的节，按 section_order 排序
-    const existingSections = await sectionRepo.find({
-      where: { chapter_id: requestBody.chapter_id },
-      order: { section_order: 'ASC' }
-    });
-    
-    // 检查当前节是否是章节的第一个节
-    // 如果该章节还没有任何节，或者当前节的 section_order 是最小的
-    let isFirstSection = false;
-    if (existingSections.length === 0) {
-      isFirstSection = true;
-    } else {
-      // 检查当前节的 section_order 是否小于已存在节的最小 section_order
-      const minSectionOrder = existingSections[0].section_order;
-      isFirstSection = requestBody.section_order < minSectionOrder;
-    }
-    
-    // 只有当章节是第一个且节也是第一个时，设置 state 为 2
-    const State = (isFirstChapter && isFirstSection) ? 2 : 0;
-    
+    // 只做节的基本创建
     const item = sectionRepo.create({
-      ...requestBody,
-      unlocked: State
+      ...requestBody
     });
-    
     const saved = await sectionRepo.save(item);
     return this.ok(saved, '节创建成功');
   } catch (error: any) {

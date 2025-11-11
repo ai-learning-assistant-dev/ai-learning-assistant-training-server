@@ -1,4 +1,3 @@
-
 import { AppDataSource } from '../config/database';
 import { ExerciseResult } from '../models/exerciseResult';
 import { ExerciseOption } from '../models/exerciseOption';
@@ -9,6 +8,7 @@ import { Route, Post, Body, Tags } from 'tsoa';
 import { BaseController } from './baseController';
 import { Section } from '../models/section';
 import { Chapter } from '../models/chapter';
+import { UserSectionUnlock } from '../models/userSectionUnlock';
 // list 只包含 exercise_id/user_answer，顶层有 user_id/section_id/test_result_id
 
 @Tags('习题结果表')
@@ -24,7 +24,8 @@ export class ExerciseResultController extends BaseController {
       user_id: string;
       section_id: string | null;
       test_result_id?: string | null;
-      list: Array<{ exercise_id: string; user_answer?: string | null }>
+      list: Array<{ exercise_id: string; user_answer?: string | null }>,
+      duration?: number // 新增时长字段
     }
   ): Promise<ApiResponse<any>> {
     try {
@@ -206,86 +207,34 @@ export class ExerciseResultController extends BaseController {
     // 及格判断
     const pass = score > 0 ? (userTotalScore / score) > 0.6 : false;
     
-    // 如果通过，更新当前节状态并解锁下一个内容
+    // 如果通过，只将当前节的解锁状态在 UserSectionUnlock 表中设置为2
     if (pass && currentChapter && currentSection) {
-      // 1. 将当前节状态设置为1（通过）
-      await sectionRepo.update(
-        { section_id: currentSection.section_id },
-        { unlocked: 1 }
-      );
-      
-      // 2. 检查当前章节的所有节是否都通过
-      const allSectionsInChapter = await sectionRepo.find({
-        where: { chapter_id: currentChapter.chapter_id }
+      const unlockRepo = AppDataSource.getRepository(UserSectionUnlock);
+      let unlock = await unlockRepo.findOneBy({
+        user_id: body.user_id,
+        chapter_id: currentChapter.chapter_id,
+        section_id: currentSection.section_id
       });
-      
-      const allSectionsPassed = allSectionsInChapter.every(section => section.unlocked === 1);
-      
-      // 如果所有节都通过，将章节状态设置为1
-      if (allSectionsPassed) {
-        await chapterRepo.update(
-          { chapter_id: currentChapter.chapter_id },
-          { unlocked: 1 }
-        );
-      }
-      
-      // 3. 解锁下一个内容
-      // 获取当前章节的所有节，按 section_order 排序
-      const allSectionsInChapterOrdered = await sectionRepo.find({
-        where: { chapter_id: currentChapter.chapter_id },
-        order: { section_order: 'ASC' }
-      });
-      
-      // 检查当前节是否是当前章节的最后一个节
-      const currentSectionIndex = allSectionsInChapterOrdered.findIndex(
-        section => section.section_id === currentSection.section_id
-      );
-      
-      const isLastSectionInChapter = currentSectionIndex === allSectionsInChapterOrdered.length - 1;
-      
-      if (!isLastSectionInChapter) {
-        // 如果不是最后一个节，解锁同一章节的下一个节
-        const nextSection = allSectionsInChapterOrdered[currentSectionIndex + 1];
-        await sectionRepo.update(
-          { section_id: nextSection.section_id },
-          { unlocked: 2 }
-        );
-      } else {
-        // 如果是最后一个节，解锁下一章的第一个节
-        // 获取下一章（按 chapter_order 排序）
-        const nextChapter = await chapterRepo.findOne({
-          where: { 
-            course_id: currentChapter.course_id,
-            chapter_order: currentChapter.chapter_order + 1
-          }
-        });
-        
-        if (nextChapter) {
-          // 解锁下一章
-          await chapterRepo.update(
-            { chapter_id: nextChapter.chapter_id },
-            { unlocked: 2 }
-          );
-          
-          // 获取下一章的第一个节（按 section_order 排序）
-          const firstSectionOfNextChapter = await sectionRepo.findOne({
-            where: { chapter_id: nextChapter.chapter_id },
-            order: { section_order: 'ASC' }
-          });
-          
-          if (firstSectionOfNextChapter) {
-            // 解锁下一章的第一个节
-            await sectionRepo.update(
-              { section_id: firstSectionOfNextChapter.section_id },
-              { unlocked: 2 }
-            );
-          }
+
+      if (unlock) {
+        unlock.unlocked = 2;
+        if (body.duration) {
+          unlock.duration += body.duration; // 累加时长
         }
+        await unlockRepo.save(unlock);
+      } else {
+        unlock = unlockRepo.create({
+          user_id: body.user_id,
+          chapter_id: currentChapter.chapter_id,
+          section_id: currentSection.section_id,
+          unlocked: 2,
+          duration: body.duration || 0
+        });
+        await unlockRepo.save(unlock);
       }
     }
     return this.ok({ results, score, user_score: userTotalScore, pass }, '答题结果批量保存/更新成功');
-    }
-    catch (error) {
+    } catch (error) {
       return this.fail('保存答题结果失败', error);
     }
   }
