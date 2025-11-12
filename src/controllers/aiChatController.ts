@@ -22,11 +22,11 @@ import {
 import { AnswerEvaluateRequest, AnswerEvaluateResponse } from '../types/AiChat';
 import AnswerEvaluator from '../llm/domain/answer_evaluator';
 import { Readable } from 'node:stream';
-import { Section } from '@/models/section';
+import { Section } from '../models/section';
 import DailyChat from '../llm/domain/daily_chat';
 import { getPromptWithArgs } from '../llm/prompt/manager';
 import { KEY_AUDIO_COMMUNICATION_REQUIRE } from '../llm/prompt/default';
-import { getAudioPromptByOption } from '@/services/systemPromptService';
+import { getAudioPromptByOption } from '../services/systemPromptService';
 
 /**
  * 集成LLM Agent的AI聊天控制器
@@ -290,30 +290,30 @@ export class AiChatController extends BaseController {
   /**
    * 获取用户的学习会话列表
    */
-  @Get('/sessions/{userId}')
-  public async getUserSessions(
-    @Path() userId: string
-  ): Promise<ApiResponse<any[]>> {
-    try {
-      if (!userId) {
-        throw new Error('缺少用户ID参数');
-      }
+  // @Get('/sessions/{userId}')
+  // public async getUserSessions(
+  //   @Path() userId: string
+  // ): Promise<ApiResponse<any[]>> {
+  //   try {
+  //     if (!userId) {
+  //       throw new Error('缺少用户ID参数');
+  //     }
 
-      // todo: 这块不太对，需要改一下
-      // 创建临时助手实例来访问存储功能，使用一个有效的UUID格式
-      const tempSectionId = '00000000-0000-0000-0000-000000000001';
-      const assistant = await createLearningAssistant(userId, tempSectionId);
-      const sessions = await assistant.getUserSectionSessions();
-      await assistant.cleanup();
+  //     // todo: 这块不太对，需要改一下
+  //     // 创建临时助手实例来访问存储功能，使用一个有效的UUID格式
+  //     const tempSectionId = '00000000-0000-0000-0000-000000000001';
+  //     const assistant = await createLearningAssistant(userId, tempSectionId);
+  //     const sessions = await assistant.getUserSectionSessions();
+  //     await assistant.cleanup();
 
-      return this.ok(sessions);
+  //     return this.ok(sessions);
 
-    } catch (error) {
-      console.error('获取用户会话失败:', error);
-      const errorMessage = error instanceof Error ? error.message : String(error);
-      throw this.fail("获取用户会话失败",errorMessage);
-    }
-  }
+  //   } catch (error) {
+  //     console.error('获取用户会话失败:', error);
+  //     const errorMessage = error instanceof Error ? error.message : String(error);
+  //     throw this.fail("获取用户会话失败",errorMessage);
+  //   }
+  // }
 
 
 
