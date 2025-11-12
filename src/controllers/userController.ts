@@ -1,5 +1,5 @@
 
-import { MainDataSource, UserDataSource } from '../config/database';
+import { backupDatabase, MainDataSource, UserDataSource } from '../config/database';
 import { User } from '../models/user';
 import { ApiResponse} from '../types/express';
 import { UserResponse,CreateUserRequest,UpdateUserRequest,UserQueryParams} from '../types/user';
@@ -190,6 +190,8 @@ export class UserController extends BaseController {
         return this.fail('用户名已存在', null, 400);
       }
       return this.fail('创建用户失败', error);
+    } finally {
+      backupDatabase();
     }
   }
 

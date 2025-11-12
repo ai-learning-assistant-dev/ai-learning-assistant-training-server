@@ -1,4 +1,5 @@
-import { MainDataSource, UserDataSource } from '../config/database';
+import { exec } from 'child_process';
+import { backupDatabase, MainDataSource, UserDataSource } from '../config/database';
 import { ExerciseResult } from '../models/exerciseResult';
 import { ExerciseOption } from '../models/exerciseOption';
 import { Exercise } from '../models/exercise';
@@ -315,6 +316,8 @@ export class ExerciseResultController extends BaseController {
       return this.ok({ results, score, user_score: userTotalScore, pass }, '查询答题结果成功');
     } catch (error) {
       return this.fail('查询答题结果失败', error);
+    } finally {
+      backupDatabase();
     }
   }
 

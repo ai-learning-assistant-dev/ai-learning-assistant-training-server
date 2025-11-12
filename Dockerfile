@@ -58,7 +58,10 @@ COPY --from=app-front-builder /app/ai-learning-assistant-training-front/dist ./p
 
 # 创建数据库初始化脚本目录
 RUN mkdir -p /docker-entrypoint-initdb.d
-COPY init.sql /docker-entrypoint-initdb.d/
+COPY container-script/ai_learning_assistant.sql /docker-entrypoint-initdb.d/
+
+# 将数据库备份恢复脚本复制到容器中
+COPY container-script /app/container-script
 
 # 暴露端口
 EXPOSE 3000
@@ -66,10 +69,11 @@ EXPOSE 3000
 # 设置环境变量
 ENV NODE_ENV=production
 ENV POSTGRES_PASSWORD=123456
+ENV IN_DOCKER=true
 
 # 健康检查
 HEALTHCHECK --interval=3s --timeout=1s --start-period=10s --retries=10 \
   CMD pg_isready -U postgres && curl -f http://127.0.0.1:3000/health || exit 1
 
 # 启动命令 - 同时启动PostgreSQL和应用
-CMD ["sh", "-c", "docker-entrypoint.sh postgres & sleep 10 && node dist/src/app.js"]
+CMD ["sh", "-c", "/app/container-script/restore.sh ; docker-entrypoint.sh postgres & sleep 10 && node dist/src/app.js"]

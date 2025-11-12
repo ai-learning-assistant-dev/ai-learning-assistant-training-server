@@ -24,6 +24,7 @@ import { ConversationAnalytics } from '../models/ConversationAnalytics';
 import { UserSectionUnlock } from '../models/userSectionUnlock';
 import { ExerciseResult } from '../models/exerciseResult';
 import { TestResult } from '../models/testResult';
+import { exec } from 'child_process';
 
 dotenv.config();
 
@@ -150,3 +151,18 @@ export const initializeDataSources = async () => {
 };
 
 // 已移除旧的 AppDataSource 兼容导出；请直接使用 MainDataSource / UserDataSource。
+
+export async function backupDatabase(){
+  if(process.env.IN_DOCKER === 'true'){
+    exec('/app/container-script/backup.sh', (error, stdout, stderr) => {
+      if (error) {
+        console.error(`备份出错: ${error.message}`);
+        return;
+      }
+      if (stderr) {
+        console.error(`备份命令错误日志: ${stderr}`);
+      }
+      console.log(`备份命令常规日志: ${stdout}`);
+    });
+  }
+}
