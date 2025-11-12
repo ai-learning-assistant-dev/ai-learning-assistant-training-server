@@ -109,9 +109,9 @@ http://localhost:3000/docs
 ### 7. 容器内数据库初始化脚本
 从数据库导出sql文件
 ```shell
-pg_dump -h localhost -p 5432 -U postgres -C ai_learning_db -F p -f backup.sql
+pg_dump -h localhost -p 5432 -U postgres -C ai_learning_assistant -F p -f container-script/ai_learning_assistant.sql
 ```
-将导出的文件存放为项目的[init.sql](init.sql)，这样打包出来的容器就会带有这些数据了
+将导出的文件存放为项目的[container-script/ai_learning_assistant.sql](container-script/ai_learning_assistant.sql)，这样打包出来的容器就会带有这些数据了
 
 ## 接口设计注意事项 (控制器接口命名与路由规范)
 

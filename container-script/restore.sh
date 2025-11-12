@@ -1,0 +1,1 @@
+cp /var/lib/postgresql/ala-backup/ai_learning_assistant_users.sql /docker-entrypoint-initdb.d/ai_learning_assistant_users.sql
