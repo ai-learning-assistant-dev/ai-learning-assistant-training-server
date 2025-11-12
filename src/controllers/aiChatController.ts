@@ -26,6 +26,7 @@ import { Section } from '@/models/section';
 import DailyChat from '../llm/domain/daily_chat';
 import { getPromptWithArgs } from '../llm/prompt/manager';
 import { KEY_AUDIO_COMMUNICATION_REQUIRE } from '../llm/prompt/default';
+import { getAudioPromptByOption } from '@/services/systemPromptService';
 
 /**
  * 集成LLM Agent的AI聊天控制器
@@ -89,8 +90,7 @@ export class AiChatController extends BaseController {
    */
   @Post('/daily')
   public async chatDaily(
-    @Body() request: StreamChatRequest,
-    @Query() useAudio?: boolean
+    @Body() request: StreamChatRequest
   ): Promise<Readable> {
     try {
       const { message } = request;
@@ -100,7 +100,7 @@ export class AiChatController extends BaseController {
       }
       
       let systemPrompt: string | undefined = undefined;
-      if (useAudio) {
+      if (request.useAudio) {
         systemPrompt = "You are an AI learning assistant that communicates with the user through audio messages. Please respond in a concise manner suitable for audio delivery.";
       }
 
@@ -171,18 +171,16 @@ export class AiChatController extends BaseController {
    */
   @Post('/chat/stream')
   public async chatStream(
-    @Body() request: StreamChatRequest,
-    @Query() useAudio?: boolean,
-    @Query() daily?: boolean
+    @Body() request: StreamChatRequest
   ): Promise<Readable> {
     try {
-      if (daily) {
-        this.chatDaily(request, useAudio);
+      if (request.daily) {
+        return this.chatDaily(request);
       }
 
       let requirements: string | undefined = undefined;
-      if (useAudio) {
-        requirements = await getPromptWithArgs(KEY_AUDIO_COMMUNICATION_REQUIRE, {});
+      if (request.useAudio) {
+        requirements = request.ttsOption?.map(getAudioPromptByOption)?.join('/n') ?? '无';
       }
 
       const { userId, sectionId, message, personaId, sessionId } = request;

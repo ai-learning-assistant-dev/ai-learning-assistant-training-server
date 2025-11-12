@@ -1,4 +1,4 @@
-import { getSystemPromptByTitle } from '../../services/systemPromptService';
+import { getSystemPromptByTitle, getAudioPromptByOption } from '../../services/systemPromptService';
 
 function getByPath(obj: Record<string, any>, path: string): any {
     const parts = path.split('.');
@@ -10,6 +10,11 @@ function getByPath(obj: Record<string, any>, path: string): any {
     return cur;
 }
 
+/**
+ * Get prompt by key and substitute variables using args
+ * @param key - Prompt key (title)
+ * @throws Error if prompt not found
+ */
 export async function getPromptWithArgs(key: string, args: Record<string, any>): Promise<string> {
     // Use service layer which handles DB + default fallback
     const prompt = await getSystemPromptByTitle(key);
@@ -27,5 +32,22 @@ export async function getPromptWithArgs(key: string, args: Record<string, any>):
         return String(val);
     });
 
+    return result;
+}
+
+/**
+ * Get audio communication prompt by option key
+ * @param optionKey - Audio option key (e.g., 'DEFAULT', 'TTS_MODEL_1')
+ * @param args - Optional template arguments for variable substitution
+ * @returns Processed prompt string with variables substituted
+ * @throws Error if prompt not found
+ */
+export async function getAudioPrompt(
+    optionKey: string, 
+): Promise<string> {
+    const result = await getAudioPromptByOption(optionKey);
+    if (!result) {
+        throw new Error(`Audio prompt not found for optionKey=${optionKey}`);
+    }
     return result;
 }

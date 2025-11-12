@@ -1,6 +1,6 @@
 import { AppDataSource } from '../config/database';
 import { SystemPrompt } from '../models/systemPrompt';
-import { getDefaultPrompt, getDefaultPromptKeys } from '../llm/prompt/default';
+import { getDefaultPrompt, getDefaultPromptKeys, getAudioPrompt } from '../llm/prompt/default';
 
 export const updateSystemPrompt = async (title: string, prompt_text: string): Promise<SystemPrompt> => {
   const repo = AppDataSource.getRepository(SystemPrompt);
@@ -57,4 +57,22 @@ export const getAllSystemPromptKeys = async (): Promise<string[]> => {
   const defaultKeys = getDefaultPromptKeys();
   for (const k of defaultKeys) keys.add(k);
   return Array.from(keys);
+};
+
+/**
+ * Get audio communication prompt by option key (e.g., 'DEFAULT', 'TTS_MODEL_1')
+ * Returns the prompt from DB if exists, otherwise from default fallback
+ */
+export const getAudioPromptByOption = async (optionKey: string): Promise<string | null> => {
+  // First try to get from database
+  const repo = AppDataSource.getRepository(SystemPrompt);
+  const dbKey = `audio_communication_${optionKey.toLowerCase()}`;
+  const item = await repo.findOne({ where: { title: dbKey } });
+  if (item && item.prompt_text) {
+    return item.prompt_text;
+  }
+  
+  // Fallback to default
+  const defaultPrompt = getAudioPrompt(optionKey);
+  return defaultPrompt ?? null;
 };
