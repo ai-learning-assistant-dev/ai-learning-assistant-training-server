@@ -3,6 +3,7 @@ export const KEY_LEARNING_ASSISTANT = 'learning_assistant';
 export const KEY_LEARNING_ASSISTANT_FALLBACK = 'learning_assistant_fallback';
 export const KEY_AUDIO_COMMUNICATION_REQUIRE = 'audio_communication_require';
 export const KEY_AUDIO_COMMUNICATION_OPTIONS = 'audio_communication_options';
+export const KEY_DAILY_CHAT = 'daily_chat';
 
 // Default in-memory prompts fallback.
 // Add entries here for keys that should have a built-in default when DB is missing.
@@ -15,7 +16,8 @@ const DEFAULT_PROMPTS: Record<string, string> = {
   [KEY_AUDIO_COMMUNICATION_OPTIONS]: JSON.stringify({
     DEFAULT: `你正在和用户进行音频交互，请确保你的回答简洁明了，适合通过语音传达。不要生成emoji表情符号和markdown格式的特殊字符。`,
     TTS_MODEL_1: `你正在和用户进行音频交互，使用的是TTS模型1。请确保你的回答简洁明了，适合通过该模型传达。避免使用复杂的句子结构和不必要的修饰词，以确保语音输出清晰易懂。不要生成emoji表情符号和markdown格式的特殊字符。`,
-  })
+  }),
+  [KEY_DAILY_CHAT]: `你是一个友好的学习助理，简短回答用户问题。#重要要求：\n\${requirements}`
 };
 
 export function getDefaultPrompt(key: string): string | undefined {

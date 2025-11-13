@@ -99,13 +99,13 @@ export class AiChatController extends BaseController {
         throw new Error('缺少必要参数： message');
       }
       
-      let systemPrompt: string | undefined = undefined;
+      let requirements: string | undefined = undefined;
       if (request.useAudio) {
-        systemPrompt = "You are an AI learning assistant that communicates with the user through audio messages. Please respond in a concise manner suitable for audio delivery.";
+        requirements =  request.ttsOption?.map(getAudioPromptByOption)?.join('/n') ?? '无';
       }
 
       // 创建 DailyChat（短期有记忆的 SingleChat 封装）
-      const dc = new DailyChat({ systemPrompt });
+      const dc = new DailyChat({ requirements });
 
       // 获取 Readable 流
       const readable = dc.stream(message, { configurable: { thread_id: dc['sessionId'] } });

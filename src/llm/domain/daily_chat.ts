@@ -1,5 +1,7 @@
 import SingleChat from '../agent/single_chat';
 import { Readable } from 'stream';
+import { getPromptWithArgs } from '../prompt/manager';
+import { KEY_DAILY_CHAT } from '../prompt/default';
 
 /**
  * DailyChat
@@ -15,7 +17,8 @@ export class DailyChat {
 
   constructor(options?: DailyChatOptions) {
     // simple system prompt can be passed via options.prompt or default
-    const prompt = options?.systemPrompt || '你是一个友好的学习助理，简短回答用户问题。';
+    const realRequirements = options?.requirements || '请简要回答'
+    const prompt = getPromptWithArgs(KEY_DAILY_CHAT,{requirements: realRequirements});
 
     this.sc = new SingleChat({ prompt, enableMemory: true, tools: options?.tools });
     console.log(`DailyChat created with sessionId=${this.sessionId}, memory enabled=${true}`);
@@ -126,8 +129,8 @@ export class DailyChat {
 }
 
 export class DailyChatOptions {
-  systemPrompt?: string;
   tools?: any[];
+  requirements?: string;
 } 
 
 export default DailyChat;
