@@ -60,6 +60,8 @@ COPY --from=app-front-builder /app/ai-learning-assistant-training-front/dist ./p
 RUN mkdir -p /docker-entrypoint-initdb.d
 COPY container-script/ai_learning_assistant.sql /docker-entrypoint-initdb.d/
 
+# 创建备份目录
+RUN mkdir -p /var/lib/postgresql/ala-backup
 # 将数据库备份恢复脚本复制到容器中
 COPY container-script /app/container-script
 
