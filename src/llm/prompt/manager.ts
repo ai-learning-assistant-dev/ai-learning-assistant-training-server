@@ -32,6 +32,8 @@ export async function getPromptWithArgs(key: string, args: Record<string, any>):
         return String(val);
     });
 
+    console.log(`[getPromptWithArgs] key=${key}, 拼装后的提示词:\n${result}`);
+
     return result;
 }
 

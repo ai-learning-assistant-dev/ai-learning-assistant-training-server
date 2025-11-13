@@ -15,13 +15,18 @@ export class DailyChat {
   private sc: SingleChat;
   private sessionId = '12345672';
 
-  constructor(options?: DailyChatOptions) {
-    // simple system prompt can be passed via options.prompt or default
-    const realRequirements = options?.requirements || '请简要回答'
-    const prompt = getPromptWithArgs(KEY_DAILY_CHAT,{requirements: realRequirements});
-
-    this.sc = new SingleChat({ prompt, enableMemory: true, tools: options?.tools });
+  private constructor(sc: SingleChat) {
+    this.sc = sc;
     console.log(`DailyChat created with sessionId=${this.sessionId}, memory enabled=${true}`);
+  }
+
+  static async create(options?: DailyChatOptions): Promise<DailyChat> {
+    // simple system prompt can be passed via options.prompt or default
+    const realRequirements = options?.requirements || '请简要回答';
+    const prompt = await getPromptWithArgs(KEY_DAILY_CHAT, { requirements: realRequirements });
+
+    const sc = new SingleChat({ prompt, enableMemory: true, tools: options?.tools });
+    return new DailyChat(sc);
   }
 
   /**

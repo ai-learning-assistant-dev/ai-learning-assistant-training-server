@@ -100,12 +100,13 @@ export class AiChatController extends BaseController {
       }
       
       let requirements: string | undefined = undefined;
-      if (request.useAudio) {
-        requirements =  request.ttsOption?.map(getAudioPromptByOption)?.join('/n') ?? '无';
+      if (request.useAudio && request.ttsOption) {
+        const audioPrompts = await Promise.all(request.ttsOption.map(getAudioPromptByOption));
+        requirements = audioPrompts.join('\n');
       }
 
       // 创建 DailyChat（短期有记忆的 SingleChat 封装）
-      const dc = new DailyChat({ requirements });
+      const dc = await DailyChat.create({ requirements });
 
       // 获取 Readable 流
       const readable = dc.stream(message, { configurable: { thread_id: dc['sessionId'] } });
@@ -179,8 +180,9 @@ export class AiChatController extends BaseController {
       }
 
       let requirements: string | undefined = undefined;
-      if (request.useAudio) {
-        requirements = request.ttsOption?.map(getAudioPromptByOption)?.join('/n') ?? '无';
+      if (request.useAudio && request.ttsOption) {
+        const audioPrompts = await Promise.all(request.ttsOption.map(getAudioPromptByOption));
+        requirements = audioPrompts.join('\n');
       }
 
       const { userId, sectionId, message, personaId, sessionId } = request;
