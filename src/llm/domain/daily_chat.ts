@@ -70,22 +70,30 @@ export class DailyChat {
           try {
             let content = '';
 
-            // Support a few chunk shapes: string, {content}, or array of messages
-            if (typeof chunk === 'string') {
+            // Handle LangGraph stream format: [AIMessageChunk, metadata]
+            if (Array.isArray(chunk) && chunk.length > 0) {
+              const messageChunk = chunk[0];
+              // Extract from kwargs.content (LangChain message format)
+              if (messageChunk?.kwargs?.content) {
+                content = messageChunk.kwargs.content;
+              }
+              // Fallback: check if it's a plain object with content property
+              else if (typeof messageChunk?.content === 'string') {
+                content = messageChunk.content;
+              }
+            } 
+            // Handle string chunks
+            else if (typeof chunk === 'string') {
               content = chunk;
-            } else if (Array.isArray(chunk) && chunk.length > 0 && typeof chunk[0]?.content === 'string') {
-              content = chunk[0].content;
-            } else if (chunk && typeof chunk.content === 'string') {
+            }
+            // Handle object with content property
+            else if (chunk && typeof chunk.content === 'string') {
               content = chunk.content;
             }
 
             if (content) {
               fullResponse += content;
               readable.push(content);
-            } else {
-              if (chunkIndex <= 10) {
-                console.log(`Chunk ${chunkIndex}: 无内容`);
-              }
             }
           } catch (chunkErr) {
             console.warn(`Chunk ${chunkIndex} 处理错误:`, chunkErr);
