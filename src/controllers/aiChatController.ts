@@ -385,8 +385,19 @@ export class AiChatController extends BaseController {
     try {
       const { userId, sectionId, personaId } = request;
 
-      if (!userId || !sectionId) {
-        throw new Error('缺少必要参数：userId, sectionId');
+      if (!userId) {
+        throw new Error('缺少必要参数：userId');
+      }
+
+      if (sectionId == "") {
+        // 进入daily模式
+        return this.ok({
+          session_id: "12345672",
+          user_id: userId,
+          section_id: sectionId,
+          persona_id: personaId,
+          created_at: new Date()
+        })
       }
 
       const assistant = await startNewLearningSession(userId, sectionId, personaId);
