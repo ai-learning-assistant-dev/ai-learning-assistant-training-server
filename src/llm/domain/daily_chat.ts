@@ -14,16 +14,18 @@ import { KEY_DAILY_CHAT } from '../prompt/default';
 export class DailyChat {
   private sc: SingleChat;
   private sessionId = '12345672';
+  private static readonly FIXED_PERSONA_NAME = '信心十足的教育家';
 
   private constructor(sc: SingleChat) {
     this.sc = sc;
-    console.log(`DailyChat created with sessionId=${this.sessionId}, memory enabled=${true}`);
+    console.log(`DailyChat created with sessionId=${this.sessionId}, persona=${DailyChat.FIXED_PERSONA_NAME}, memory enabled=${true}`);
   }
 
   static async create(options?: DailyChatOptions): Promise<DailyChat> {
     // simple system prompt can be passed via options.prompt or default
     const realRequirements = options?.requirements || '请简要回答';
-    const prompt = await getPromptWithArgs(KEY_DAILY_CHAT, { requirements: realRequirements });
+    const personaPrompt = `信心十足的教育家`
+    const prompt = await getPromptWithArgs(KEY_DAILY_CHAT, { requirements: realRequirements, personaPrompt });
 
     const sc = new SingleChat({ prompt, enableMemory: true, tools: options?.tools });
     return new DailyChat(sc);
@@ -70,6 +72,11 @@ export class DailyChat {
           try {
             let content = '';
 
+            // Debug: log first few chunks
+            if (chunkIndex <= 3) {
+              console.log(`[DailyChat] Chunk ${chunkIndex} structure:`, JSON.stringify(chunk).substring(0, 200));
+            }
+
             // Handle LangGraph stream format: [AIMessageChunk, metadata]
             if (Array.isArray(chunk) && chunk.length > 0) {
               const messageChunk = chunk[0];
@@ -94,6 +101,7 @@ export class DailyChat {
             if (content) {
               fullResponse += content;
               readable.push(content);
+              console.log(`[DailyChat] Pushed content (${content.length} chars)`);
             }
           } catch (chunkErr) {
             console.warn(`Chunk ${chunkIndex} 处理错误:`, chunkErr);

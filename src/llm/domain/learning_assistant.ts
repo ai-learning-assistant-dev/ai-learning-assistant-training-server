@@ -557,6 +557,13 @@ export class LearningAssistant {
   }
 
   /**
+   * 获取当前人设ID
+   */
+  getPersonaId(): string | undefined {
+    return this.personaId;
+  }
+
+  /**
    * 验证用户、章节、人设实体是否存在
    */
   private async validateEntities(): Promise<void> {

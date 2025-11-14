@@ -105,7 +105,7 @@ export class AiChatController extends BaseController {
         requirements = audioPrompts.join('\n');
       }
 
-      // 创建 DailyChat（短期有记忆的 SingleChat 封装）
+      // 创建 DailyChat（短期有记忆的 SingleChat 封装，固定使用"信心十足的教育家"人设）
       const dc = await DailyChat.create({ requirements });
 
       // 获取 Readable 流
@@ -454,6 +454,71 @@ export class AiChatController extends BaseController {
       console.error('获取会话分析失败:', error);
       const errorMessage = error instanceof Error ? error.message : String(error);
       throw this.fail("获取会话分析失败",errorMessage);
+    }
+  }
+
+  /**
+   * 获取当前课程所有人设列表
+   */
+  @Get('/personas')
+  public async getPersonas(
+    @Query() courseId?: string
+  ): Promise<ApiResponse<any[]>> {
+    try {
+      const { AiPersona } = await import('../models/aiPersona');
+      const personaRepo = AppDataSource.getRepository(AiPersona);
+      
+      // 如果指定了 courseId，可以根据课程筛选（目前返回所有）
+      const personas = await personaRepo.find({
+        select: ['persona_id', 'name', 'prompt', 'is_default_template'],
+        order: { is_default_template: 'DESC' }
+      });
+
+      return this.ok(personas);
+    } catch (error) {
+      console.error('获取人设列表失败:', error);
+      const errorMessage = error instanceof Error ? error.message : String(error);
+      throw this.fail('获取人设列表失败', errorMessage);
+    }
+  }
+
+  /**
+   * 切换当前会话的人设
+   */
+  @Post('/switch-persona')
+  public async switchPersona(
+    @Body() request: { sessionId: string; personaId: string }
+  ): Promise<ApiResponse<{ success: boolean; message: string }>> {
+    try {
+      const { sessionId, personaId } = request;
+
+      if (!sessionId || !personaId) {
+        throw new Error('缺少必要参数：sessionId, personaId');
+      }
+
+      // 解析用户ID和章节ID（从会话ID）
+      const parts = sessionId.split('_');
+      if (parts.length < 4) {
+        throw new Error('无效的会话ID格式');
+      }
+
+      const userId = parts[1];
+      const sectionId = parts[2];
+
+      // 恢复会话并切换人设
+      const assistant = await resumeLearningSession(userId, sessionId);
+      await assistant.switchPersona(personaId);
+      await assistant.cleanup();
+
+      return this.ok({
+        success: true,
+        message: `已成功切换到人设: ${personaId}`
+      });
+
+    } catch (error) {
+      console.error('切换人设失败:', error);
+      const errorMessage = error instanceof Error ? error.message : String(error);
+      throw this.fail('切换人设失败', errorMessage);
     }
   }
 }
