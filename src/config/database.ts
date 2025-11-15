@@ -40,6 +40,7 @@ const mainEntities = [
   TestExercise,
   LeadingQuestion,
   AiPersona,
+  SystemPrompt
 ];
 
 const userEntities = [

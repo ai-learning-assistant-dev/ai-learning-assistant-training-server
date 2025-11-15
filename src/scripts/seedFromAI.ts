@@ -93,20 +93,19 @@ async function main() {
   console.log('Reading AI data from', baseDir);
   const filesMap = await buildFileMap(baseDir);
 
-  // 主库（课程结构相关）
+  // 主库（课程结构、练习题、测试等）
   const courseRepo = MainDataSource.getRepository(Course);
   const chapterRepo = MainDataSource.getRepository(Chapter);
   const sectionRepo = MainDataSource.getRepository(Section);
   const lqRepo = MainDataSource.getRepository(LeadingQuestion);
   const exRepo = MainDataSource.getRepository(Exercise);
   const optRepo = MainDataSource.getRepository(ExerciseOption);
+  const titleRepo = MainDataSource.getRepository(Title);
+  const testRepo = MainDataSource.getRepository(Test);
 
-  // 用户库（结果、进度、标题、课表等）
+  // 用户库（用户相关的结果、进度、课表等）
   const exerciseResultRepo = UserDataSource.getRepository(ExerciseResult);
-  const titleRepoUser = UserDataSource.getRepository(Title);
-  const courseScheduleRepoUser = UserDataSource.getRepository(CourseSchedule);
-  // 注意：Test 属于主库；仅其结果在用户库
-  const testRepoMain = MainDataSource.getRepository(Test);
+  const courseScheduleRepo = UserDataSource.getRepository(CourseSchedule);
 
   for (const [base, paths] of Object.entries(filesMap)) {
     try {
@@ -149,10 +148,10 @@ async function main() {
             }
             await chapterRepo.delete({ chapter_id: ch.chapter_id });
           }
-          // 删除与课程关联的用户侧数据与测试主库数据
-          await titleRepoUser.createQueryBuilder().delete().where('course_id = :id', { id: exists.course_id }).execute();
-          await testRepoMain.createQueryBuilder().delete().where('course_id = :id', { id: exists.course_id }).execute();
-          await courseScheduleRepoUser.createQueryBuilder().delete().where('course_id = :id', { id: exists.course_id }).execute();
+          // 删除与课程关联的主库数据（Title、Test）和用户库数据（CourseSchedule）
+          await titleRepo.createQueryBuilder().delete().where('course_id = :id', { id: exists.course_id }).execute();
+          await testRepo.createQueryBuilder().delete().where('course_id = :id', { id: exists.course_id }).execute();
+          await courseScheduleRepo.createQueryBuilder().delete().where('course_id = :id', { id: exists.course_id }).execute();
           // finally delete the course itself
           await courseRepo.delete({ course_id: exists.course_id });
           console.log(`Cleared course '${base}' and related data.`);
