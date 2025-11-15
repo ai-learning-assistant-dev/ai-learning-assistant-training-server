@@ -22,6 +22,7 @@ import { DailySummary } from '../models/dailySummary';
 import { UserSessionMapping } from '../models/UserSessionMapping';
 import { ConversationAnalytics } from '../models/ConversationAnalytics';
 import { UserSectionUnlock } from '../models/userSectionUnlock';
+import { SystemPrompt } from '../models/systemPrompt';
 import { ExerciseResult } from '../models/exerciseResult';
 import { TestResult } from '../models/testResult';
 import { exec } from 'child_process';
@@ -39,6 +40,7 @@ const mainEntities = [
   TestExercise,
   LeadingQuestion,
   AiPersona,
+  SystemPrompt
 ];
 
 const userEntities = [

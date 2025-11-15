@@ -1,5 +1,7 @@
 import SingleChat from '../agent/single_chat';
 import type { AnswerEvaluateRequest, AnswerEvaluateResponse } from '../../types/AiChat';
+import { getPromptWithArgs } from '../prompt/manager';
+import { KEY_ANSWER_EVALUATOR } from '../prompt/default';
 
 /**
  * AnswerEvaluator
@@ -28,20 +30,25 @@ export class AnswerEvaluator {
     }
     const sc = new SingleChat(this.chatOptions);
     try {
-      // Compose an instruction prompt that asks the model to reply in JSON
-      const instruction = `你是一个简答题评分专家。请根据题目、参考答案与先验知识，对学生回答进行评价。
-要求：
-1) 输出严格的 JSON 对象，形如 {"reply": "评语文本", "score": 0-100 的整数}，不要输出其他多余文本或解释。
-2) 分数范围 0 到 100，整数。
-
-下面是评估内容：
-题目: ${req.question}
-参考答案: ${req.standardAnswer}
-先验知识说明: ${req.priorKnowledge || '无'}
-评分提示: ${req.prompt || '请自行评分'}
-学生答案: ${req.studentAnswer}
-
-请基于参考答案的要点与先验知识衡量学生答案的正确性、完整性与表达，给出简洁评语和分数。`;
+      // If req.prompt is provided, treat it as a template key stored in DB and instantiate with values.
+      let instruction: string;
+      if (req.prompt) {
+        try {
+          instruction = await getPromptWithArgs(KEY_ANSWER_EVALUATOR, {
+            question: req.question,
+            standardAnswer: req.standardAnswer,
+            priorKnowledge: req.priorKnowledge ?? '无',
+            studentAnswer: req.studentAnswer,
+            promptKey: req.prompt ?? '请自行评分',
+          });
+        } catch (err) {
+          console.warn('Failed to instantiate prompt template from DB, falling back to inline instruction:', err);
+          instruction = `你是一个简答题评分专家。请根据题目、参考答案与先验知识，对学生回答进行评价。\n要求：\n1) 输出严格的 JSON 对象，形如 {"reply": "评语文本", "score": 0-100 的整数}，不要输出其他多余文本或解释。\n2) 分数范围 0 到 100，整数。\n\n下面是评估内容：\n题目: ${req.question}\n参考答案: ${req.standardAnswer}\n先验知识说明: ${req.priorKnowledge || '无'}\n评分提示: ${req.prompt || '请自行评分'}\n学生答案: ${req.studentAnswer}\n\n请基于参考答案的要点与先验知识衡量学生答案的正确性、完整性与表达，给出简洁评语和分数。`;
+        }
+      } else {
+        // Compose a default inline instruction prompt that asks the model to reply in JSON
+        instruction = `你是一个简答题评分专家。请根据题目、参考答案与先验知识，对学生回答进行评价。\n要求：\n1) 输出严格的 JSON 对象，形如 {"reply": "评语文本", "score": 0-100 的整数}，不要输出其他多余文本或解释。\n2) 分数范围 0 到 100，整数。\n\n下面是评估内容：\n题目: ${req.question}\n参考答案: ${req.standardAnswer}\n先验知识说明: ${req.priorKnowledge || '无'}\n评分提示: ${req.prompt || '请自行评分'}\n学生答案: ${req.studentAnswer}\n\n请基于参考答案的要点与先验知识衡量学生答案的正确性、完整性与表达，给出简洁评语和分数。`;
+      }
 
       const reply = await sc.chat(instruction);
 

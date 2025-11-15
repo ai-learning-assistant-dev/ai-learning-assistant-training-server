@@ -9,6 +9,8 @@ import {
 } from '../llm/domain/learning_assistant';
 import { MainDataSource, UserDataSource } from '../config/database';
 import { AiInteraction } from '../models/aiInteraction';
+import { User } from '../models/user';
+import { AiPersona } from '../models/aiPersona';
 import { ApiResponse } from '../types/express';
 import { 
   ChatRequest, 
@@ -23,9 +25,10 @@ import { AnswerEvaluateRequest, AnswerEvaluateResponse } from '../types/AiChat';
 import AnswerEvaluator from '../llm/domain/answer_evaluator';
 import { Readable } from 'node:stream';
 import { Section } from '../models/section';
-import { User } from '../models/user';
-import { AiPersona } from '../models/aiPersona';
 import DailyChat from '../llm/domain/daily_chat';
+import { getPromptWithArgs } from '../llm/prompt/manager';
+import { KEY_AUDIO_COMMUNICATION_REQUIRE } from '../llm/prompt/default';
+import { getAudioPromptByOption } from '../services/systemPromptService';
 
 /**
  * 集成LLM Agent的AI聊天控制器
@@ -88,7 +91,7 @@ export class AiChatController extends BaseController {
    * DailyChat 流式对话接口（轻量一次性 agent）
    */
   @Post('/daily')
-  public async daily(
+  public async chatDaily(
     @Body() request: StreamChatRequest
   ): Promise<Readable> {
     try {
@@ -97,9 +100,15 @@ export class AiChatController extends BaseController {
       if (!message) {
         throw new Error('缺少必要参数： message');
       }
+      
+      let requirements: string | undefined = undefined;
+      if (request.useAudio && request.ttsOption) {
+        const audioPrompts = await Promise.all(request.ttsOption.map(getAudioPromptByOption));
+        requirements = audioPrompts.join('\n');
+      }
 
-      // 创建 DailyChat（短期有记忆的 SingleChat 封装）
-      const dc = new DailyChat({  });
+      // 创建 DailyChat（短期有记忆的 SingleChat 封装，固定使用"信心十足的教育家"人设）
+      const dc = await DailyChat.create({ requirements });
 
       // 获取 Readable 流
       const readable = dc.stream(message, { configurable: { thread_id: dc['sessionId'] } });
@@ -168,6 +177,16 @@ export class AiChatController extends BaseController {
     @Body() request: StreamChatRequest
   ): Promise<Readable> {
     try {
+      if (request.daily) {
+        return this.chatDaily(request);
+      }
+
+      let requirements: string | undefined = undefined;
+      if (request.useAudio && request.ttsOption) {
+        const audioPrompts = await Promise.all(request.ttsOption.map(getAudioPromptByOption));
+        requirements = audioPrompts.join('\n');
+      }
+
       const { userId, sectionId, message, personaId, sessionId } = request;
 
       // 验证必要参数
@@ -180,28 +199,15 @@ export class AiChatController extends BaseController {
       try {
         if (sessionId) {
           // 恢复现有会话
-          assistant = await resumeLearningSession(userId, sessionId);
+          assistant = await resumeLearningSession(userId, sessionId, requirements);
         } else {
           // 创建新会话
-          assistant = await createLearningAssistant(userId, sectionId, personaId);
+          assistant = await createLearningAssistant(userId, sectionId, personaId,undefined,undefined, requirements);
         }
 
         // const realMessage = message.replace("[inner]", "");
         // 获取Readable流
         const readableStream = assistant.chatStream(message);
-        
-
-        // 返回流式处理结果
-        // const result: ChatStreamlyResponse = {
-        //   interaction_id: `${assistant.getSessionId()}_${Date.now()}`,
-        //   session_id: assistant.getSessionId(),
-        //   user_id: userId,
-        //   section_id: sectionId,
-        //   persona_id_in_use: personaId,
-        //   user_message: message,
-        //   ai_response: readableStream,
-        //   query_time: new Date()
-        // };
 
         // 清理资源
         await assistant.cleanup();
@@ -288,30 +294,30 @@ export class AiChatController extends BaseController {
   /**
    * 获取用户的学习会话列表
    */
-  @Get('/sessions/{userId}')
-  public async getUserSessions(
-    @Path() userId: string
-  ): Promise<ApiResponse<any[]>> {
-    try {
-      if (!userId) {
-        throw new Error('缺少用户ID参数');
-      }
+  // @Get('/sessions/{userId}')
+  // public async getUserSessions(
+  //   @Path() userId: string
+  // ): Promise<ApiResponse<any[]>> {
+  //   try {
+  //     if (!userId) {
+  //       throw new Error('缺少用户ID参数');
+  //     }
 
-      // todo: 这块不太对，需要改一下
-      // 创建临时助手实例来访问存储功能，使用一个有效的UUID格式
-      const tempSectionId = '00000000-0000-0000-0000-000000000001';
-      const assistant = await createLearningAssistant(userId, tempSectionId);
-      const sessions = await assistant.getUserSectionSessions();
-      await assistant.cleanup();
+  //     // todo: 这块不太对，需要改一下
+  //     // 创建临时助手实例来访问存储功能，使用一个有效的UUID格式
+  //     const tempSectionId = '00000000-0000-0000-0000-000000000001';
+  //     const assistant = await createLearningAssistant(userId, tempSectionId);
+  //     const sessions = await assistant.getUserSectionSessions();
+  //     await assistant.cleanup();
 
-      return this.ok(sessions);
+  //     return this.ok(sessions);
 
-    } catch (error) {
-      console.error('获取用户会话失败:', error);
-      const errorMessage = error instanceof Error ? error.message : String(error);
-      throw this.fail("获取用户会话失败",errorMessage);
-    }
-  }
+  //   } catch (error) {
+  //     console.error('获取用户会话失败:', error);
+  //     const errorMessage = error instanceof Error ? error.message : String(error);
+  //     throw this.fail("获取用户会话失败",errorMessage);
+  //   }
+  // }
 
 
 
@@ -421,8 +427,19 @@ export class AiChatController extends BaseController {
     try {
       const { userId, sectionId, personaId } = request;
 
-      if (!userId || !sectionId) {
-        throw new Error('缺少必要参数：userId, sectionId');
+      if (!userId) {
+        throw new Error('缺少必要参数：userId');
+      }
+
+      if (sectionId == "") {
+        // 进入daily模式
+        return this.ok({
+          session_id: "12345672",
+          user_id: userId,
+          section_id: sectionId,
+          persona_id: personaId,
+          created_at: new Date()
+        })
       }
 
       const assistant = await startNewLearningSession(userId, sectionId, personaId);
@@ -479,6 +496,70 @@ export class AiChatController extends BaseController {
       console.error('获取会话分析失败:', error);
       const errorMessage = error instanceof Error ? error.message : String(error);
       throw this.fail("获取会话分析失败",errorMessage);
+    }
+  }
+
+  /**
+   * 获取当前课程所有人设列表
+   */
+  @Get('/personas')
+  public async getPersonas(
+    @Query() courseId?: string
+  ): Promise<ApiResponse<any[]>> {
+    try {
+      const personaRepo = MainDataSource.getRepository(AiPersona);
+      
+      // 如果指定了 courseId，可以根据课程筛选（目前返回所有）
+      const personas = await personaRepo.find({
+        select: ['persona_id', 'name', 'prompt', 'is_default_template'],
+        order: { is_default_template: 'DESC' }
+      });
+
+      return this.ok(personas);
+    } catch (error) {
+      console.error('获取人设列表失败:', error);
+      const errorMessage = error instanceof Error ? error.message : String(error);
+      throw this.fail('获取人设列表失败', errorMessage);
+    }
+  }
+
+  /**
+   * 切换当前会话的人设
+   */
+  @Post('/switch-persona')
+  public async switchPersona(
+    @Body() request: { sessionId: string; personaId: string }
+  ): Promise<ApiResponse<{ success: boolean; message: string }>> {
+    try {
+      const { sessionId, personaId } = request;
+
+      if (!sessionId || !personaId) {
+        throw new Error('缺少必要参数：sessionId, personaId');
+      }
+
+      // 解析用户ID和章节ID（从会话ID）
+      const parts = sessionId.split('_');
+      if (parts.length < 4) {
+        throw new Error('无效的会话ID格式');
+      }
+
+      const userId = parts[1];
+      const sectionId = parts[2];
+
+      // 恢复会话并切换人设
+      const assistant = await resumeLearningSession(userId, sessionId);
+      await assistant.switchPersona(personaId);
+      await assistant.cleanup();
+
+      return this.ok({
+        success: true,
+        message: `已成功切换到人设: ${personaId}`
+      });
+
+    } catch (error) {
+      console.error('切换人设失败:', error);
+      const errorMessage = error instanceof Error ? error.message : String(error);
+      throw this.fail('切换人设失败', errorMessage);
     }
   }
 }

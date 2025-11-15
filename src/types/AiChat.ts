@@ -43,6 +43,9 @@ export interface StreamChatRequest {
   message: string;
   personaId?: string;
   sessionId?: string;
+  useAudio?: boolean;
+  ttsOption?: string[];
+  daily?: boolean;
 }
 
 /**

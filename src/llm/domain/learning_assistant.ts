@@ -11,6 +11,8 @@ import { ReactAgent } from "../agent/react_agent_base";
 import { IntegratedPostgreSQLStorage } from "../storage/integrated_storage";
 import { createLLM } from "../utils/create_llm";
 import { createSrtTools } from "../tool/srt_tools";
+import { getPromptWithArgs } from "../prompt/manager";
+import { KEY_LEARNING_ASSISTANT, KEY_LEARNING_ASSISTANT_FALLBACK } from "../prompt/default";
 
 /**
  * 学习助手配置选项
@@ -28,6 +30,8 @@ export interface LearningAssistantOptions {
   sessionId?: string;
   /** 自定义存储实例（可选） */
   storage?: IntegratedPostgreSQLStorage;
+  /** 附加在系统提示词中的额外要求 */
+  requirements?: string;
 }
 
 /**
@@ -45,6 +49,7 @@ export class LearningAssistant {
   private sectionId: string;
   private sessionId: string;
   private personaId?: string;
+  private requirements?: string;
 
   constructor(options: LearningAssistantOptions) {
     this.userId = options.userId;
@@ -55,6 +60,7 @@ export class LearningAssistant {
       this.userId, 
       this.sectionId
     );
+    this.requirements = options.requirements;
     
     // 使用集成存储
     this.storage = options.storage || new IntegratedPostgreSQLStorage({
@@ -477,35 +483,47 @@ export class LearningAssistant {
    */
   private async createSystemPrompt(): Promise<any> {
     let systemPromptText = "";
-    let personaPrompt = "你是一个智能学习助手，专门帮助学生学习和答疑。请根据学生的问题提供准确、有用的学习指导.";
+    let personaPrompt = "信心十足的教育家，耐心且乐于助人。";
 
     // 获取AI人设的提示
     if (this.personaId && MainDataSource.isInitialized) {
       const personaRepo = MainDataSource.getRepository(AiPersona);
       const persona = await personaRepo.findOne({ where: { persona_id: this.personaId } });
-      personaPrompt = persona ? persona.prompt : personaPrompt;}
+      personaPrompt = persona ? persona.prompt : personaPrompt;
+    }
 
-    // 添加课程上下文信息
-    if (this.courseId) {
-      const courseOutline = await this.getCourseOutline();
-      const sectionContext = await this.getSectionContext();
-      
-      systemPromptText += `## 当前学习环境
+    // 准备模板参数
+    const requirements = this.requirements || '请耐心解答学生的问题';
 
-${sectionContext}
-
-## 完整课程信息
-
-${courseOutline}
-
-## 角色
-
-${personaPrompt}`;
-    } else {
-      // 如果没有课程信息，提供通用的学习助手提示
-      systemPromptText += `## 🤖 AI学习助手
-
-你是一个智能学习助手，专门帮助学生学习和答疑。请根据学生的问题提供准确、有用的学习指导。`;
+    try {
+      // 添加课程上下文信息
+      if (this.courseId) {
+        const courseOutline = await this.getCourseOutline();
+        const sectionContext = await this.getSectionContext();
+        
+        // 使用数据库模板或默认模板
+        systemPromptText = await getPromptWithArgs(KEY_LEARNING_ASSISTANT, {
+          sectionContext,
+          courseOutline,
+          personaPrompt,
+          requirements
+        });
+      } else {
+        // 如果没有课程信息，使用fallback模板
+        systemPromptText = await getPromptWithArgs(KEY_LEARNING_ASSISTANT_FALLBACK, {
+          requirements
+        });
+      }
+    } catch (error) {
+      // 如果模板加载失败，使用硬编码的fallback
+      console.warn('Failed to load system prompt template, using hardcoded fallback:', error);
+      if (this.courseId) {
+        const courseOutline = await this.getCourseOutline();
+        const sectionContext = await this.getSectionContext();
+        systemPromptText = `## 当前学习环境\n\n${sectionContext}\n\n## 完整课程信息\n\n${courseOutline}\n\n## 角色\n\n${personaPrompt}\n\n## 重要要求\n\n${requirements}`;
+      } else {
+        systemPromptText = `## AI学习助手\n\n你是一个智能学习助手，专门帮助学生学习和答疑。请根据学生的问题提供准确、有用的学习指导。\n\n## 重要要求\n\n${requirements}`;
+      }
     }
 
     // 使用 SystemMessage 格式
@@ -548,6 +566,13 @@ ${personaPrompt}`;
    */
   getCourseId(): string | undefined {
     return this.courseId;
+  }
+
+  /**
+   * 获取当前人设ID
+   */
+  getPersonaId(): string | undefined {
+    return this.personaId;
   }
 
   /**
@@ -620,14 +645,16 @@ export async function createLearningAssistant(
   sectionId: string,
   personaId?: string,
   sessionId?: string,
-  courseId?: string
+  courseId?: string,
+  requirements?: string
 ): Promise<LearningAssistant> {
   const assistant = new LearningAssistant({
     userId,
     courseId,
     sectionId,
     personaId,
-    sessionId
+    sessionId,
+    requirements
   });
   
   await assistant.initialize();
@@ -654,7 +681,8 @@ export async function startNewLearningSession(
  */
 export async function resumeLearningSession(
   userId: string,
-  sessionId: string
+  sessionId: string,
+  requirements?: string
 ): Promise<LearningAssistant> {
   // 从会话ID中解析章节ID（假设使用标准格式）
   const parts = sessionId.split('_');
@@ -664,7 +692,7 @@ export async function resumeLearningSession(
   
   const sectionId = parts[2]; // session_{userId}_{sectionId}_{date} 格式
   
-  return createLearningAssistant(userId, sectionId, undefined, sessionId);
+  return createLearningAssistant(userId, sectionId, undefined, sessionId, undefined, requirements);
 }
 
 /**
@@ -673,7 +701,8 @@ export async function resumeLearningSession(
 export async function createCourseAssistant(
   userId: string,
   courseId: string,
-  sectionId?: string
+  sectionId?: string,
+  requirements?: string
 ): Promise<LearningAssistant> {
   // 如果没有指定章节，使用第一个章节
   let finalSectionId = sectionId;
@@ -703,5 +732,5 @@ export async function createCourseAssistant(
     throw new Error("无法确定课程的章节信息，请指定 sectionId");
   }
   
-  return createLearningAssistant(userId, finalSectionId, undefined, undefined, courseId);
+  return createLearningAssistant(userId, finalSectionId, undefined, undefined, courseId, requirements);
 }
