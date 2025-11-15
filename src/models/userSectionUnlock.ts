@@ -6,13 +6,13 @@ export class UserSectionUnlock {
   @PrimaryGeneratedColumn('uuid')
   id!: string;
 
-  @Column({ type: 'varchar', length: 64 })
+  @Column({ type: 'uuid' })
   user_id!: string;
 
-  @Column({ type: 'varchar', length: 64 })
+  @Column({ type: 'uuid' })
   chapter_id!: string;
 
-  @Column({ type: 'varchar', length: 64,nullable:true })
+  @Column({ type: 'uuid', nullable: true })
   section_id!: string;
 
   @Column({ type: 'int', default: 0 })

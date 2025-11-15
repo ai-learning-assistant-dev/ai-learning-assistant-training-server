@@ -5,7 +5,7 @@ import { LearningRecord } from './learningRecord';
 import { DailySummary } from './dailySummary';
 import { CourseSchedule } from './courseSchedule';
 import { AiInteraction } from './aiInteraction';
-import { AppDataSource } from '../config/database';
+import { UserDataSource } from '../config/database';
 
 export {
   User,
@@ -19,7 +19,7 @@ export {
 // TypeORM 初始化测试数据
 export const createInitialData = async (): Promise<void> => {
   try {
-    const userRepo = AppDataSource.getRepository(User);
+  const userRepo = UserDataSource.getRepository(User);
     const count = await userRepo.count();
     if (count === 0) {
       const user = userRepo.create({

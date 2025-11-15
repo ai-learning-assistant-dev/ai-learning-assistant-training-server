@@ -2,12 +2,12 @@ import { Entity, PrimaryGeneratedColumn, Column, OneToMany,CreateDateColumn,Upda
 // TypeORM 实体定义
 @Entity({ name: 'user_session_mapping' })
 export class UserSessionMapping {
-  @PrimaryGeneratedColumn()
-  id!: number;
-  @Column({ type: 'varchar', length: 255 })
+  @PrimaryGeneratedColumn('uuid')
+  id!: string;
+  @Column({ type: 'uuid' })
   user_id!: string;
 
-  @Column({ type: 'varchar', length: 255 })
+  @Column({ type: 'uuid' })
   thread_id!: string;
 
   @CreateDateColumn({ type: 'timestamptz' })

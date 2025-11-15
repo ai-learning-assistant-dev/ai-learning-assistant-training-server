@@ -1,6 +1,4 @@
-import { Entity, PrimaryGeneratedColumn, Column, ManyToOne, JoinColumn, OneToMany } from 'typeorm';
-import { Course } from './course';
-import { User } from './user';
+import { Entity, PrimaryGeneratedColumn, Column } from 'typeorm';
 
 
 @Entity({ name: 'titles' })
@@ -14,7 +12,7 @@ export class Title {
   @Column({ type: 'varchar', length: 255 })
   name!: string;
 
-  @Column({ type: 'varchar', length: 255, nullable: true })
+  @Column({ type: 'text'})
   icon_url?: string;
 
   @Column({ type: 'int', nullable: true })
@@ -25,11 +23,5 @@ export class Title {
 
   @Column({ type: 'boolean', nullable: true })
   is_default_template?: boolean;
-    // 课程关联（仅模型查找，不生成数据库外键）
-  @ManyToOne(() => Course, course => course.titles, { createForeignKeyConstraints: false })
-  @JoinColumn({ name: 'course_id' })
-  course!: Course;
-    // 用户反向关联（如有用户称号需求）
-  @OneToMany(() => User, user => user.current_title_id, { createForeignKeyConstraints: false })
-  users!: User[];
+  // 跨库关联移除（Course/User 在主库或用户库不同数据源），通过手动查询实现。
 }

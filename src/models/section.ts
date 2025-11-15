@@ -1,6 +1,5 @@
 import { Entity, PrimaryGeneratedColumn, Column, ManyToOne, JoinColumn, OneToMany } from 'typeorm';
 import { Chapter } from './chapter';
-import { AiInteraction } from './aiInteraction';
 import { LearningRecord } from './learningRecord';
 import { Exercise } from './exercise';
 import { LeadingQuestion } from './leadingQuestion';
@@ -21,33 +20,28 @@ export class Section {
   @JoinColumn({ name: 'chapter_id' })
   chapter!: Chapter;
 
-  @Column({ type: 'varchar', length: 255, nullable: true })
+  @Column({ type: 'text',  nullable: true })
   video_url?: string;
 
-  @Column({ type: 'varchar', length: 255, nullable: true })
-  knowledge_points?: string;
+  @Column({ type: 'jsonb',  nullable: true })
+  knowledge_points?: any;
 
-  @Column({ type: 'varchar', length: 255, nullable: true })
-  video_subtitles?: string;
+  @Column({ type: 'jsonb',  nullable: true })
+  video_subtitles?: any;
 
   @Column({ type: 'varchar', length: 512, nullable: true })
   srt_path?: string;
 
-  @Column({ type: 'varchar', length: 255, nullable: true })
-  knowledge_content?: string;
+  @Column({ type: 'jsonb',  nullable: true })
+  knowledge_content?: any;
 
   @Column({ type: 'int', nullable: true })
   estimated_time?: number;
 
   @Column({ type: 'int' })
   section_order!: number;
-    // AI交互反向关联
-  @OneToMany(() => AiInteraction, ai => ai.section, { createForeignKeyConstraints: false })
-  aiInteractions!: AiInteraction[];
-
-  // 学习记录反向关联
-  @OneToMany(() => LearningRecord, record => record.section, { createForeignKeyConstraints: false })
-  learningRecords!: LearningRecord[];
+  // 移除跨数据库反向关联（AiInteraction 属于用户库，Section 属于主库），避免 TypeORM 元数据跨数据源引用
+  // 如需获取某节的 AI 交互，使用 UserDataSource.getRepository(AiInteraction).find({ where: { section_id } })
 
   // 习题反向关联
   @OneToMany(() => Exercise, ex => ex.section, { createForeignKeyConstraints: false })

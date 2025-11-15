@@ -7,14 +7,14 @@ export class PostgreSQLPersistentStorage {
   private connected = false;
 
   constructor() {
-    // TypeORM 由 AppDataSource 管理连接
+    // 分库架构下连接在应用启动时由 initializeDataSources() 完成
   }
 
   /**
    * 连接到 PostgreSQL 数据库并初始化 checkpoint saver
    */
   async connect(): Promise<void> {
-    // TypeORM 连接由 AppDataSource 管理
+    // 运行时可根据需要确认 UserDataSource/ MainDataSource 是否已初始化
     this.connected = true;
   }
 
@@ -22,7 +22,7 @@ export class PostgreSQLPersistentStorage {
    * 断开数据库连接
    */
   async disconnect(): Promise<void> {
-    // TypeORM 连接由 AppDataSource 管理
+    // 连接销毁交由应用整体生命周期管理，这里仅标记状态
     this.connected = false;
   }
 
@@ -60,8 +60,8 @@ export class PostgreSQLPersistentStorage {
    * 使用 TypeORM 实体映射用户ID到线程ID
    */
   async mapUserToThread(userId: string, threadId: string, metadata?: any): Promise<void> {
-    const { AppDataSource } = await import('../../config/database');
-    const repo = AppDataSource.getRepository(require('../../models/UserSessionMapping').UserSessionMapping);
+  const { UserDataSource } = await import('../../config/database');
+  const repo = UserDataSource.getRepository(require('../../models/UserSessionMapping').UserSessionMapping);
     let mapping = await repo.findOne({ where: { user_id: userId, thread_id: threadId } });
     if (!mapping) {
       mapping = repo.create({ user_id: userId, thread_id: threadId, metadata });
@@ -79,8 +79,8 @@ export class PostgreSQLPersistentStorage {
    * 使用 TypeORM 实体获取用户所有会话线程
    */
   async getUserThreads(userId: string): Promise<Array<{ threadId: string; createdAt: Date; updatedAt: Date; metadata?: any }>> {
-    const { AppDataSource } = await import('../../config/database');
-    const repo = AppDataSource.getRepository(require('../../models/UserSessionMapping').UserSessionMapping);
+  const { UserDataSource } = await import('../../config/database');
+  const repo = UserDataSource.getRepository(require('../../models/UserSessionMapping').UserSessionMapping);
     const records = await repo.find({ where: { user_id: userId }, order: { updated_at: 'DESC' } });
     return records.map((row: any) => ({
       threadId: row.thread_id,
@@ -102,8 +102,8 @@ export class PostgreSQLPersistentStorage {
     conversationSummary: string,
     analyticsData: any
   ): Promise<void> {
-    const { AppDataSource } = await import('../../config/database');
-    const repo = AppDataSource.getRepository(require('../../models/ConversationAnalytics').ConversationAnalytics);
+  const { UserDataSource } = await import('../../config/database');
+  const repo = UserDataSource.getRepository(require('../../models/ConversationAnalytics').ConversationAnalytics);
     let analytics = await repo.findOne({ where: { session_id: sessionId, user_id: userId } });
     if (!analytics) {
       analytics = repo.create({ session_id: sessionId, user_id: userId, conversation_summary: conversationSummary, analytics_data: analyticsData });
@@ -122,8 +122,8 @@ export class PostgreSQLPersistentStorage {
    * 使用 TypeORM 实体获取对话分析数据
    */
   async getConversationAnalytics(sessionId: string, userId: string): Promise<any> {
-    const { AppDataSource } = await import('../../config/database');
-    const repo = AppDataSource.getRepository(require('../../models/ConversationAnalytics').ConversationAnalytics);
+  const { UserDataSource } = await import('../../config/database');
+  const repo = UserDataSource.getRepository(require('../../models/ConversationAnalytics').ConversationAnalytics);
     return await repo.findOne({ where: { session_id: sessionId, user_id: userId } });
   }
 
@@ -134,8 +134,8 @@ export class PostgreSQLPersistentStorage {
    * 使用 TypeORM 实体清理过期的会话数据
    */
   async cleanupExpiredSessions(daysOld: number = 30): Promise<number> {
-    const { AppDataSource } = await import('../../config/database');
-    const repo = AppDataSource.getRepository(require('../../models/UserSessionMapping').UserSessionMapping);
+  const { UserDataSource } = await import('../../config/database');
+  const repo = UserDataSource.getRepository(require('../../models/UserSessionMapping').UserSessionMapping);
     const cutoff = new Date(Date.now() - daysOld * 24 * 60 * 60 * 1000);
     const result = await repo.createQueryBuilder()
       .delete()

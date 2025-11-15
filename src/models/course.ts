@@ -13,7 +13,7 @@ export class Course {
   @Column({ type: 'varchar', length: 255 })
   name!: string;
 
-  @Column({ type: 'varchar', length: 255, nullable: true })
+  @Column({ type: 'text' })
   icon_url?: string;
 
   @Column({ type: 'text', nullable: true })
@@ -28,15 +28,6 @@ export class Course {
   // 课程的章节关联
   @OneToMany(() => Chapter, chapter => chapter.course, { createForeignKeyConstraints: false })
   chapters!: Chapter[];
-
-  // 课程的称号关联
-  @OneToMany(() => Title, title => title.course, { createForeignKeyConstraints: false })
-  titles!: Title[];
-
-  // 课程的课程安排关联
-  @OneToMany(() => CourseSchedule, schedule => schedule.course, { createForeignKeyConstraints: false })
-  courseSchedules!: CourseSchedule[];
-
   // 课程的测试关联
   @OneToMany(() => Test, test => test.course, { createForeignKeyConstraints: false })
   tests!: Test[];

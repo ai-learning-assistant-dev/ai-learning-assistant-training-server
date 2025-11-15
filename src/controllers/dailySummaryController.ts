@@ -1,5 +1,5 @@
 import { Request, Response } from 'express';
-import { AppDataSource } from '../config/database';
+import { UserDataSource } from '../config/database';
 import { DailySummary } from '../models/dailySummary';
 import { ExerciseResult } from '../models/exerciseResult';
 import { AiInteraction } from '../models/aiInteraction';
@@ -24,7 +24,7 @@ export class DailySummaryController extends BaseController {
   public async searchDailySummary(@Body() body: DailySummaryListRequest)
   : Promise<ApiResponse<DailySummaryResponse[]>> {
     try {
-      const repo = AppDataSource.getRepository(DailySummary);
+  const repo = UserDataSource.getRepository(DailySummary);
       const { user_id, summary_date, page = 1, limit = 10 } = body;
       const where: any = {};
       if (user_id) where.user_id = user_id;
@@ -51,7 +51,7 @@ export class DailySummaryController extends BaseController {
   @Body() body: { summary_id: string }
   ): Promise<ApiResponse<DailySummaryResponse>> {
   try {
-       const repo = AppDataSource.getRepository(DailySummary);
+  const repo = UserDataSource.getRepository(DailySummary);
        const option = await repo.findOneBy({ summary_id: body.summary_id });
       if (!option) {
          return this.fail('每日总结不存在');
@@ -68,7 +68,7 @@ export class DailySummaryController extends BaseController {
   public async addDailySummary(@Body() body: CreateDailySummaryRequest)
   : Promise<ApiResponse<DailySummaryResponse>> {
     try {
-      const repo = AppDataSource.getRepository(DailySummary);
+  const repo = UserDataSource.getRepository(DailySummary);
       const entity = repo.create({
         ...body,
         summary_date: new Date(body.summary_date)
@@ -93,7 +93,7 @@ export class DailySummaryController extends BaseController {
   public async updateDailySummary(@Body() body: UpdateDailySummaryRequest)
   : Promise<ApiResponse<any>> {
     try {
-      const repo = AppDataSource.getRepository(DailySummary);
+  const repo = UserDataSource.getRepository(DailySummary);
       const { summary_id, ...updateFields } = body;
       const summary = await repo.findOneBy({ summary_id });
       if (!summary) {
@@ -115,7 +115,7 @@ export class DailySummaryController extends BaseController {
   public async deleteDailySummary(@Body() summary_id: string)
   : Promise<ApiResponse<any>> {
     try {
-    const repo = AppDataSource.getRepository(DailySummary);
+  const repo = UserDataSource.getRepository(DailySummary);
     const summary = await repo.findOneBy({ summary_id });
     if (!summary) {
       return this.fail('删除每日总结失败',null,404);

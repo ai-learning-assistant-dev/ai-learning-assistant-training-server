@@ -1,4 +1,4 @@
-import { AppDataSource } from '../config/database';
+import { MainDataSource } from '../config/database';
 import { Section } from '../models/section';
 import { Chapter } from '../models/chapter';
 import { ApiResponse } from '../types/express';
@@ -17,7 +17,7 @@ export class SectionController extends BaseController {
       const pageNum = body.page || 1;
       const limitNum = body.limit || 10;
       const offset = (pageNum - 1) * limitNum;
-      const repo = AppDataSource.getRepository(Section);
+      const repo = MainDataSource.getRepository(Section);
       const [items, count] = await repo.findAndCount({
         skip: offset,
         take: limitNum,
@@ -34,7 +34,7 @@ export class SectionController extends BaseController {
       @Body() body: { section_id: string }
     ): Promise<ApiResponse<SectionResponse>> {
     try {
-      const repo = AppDataSource.getRepository(Section);
+      const repo = MainDataSource.getRepository(Section);
           const item = await repo.findOneBy({ section_id: body.section_id });
       if (!item) {
         return this.fail('节不存在');
@@ -54,7 +54,7 @@ public async addSection(
       return this.fail('标题、章节ID和节顺序必填', null, 400);
     }
     
-    const sectionRepo = AppDataSource.getRepository(Section);
+      const sectionRepo = MainDataSource.getRepository(Section);
     
     // 只做节的基本创建
     const item = sectionRepo.create({
@@ -75,7 +75,7 @@ public async addSection(
       if (!requestBody.section_id) {
         return this.fail('section_id 必填', null, 400);
       }
-      const repo = AppDataSource.getRepository(Section);
+      const repo = MainDataSource.getRepository(Section);
       const item = await repo.findOneBy({ section_id: requestBody.section_id });
       if (!item) {
         return this.fail('节不存在');
@@ -93,7 +93,7 @@ public async addSection(
     @Body() body: { section_id: string }
   ): Promise<ApiResponse<any>> {
     try {
-      const repo = AppDataSource.getRepository(Section);
+      const repo = MainDataSource.getRepository(Section);
       const item = await repo.findOneBy({ section_id: body.section_id });
       if (!item) {
         return this.fail('节不存在');

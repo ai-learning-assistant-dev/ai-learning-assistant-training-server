@@ -1,4 +1,4 @@
-import { AppDataSource } from '../config/database';
+import { UserDataSource } from '../config/database';
 import { CourseSchedule } from '../models/courseSchedule';
 import { ApiResponse } from '../types/express';
 import { CourseScheduleResponse, CreateCourseScheduleRequest, UpdateCourseScheduleRequest } from '../types/courseSchedule';
@@ -16,7 +16,7 @@ export class CourseScheduleController extends BaseController {
       const pageNum = body.page || 1;
       const limitNum = body.limit || 10;
       const offset = (pageNum - 1) * limitNum;
-      const repo = AppDataSource.getRepository(CourseSchedule);
+  const repo = UserDataSource.getRepository(CourseSchedule);
       const [items, count] = await repo.findAndCount({
         skip: offset,
         take: limitNum,
@@ -42,7 +42,7 @@ export class CourseScheduleController extends BaseController {
     @Body() body: { plan_id: string }
   ): Promise<ApiResponse<CourseScheduleResponse>> {
     try {
-      const repo = AppDataSource.getRepository(CourseSchedule);
+  const repo = UserDataSource.getRepository(CourseSchedule);
       const item = await repo.findOneBy({ plan_id: body.plan_id });
       if (!item) {
         return this.fail('课程安排不存在');
@@ -68,7 +68,7 @@ export class CourseScheduleController extends BaseController {
       if (!requestBody.user_id || !requestBody.course_id) {
         return this.fail('user_id 和 course_id 必填', null, 400);
       }
-      const repo = AppDataSource.getRepository(CourseSchedule);
+  const repo = UserDataSource.getRepository(CourseSchedule);
       const item = repo.create(requestBody);
       const saved = await repo.save(item);
       return this.ok({
@@ -89,7 +89,7 @@ export class CourseScheduleController extends BaseController {
     @Body() body: { plan_id: string }
   ): Promise<ApiResponse<any>> {
     try {
-      const repo = AppDataSource.getRepository(CourseSchedule);
+  const repo = UserDataSource.getRepository(CourseSchedule);
       const item = await repo.findOneBy({ plan_id: body.plan_id });
       if (!item) {
         return this.fail('课程安排不存在');
@@ -114,7 +114,7 @@ export class CourseScheduleController extends BaseController {
     @Body() body: { plan_id: string }
   ): Promise<ApiResponse<any>> {
     try {
-      const repo = AppDataSource.getRepository(CourseSchedule);
+  const repo = UserDataSource.getRepository(CourseSchedule);
       const item = await repo.findOneBy({ plan_id: body.plan_id });
       if (!item) {
         return this.fail('课程安排不存在');

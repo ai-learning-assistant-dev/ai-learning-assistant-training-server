@@ -1,4 +1,5 @@
-import { AppDataSource } from '../config/database';
+import { exec } from 'child_process';
+import { backupDatabase, MainDataSource, UserDataSource } from '../config/database';
 import { ExerciseResult } from '../models/exerciseResult';
 import { ExerciseOption } from '../models/exerciseOption';
 import { Exercise } from '../models/exercise';
@@ -32,11 +33,11 @@ export class ExerciseResultController extends BaseController {
       if (!body.user_id || !body.list || !Array.isArray(body.list) || body.list.length === 0) {
         return this.fail('user_id 和 list 必须传，且 list 为非空数组', null, 400);
       }
-      const repo = AppDataSource.getRepository(ExerciseResult);
-      const exerciseRepo = AppDataSource.getRepository(Exercise);
-      const optionRepo = AppDataSource.getRepository(ExerciseOption);
-      const sectionRepo = AppDataSource.getRepository(Section);
-      const chapterRepo = AppDataSource.getRepository(Chapter);
+  const repo = UserDataSource.getRepository(ExerciseResult);
+  const exerciseRepo = MainDataSource.getRepository(Exercise);
+  const optionRepo = MainDataSource.getRepository(ExerciseOption);
+  const sectionRepo = MainDataSource.getRepository(Section);
+  const chapterRepo = MainDataSource.getRepository(Chapter);
 
       const results: any[] = [];
       let userTotalScore = 0;
@@ -126,7 +127,7 @@ export class ExerciseResultController extends BaseController {
       let currentChapter = null;
       
       if (body.section_id) {
-        const exerciseRepo = AppDataSource.getRepository(Exercise);
+  const exerciseRepo = MainDataSource.getRepository(Exercise);
         const exercises = await exerciseRepo.find({ where: { section_id: body.section_id } });
         score = exercises.reduce((sum, ex) => sum + (ex.score || 0), 0);
         
@@ -209,7 +210,7 @@ export class ExerciseResultController extends BaseController {
     
     // 如果通过，只将当前节的解锁状态在 UserSectionUnlock 表中设置为2
     if (pass && currentChapter && currentSection) {
-      const unlockRepo = AppDataSource.getRepository(UserSectionUnlock);
+  const unlockRepo = UserDataSource.getRepository(UserSectionUnlock);
       let unlock = await unlockRepo.findOneBy({
         user_id: body.user_id,
         chapter_id: currentChapter.chapter_id,
@@ -254,9 +255,9 @@ export class ExerciseResultController extends BaseController {
       if (!body.user_id || !body.section_id) {
         return this.fail('user_id 和 section_id 必须传', null, 400);
       }
-      const repo = AppDataSource.getRepository(ExerciseResult);
-      const exerciseRepo = AppDataSource.getRepository(Exercise);
-      const optionRepo = AppDataSource.getRepository(ExerciseOption);
+  const repo = UserDataSource.getRepository(ExerciseResult);
+  const exerciseRepo = MainDataSource.getRepository(Exercise);
+  const optionRepo = MainDataSource.getRepository(ExerciseOption);
       // 查询该 section 下所有题目
       const exercises = await exerciseRepo.find({ where: { section_id: body.section_id } });
       let score = 0;
@@ -315,6 +316,8 @@ export class ExerciseResultController extends BaseController {
       return this.ok({ results, score, user_score: userTotalScore, pass }, '查询答题结果成功');
     } catch (error) {
       return this.fail('查询答题结果失败', error);
+    } finally {
+      backupDatabase();
     }
   }
 
@@ -327,7 +330,7 @@ export class ExerciseResultController extends BaseController {
       const pageNum = body.page || 1;
       const limitNum = body.limit || 10;
       const offset = (pageNum - 1) * limitNum;
-      const repo = AppDataSource.getRepository(ExerciseResult);
+  const repo = UserDataSource.getRepository(ExerciseResult);
       const [items, count] = await repo.findAndCount({
         skip: offset,
         take: limitNum,
@@ -344,7 +347,7 @@ export class ExerciseResultController extends BaseController {
     @Body() body: { result_id: string }
   ): Promise<ApiResponse<ExerciseResult>> {
     try {
-      const repo = AppDataSource.getRepository(ExerciseResult);
+  const repo = UserDataSource.getRepository(ExerciseResult);
       const item = await repo.findOneBy({ result_id: body.result_id });
       if (!item) {
         return this.fail('答题结果不存在');
@@ -363,7 +366,7 @@ export class ExerciseResultController extends BaseController {
       if (!requestBody.user_id || !requestBody.exercise_id) {
         return this.fail('user_id 和 exercise_id 必填', null, 400);
       }
-      const repo = AppDataSource.getRepository(ExerciseResult);
+  const repo = UserDataSource.getRepository(ExerciseResult);
       const item = repo.create(requestBody);
       const saved = await repo.save(item);
       return this.ok(saved, '答题结果创建成功');
@@ -380,7 +383,7 @@ export class ExerciseResultController extends BaseController {
       if (!requestBody.result_id) {
         return this.fail('result_id 必填', null, 400);
       }
-      const repo = AppDataSource.getRepository(ExerciseResult);
+  const repo = UserDataSource.getRepository(ExerciseResult);
       const item = await repo.findOneBy({ result_id: requestBody.result_id });
       if (!item) {
         return this.fail('答题结果不存在');
@@ -398,7 +401,7 @@ export class ExerciseResultController extends BaseController {
     @Body() body: { result_id: string }
   ): Promise<ApiResponse<any>> {
     try {
-      const repo = AppDataSource.getRepository(ExerciseResult);
+  const repo = UserDataSource.getRepository(ExerciseResult);
       const item = await repo.findOneBy({ result_id: body.result_id });
       if (!item) {
         return this.fail('答题结果不存在');

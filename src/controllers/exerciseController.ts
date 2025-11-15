@@ -1,4 +1,4 @@
-import { AppDataSource } from '../config/database';
+import { MainDataSource } from '../config/database';
 import { Exercise } from '../models/exercise';
 import { ExerciseOption } from '../models/exerciseOption';
 import { ApiResponse } from '../types/express';
@@ -18,7 +18,7 @@ export class ExerciseController extends BaseController {
       const pageNum = body.page || 1;
       const limitNum = body.limit || 10;
       const offset = (pageNum - 1) * limitNum;
-      const repo = AppDataSource.getRepository(Exercise);
+  const repo = MainDataSource.getRepository(Exercise);
       const [items, count] = await repo.findAndCount({
         skip: offset,
         take: limitNum,
@@ -35,7 +35,7 @@ export class ExerciseController extends BaseController {
     @Body() body: { exercise_id: string }
   ): Promise<ApiResponse<ExerciseResponse>> {
     try {
-      const repo = AppDataSource.getRepository(Exercise);
+  const repo = MainDataSource.getRepository(Exercise);
       const item = await repo.findOneBy({ exercise_id: body.exercise_id });
       if (!item) {
         return this.fail('习题不存在');
@@ -54,7 +54,7 @@ export class ExerciseController extends BaseController {
       if (!requestBody.question || !requestBody.type_status || !requestBody.answer) {
         return this.fail('题目、类型、答案必填', null, 400);
       }
-      const repo = AppDataSource.getRepository(Exercise);
+  const repo = MainDataSource.getRepository(Exercise);
       const item = repo.create(requestBody);
       const saved = await repo.save(item);
       return this.ok(saved, '习题创建成功');
@@ -71,7 +71,7 @@ export class ExerciseController extends BaseController {
       if (!requestBody.exercise_id) {
         return this.fail('exercise_id 必填', null, 400);
       }
-      const repo = AppDataSource.getRepository(Exercise);
+  const repo = MainDataSource.getRepository(Exercise);
       const item = await repo.findOneBy({ exercise_id: requestBody.exercise_id });
       if (!item) {
         return this.fail('习题不存在');
@@ -95,8 +95,8 @@ export class ExerciseController extends BaseController {
       if (!body.section_id) {
         return this.fail('section_id 必填', null, 400);
       }
-      const exerciseRepo = AppDataSource.getRepository(Exercise);
-      const optionRepo = AppDataSource.getRepository(ExerciseOption);
+  const exerciseRepo = MainDataSource.getRepository(Exercise);
+  const optionRepo = MainDataSource.getRepository(ExerciseOption);
       // 查询该节下所有习题
       const exercises = await exerciseRepo.find({ where: { section_id: body.section_id }, order: { exercise_id: 'ASC' } });
       if (!exercises.length) {
@@ -122,7 +122,7 @@ export class ExerciseController extends BaseController {
     @Body() body: { exercise_id: string }
   ): Promise<ApiResponse<any>> {
     try {
-      const repo = AppDataSource.getRepository(Exercise);
+  const repo = MainDataSource.getRepository(Exercise);
       const item = await repo.findOneBy({ exercise_id: body.exercise_id });
       if (!item) {
         return this.fail('习题不存在');

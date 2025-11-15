@@ -1,4 +1,4 @@
-import { AppDataSource } from '../config/database';
+import { UserDataSource } from '../config/database';
 import { Title } from '../models/title';
 import { ApiResponse } from '../types/express';
 import { TitleResponse, CreateTitleRequest, UpdateTitleRequest } from '../types/title';
@@ -16,7 +16,7 @@ export class TitleController extends BaseController {
       const pageNum = body.page || 1;
       const limitNum = body.limit || 10;
       const offset = (pageNum - 1) * limitNum;
-      const repo = AppDataSource.getRepository(Title);
+  const repo = UserDataSource.getRepository(Title);
       const [items, count] = await repo.findAndCount({
         skip: offset,
         take: limitNum,
@@ -33,7 +33,7 @@ export class TitleController extends BaseController {
     @Body() body: { title_id: string }
   ): Promise<ApiResponse<TitleResponse>> {
     try {
-      const repo = AppDataSource.getRepository(Title);
+  const repo = UserDataSource.getRepository(Title);
       const item = await repo.findOneBy({ title_id: body.title_id });
       if (!item) {
         return this.fail('称号不存在');
@@ -52,7 +52,7 @@ export class TitleController extends BaseController {
       if (!requestBody.course_id || !requestBody.name) {
         return this.fail('course_id 和 name 必填', null, 400);
       }
-      const repo = AppDataSource.getRepository(Title);
+  const repo = UserDataSource.getRepository(Title);
       const item = repo.create(requestBody);
       const saved = await repo.save(item);
       return this.ok(saved, '称号创建成功');
@@ -69,7 +69,7 @@ export class TitleController extends BaseController {
       if (!requestBody.title_id) {
         return this.fail('title_id 必填', null, 400);
       }
-      const repo = AppDataSource.getRepository(Title);
+  const repo = UserDataSource.getRepository(Title);
       const item = await repo.findOneBy({ title_id: requestBody.title_id });
       if (!item) {
         return this.fail('称号不存在');
@@ -87,7 +87,7 @@ export class TitleController extends BaseController {
     @Body() body: { title_id: string }
   ): Promise<ApiResponse<any>> {
     try {
-      const repo = AppDataSource.getRepository(Title);
+  const repo = UserDataSource.getRepository(Title);
       const item = await repo.findOneBy({ title_id: body.title_id });
       if (!item) {
         return this.fail('称号不存在');

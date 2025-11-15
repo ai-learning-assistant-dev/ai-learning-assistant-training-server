@@ -1,4 +1,4 @@
-import { AppDataSource } from '../config/database';
+import { UserDataSource } from '../config/database';
 import { AiInteraction } from '../models/aiInteraction';
 import { ApiResponse } from '../types/express';
 import { AiInteractionResponse, CreateAiInteractionRequest, UpdateAiInteractionRequest } from '../types/aiInteraction';
@@ -16,7 +16,7 @@ export class AiInteractionController extends BaseController {
       const pageNum = body.page || 1;
       const limitNum = body.limit || 10;
       const offset = (pageNum - 1) * limitNum;
-      const repo = AppDataSource.getRepository(AiInteraction);
+      const repo = UserDataSource.getRepository(AiInteraction);
       const [items, count] = await repo.findAndCount({
         skip: offset,
         take: limitNum,
@@ -33,8 +33,8 @@ export class AiInteractionController extends BaseController {
     @Body() body: { interaction_id: string }
   ): Promise<ApiResponse<AiInteractionResponse>> {
     try {
-      const repo = AppDataSource.getRepository(AiInteraction);
-          const item = await repo.findOneBy({ interaction_id: body.interaction_id });
+      const repo = UserDataSource.getRepository(AiInteraction);
+      const item = await repo.findOneBy({ interaction_id: body.interaction_id });
       if (!item) {
         return this.fail('AI交互不存在');
       }
@@ -52,7 +52,7 @@ export class AiInteractionController extends BaseController {
       if (!requestBody.user_id || !requestBody.section_id || !requestBody.session_id) {
         return this.fail('user_id、section_id、session_id 必填', null, 400);
       }
-      const repo = AppDataSource.getRepository(AiInteraction);
+      const repo = UserDataSource.getRepository(AiInteraction);
       const item = repo.create(requestBody);
       const saved = await repo.save(item);
       return this.ok(saved, 'AI交互创建成功');
@@ -69,7 +69,7 @@ export class AiInteractionController extends BaseController {
       if (!requestBody.interaction_id) {
         return this.fail('interaction_id 必填', null, 400);
       }
-      const repo = AppDataSource.getRepository(AiInteraction);
+      const repo = UserDataSource.getRepository(AiInteraction);
       const item = await repo.findOneBy({ interaction_id: requestBody.interaction_id });
       if (!item) {
         return this.fail('AI交互不存在');
@@ -87,7 +87,7 @@ export class AiInteractionController extends BaseController {
     @Body() body: { interaction_id: string }
   ): Promise<ApiResponse<any>> {
     try {
-      const repo = AppDataSource.getRepository(AiInteraction);
+      const repo = UserDataSource.getRepository(AiInteraction);
       const item = await repo.findOneBy({ interaction_id: body.interaction_id });
       if (!item) {
         return this.fail('AI交互不存在');

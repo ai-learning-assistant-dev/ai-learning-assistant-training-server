@@ -1,5 +1,5 @@
 
-import { AppDataSource } from '../config/database';
+import { backupDatabase, MainDataSource, UserDataSource } from '../config/database';
 import { User } from '../models/user';
 import { ApiResponse} from '../types/express';
 import { UserResponse,CreateUserRequest,UpdateUserRequest,UserQueryParams} from '../types/user';
@@ -18,7 +18,7 @@ export class UserController extends BaseController {
   @Get('/firstUser')
   public async getFirstUser(): Promise<ApiResponse<any>> {
     try {
-      const repo = AppDataSource.getRepository(User);
+  const repo = UserDataSource.getRepository(User);
       const users = await repo.find({ take: 1 });
       if (!users || users.length === 0) {
         return this.fail('没有用户数据');
@@ -37,10 +37,10 @@ export class UserController extends BaseController {
     ): Promise<ApiResponse<any>> {
       try {
         // 1. 查课程安排
-        const courseScheduleRepo = AppDataSource.getRepository(require('../models/courseSchedule').CourseSchedule);
-        const courseRepo = AppDataSource.getRepository(require('../models/course').Course);
-        const chapterRepo = AppDataSource.getRepository(require('../models/chapter').Chapter);
-        const sectionRepo = AppDataSource.getRepository(require('../models/section').Section);
+      const courseScheduleRepo = UserDataSource.getRepository(require('../models/courseSchedule').CourseSchedule);
+      const courseRepo = MainDataSource.getRepository(require('../models/course').Course);
+      const chapterRepo = MainDataSource.getRepository(require('../models/chapter').Chapter);
+      const sectionRepo = MainDataSource.getRepository(require('../models/section').Section);
         const schedules = await courseScheduleRepo.find({ where: { user_id: body.user_id } });
         const courseIds = schedules.map(s => s.course_id);
         // 2. 查课程
@@ -81,7 +81,7 @@ export class UserController extends BaseController {
   @Get('/allCourses')
   public async getAllCourses(): Promise<ApiResponse<any>> {
     try {
-      const repo = AppDataSource.getRepository(require('../models/course').Course);
+  const repo = MainDataSource.getRepository(require('../models/course').Course);
       const courses = await repo.find();
       return this.ok(courses);
     } catch (error) {
@@ -106,7 +106,7 @@ export class UserController extends BaseController {
         WHERE u.user_id = :user_id
       `;
       // TypeORM 可用 QueryBuilder 或 Repository 进行连表查询
-      const repo = AppDataSource.getRepository(User);
+  const repo = UserDataSource.getRepository(User);
       const user = await repo.findOne({
         where: { user_id: body.user_id },
         relations: ['dailySummaries'] // 需在实体中配置关系
@@ -128,7 +128,7 @@ export class UserController extends BaseController {
     @Body() body: { user_id: string }
   ): Promise<ApiResponse<any>> {
     try {
-      const repo = AppDataSource.getRepository(User);
+  const repo = UserDataSource.getRepository(User);
       const user = await repo.findOneBy({ user_id: body.user_id });
       if (!user) {
         return this.fail('用户不存在');
@@ -154,7 +154,7 @@ export class UserController extends BaseController {
       if (body.name) {
         whereClause.name = Like(`%${body.name}%`);
       }
-      const repo = AppDataSource.getRepository(User);
+  const repo = UserDataSource.getRepository(User);
       const [users, count] = await repo.findAndCount({
         where: whereClause,
         skip: offset,
@@ -181,7 +181,7 @@ export class UserController extends BaseController {
       if (!requestBody.name) {
         return this.fail('用户名是必填字段', null, 400);
       }
-    const repo = AppDataSource.getRepository(User);
+  const repo = UserDataSource.getRepository(User);
     const user = repo.create(requestBody);
     const saved = await repo.save(user);
     return this.ok(saved, '用户创建成功');
@@ -190,6 +190,8 @@ export class UserController extends BaseController {
         return this.fail('用户名已存在', null, 400);
       }
       return this.fail('创建用户失败', error);
+    } finally {
+      backupDatabase();
     }
   }
 
@@ -204,7 +206,7 @@ export class UserController extends BaseController {
       if (!requestBody.user_id) {
         return this.fail('user_id 必填', null, 400);
       }
-      const repo = AppDataSource.getRepository(User);
+  const repo = UserDataSource.getRepository(User);
       const user = await repo.findOneBy({ user_id: requestBody.user_id });
       if (!user) {
         return this.fail('用户不存在');
@@ -225,7 +227,7 @@ export class UserController extends BaseController {
     @Body() body: { user_id: string }
   ): Promise<ApiResponse<any>> {
     try {
-      const repo = AppDataSource.getRepository(User);
+  const repo = UserDataSource.getRepository(User);
       const user = await repo.findOneBy({ user_id: body.user_id });
       if (!user) {
         return this.fail('用户不存在');

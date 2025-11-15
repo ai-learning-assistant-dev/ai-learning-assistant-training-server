@@ -35,9 +35,4 @@ export class LearningRecord {
   @ManyToOne(() => CourseSchedule, plan => plan.learningRecords, { createForeignKeyConstraints: false })
   @JoinColumn({ name: 'plan_id' })
   plan!: CourseSchedule;
-
-  // 节关联
-  @ManyToOne(() => Section, section => section.learningRecords, { createForeignKeyConstraints: false })
-  @JoinColumn({ name: 'section_id' })
-  section!: Section;
 }

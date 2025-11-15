@@ -1,6 +1,4 @@
-import { Entity, PrimaryGeneratedColumn, Column, ManyToOne, JoinColumn } from 'typeorm';
-import { User } from './user';
-import { Test } from './test';
+import { Entity, PrimaryGeneratedColumn, Column } from 'typeorm';
 
 @Entity({ name: 'test_results' })
 export class TestResult {
@@ -10,16 +8,12 @@ export class TestResult {
   @Column({ type: 'uuid' })
   user_id!: string;
 
-  @ManyToOne(() => User)
-  @JoinColumn({ name: 'user_id' })
-  user!: User;
+  // 跨库关系移除：按 user_id 用 UserDataSource 查询
 
   @Column({ type: 'uuid' })
   test_id!: string;
 
-  @ManyToOne(() => Test)
-  @JoinColumn({ name: 'test_id' })
-  test!: Test;
+  // 跨库关系移除：按 test_id 用 MainDataSource 查询
 
   @Column({ type: 'timestamp' })
   start_date!: Date;

@@ -1,4 +1,4 @@
-import { AppDataSource } from '../config/database';
+import { MainDataSource, UserDataSource } from '../config/database';
 import { Course } from '../models/course';
 import { Chapter } from '../models/chapter';
 import { Section } from '../models/section';
@@ -23,10 +23,10 @@ export class CourseController extends BaseController {
       if (!body.course_id || !body.user_id) {
         return this.fail('course_id 和 user_id 必填', null, 400);
       }
-      const courseRepo = AppDataSource.getRepository(Course);
-      const chapterRepo = AppDataSource.getRepository(Chapter);
-      const sectionRepo = AppDataSource.getRepository(Section);
-      const unlockRepo = AppDataSource.getRepository(UserSectionUnlock);
+  const courseRepo = MainDataSource.getRepository(Course);
+  const chapterRepo = MainDataSource.getRepository(Chapter);
+  const sectionRepo = MainDataSource.getRepository(Section);
+  const unlockRepo = UserDataSource.getRepository(UserSectionUnlock);
 
       const course = await courseRepo.findOneBy({ course_id: body.course_id });
       if (!course) {
@@ -135,7 +135,7 @@ export class CourseController extends BaseController {
       const pageNum = body.page || 1;
       const limitNum = body.limit || 10;
       const offset = (pageNum - 1) * limitNum;
-      const repo = AppDataSource.getRepository(Course);
+  const repo = MainDataSource.getRepository(Course);
       const [items, count] = await repo.findAndCount({
         skip: offset,
         take: limitNum,
@@ -152,7 +152,7 @@ export class CourseController extends BaseController {
     @Body() body:{ course_id: string}
   ): Promise<ApiResponse<CourseResponse>> {
     try {
-      const repo = AppDataSource.getRepository(Course);
+  const repo = MainDataSource.getRepository(Course);
       const item = await repo.findOneBy({course_id: body.course_id });
       if (!item) {
         return this.fail('课程不存在');
@@ -168,7 +168,7 @@ export class CourseController extends BaseController {
     @Body() requestBody: CreateCourseRequest
   ): Promise<ApiResponse<any>> {
     try {
-      const repo = AppDataSource.getRepository(Course);
+  const repo = MainDataSource.getRepository(Course);
       const item = repo.create(requestBody);
       const saved = await repo.save(item);
       return this.ok(saved, '课程创建成功');
@@ -185,7 +185,7 @@ export class CourseController extends BaseController {
       if (!requestBody.course_id) {
         return this.fail('course_id 必填', null, 400);
       }
-      const repo = AppDataSource.getRepository(Course);
+  const repo = MainDataSource.getRepository(Course);
       const item = await repo.findOneBy({ course_id: requestBody.course_id });
       if (!item) {
         return this.fail('课程不存在');
@@ -203,7 +203,7 @@ export class CourseController extends BaseController {
     @Body() body: { course_id: string }
   ): Promise<ApiResponse<any>> {
     try {
-      const repo = AppDataSource.getRepository(Course);
+  const repo = MainDataSource.getRepository(Course);
       const item = await repo.findOneBy({ course_id: body.course_id });
       if (!item) {
         return this.fail('课程不存在');

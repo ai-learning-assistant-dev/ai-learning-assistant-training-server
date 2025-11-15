@@ -1,5 +1,4 @@
-
-import { Get, Query, Route, Request, Tags, Header } from 'tsoa';
+import { Get, Query, Route, Request, Tags } from 'tsoa';
 import { Request as ExpressRequest } from 'express'; // 引入 Express 类型
 import md5 from 'md5';
 import { create } from 'xmlbuilder2';
@@ -103,9 +102,10 @@ function encodeUrlForQuery(url: string): string {
 /**
  * 将远端 stream/url 包装为代理访问 URL（使 MPD 指向本服务的 /stream endpoint）
  */
-function replaceProxyUrl(url: string, baseUrl: string): string {
-  const encoded = encodeUrlForQuery(url);
-  return `${baseUrl.replace(/\/$/, '')}/proxy/bilibili/stream?url=${encoded}`;
+function replaceProxyUrl(url: string, baseUrl: string, bvid: string): string {  // Add bvid parameter
+  const encodedUrl = encodeUrlForQuery(url);
+  const encodedBvid = encodeURIComponent(bvid);
+  return `${baseUrl.replace(/\/$/, '')}/proxy/bilibili/stream?url=${encodedUrl}&bvid=${encodedBvid}`;
 }
 
 // helper: 清洗 codec / mime 字段 (去掉引号和反斜线等)
@@ -123,7 +123,7 @@ function sanitizeMime(val?: string): string | undefined {
 /**
  * Generate MPD (DASH manifest) - using sanitized codec/mime and safe url encoding
  */
-function generateMPD(dashData: DashData, baseUrl: string, videoIndex?: number): string {
+function generateMPD(dashData: DashData, baseUrl: string, bvid:string, videoIndex?: number): string {
   const duration = dashData.duration || Math.floor((dashData.timelength || 0) / 1000);
   const minBufferTime = dashData.minBufferTime || 1;
   
@@ -172,10 +172,10 @@ function generateMPD(dashData: DashData, baseUrl: string, videoIndex?: number): 
     if (video.bandwidth !== undefined) attributes.bandwidth = String(video.bandwidth);
 
     const rep = videoAdaptationSet.ele('Representation', attributes);
-    rep.ele('BaseURL').txt(replaceProxyUrl(video.base_url, baseUrl));
+    rep.ele('BaseURL').txt(replaceProxyUrl(video.base_url, baseUrl, bvid));
     if (video.backup_url && video.backup_url.length > 0) {
       video.backup_url.forEach((u) =>
-        rep.ele('BaseURL', { serviceLocation: 'backup' }).txt(replaceProxyUrl(u, baseUrl))
+        rep.ele('BaseURL', { serviceLocation: 'backup' }).txt(replaceProxyUrl(u, baseUrl, bvid))
       );
     }
     rep
@@ -211,10 +211,10 @@ function generateMPD(dashData: DashData, baseUrl: string, videoIndex?: number): 
       schemeIdUri: 'urn:mpeg:dash:23003:3:audio_channel_configuration:2011',
       value: '2',
     });
-    rep.ele('BaseURL').txt(replaceProxyUrl(audio.base_url, baseUrl));
+    rep.ele('BaseURL').txt(replaceProxyUrl(audio.base_url, baseUrl, bvid));
     if (audio.backup_url && audio.backup_url.length > 0) {
       audio.backup_url.forEach((u) =>
-        rep.ele('BaseURL', { serviceLocation: 'backup' }).txt(replaceProxyUrl(u, baseUrl))
+        rep.ele('BaseURL', { serviceLocation: 'backup' }).txt(replaceProxyUrl(u, baseUrl, bvid))
       );
     }
     rep
@@ -224,7 +224,7 @@ function generateMPD(dashData: DashData, baseUrl: string, videoIndex?: number): 
 
   return root.end({ prettyPrint: true });
 }
-function generateMPDList(dashData: DashData, baseUrl: string): XmlListItem[] {
+function generateMPDList(dashData: DashData, baseUrl: string, bvid: string): XmlListItem[] {
   let videoStreams = dashData.video || [];
   const mpdList: XmlListItem[] = [];
   dashData.supportFormats.forEach(v => { 
@@ -240,11 +240,11 @@ function generateMPDList(dashData: DashData, baseUrl: string): XmlListItem[] {
   videoStreams.forEach((v, index) => { 
     if(sanitizeCodec(v.codecs)?.startsWith('avc1.64')) {
       if(mpdList.find(mpdI => mpdI.id === v.id)) {
-        mpdList.find(mpdI => mpdI.id === v.id)!.xml = generateMPD(dashData, baseUrl, index);
+        mpdList.find(mpdI => mpdI.id === v.id)!.xml = generateMPD(dashData, baseUrl,bvid, index );
       }else {
         mpdList.push({
           id: v.id,
-          xml: generateMPD(dashData, baseUrl, index)
+          xml: generateMPD(dashData, baseUrl,bvid, index)
         })
 
       }
@@ -381,15 +381,14 @@ export class BilibiliVideoController extends BaseController {
         return "";
       }
 
-      console.log("cookieHeader:", req.headers)
 
       // 获取 cookie 中的 SESSDATA
       const cookieHeader = typeof req?.headers?.cookie === 'string' ? req.headers.cookie : '';
       const sessionDataCookie = getCookieValue(cookieHeader, 'SESSDATA');
 
       const dashInfo = await getDashInfo(bvid, sessionDataCookie, cid);
-      const mpdXML = generateMPD(dashInfo.dash, baseUrl + "/api");
-      const mpdList = generateMPDList(dashInfo.dash, baseUrl + "/api")
+      const mpdXML = generateMPD(dashInfo.dash, baseUrl + "/api", bvid);
+      const mpdList = generateMPDList(dashInfo.dash, baseUrl + "/api", bvid)
 
 
       return this.ok({

@@ -1,7 +1,4 @@
-import { Entity, PrimaryGeneratedColumn, Column, ManyToOne, JoinColumn } from 'typeorm';
-import { User } from './user';
-import { Exercise } from './exercise';
-import { TestResult } from './testResult';
+import { Entity, PrimaryGeneratedColumn, Column } from 'typeorm';
 
 @Entity({ name: 'exercise_results' })
 export class ExerciseResult {
@@ -11,23 +8,17 @@ export class ExerciseResult {
   @Column({ type: 'uuid' })
   user_id!: string;
 
-  @ManyToOne(() => User)
-  @JoinColumn({ name: 'user_id' })
-  user!: User;
+  // 跨库关系移除：按 user_id 使用 UserDataSource 手动查用户
 
   @Column({ type: 'uuid' })
   exercise_id!: string;
 
-  @ManyToOne(() => Exercise)
-  @JoinColumn({ name: 'exercise_id' })
-  exercise!: Exercise;
+  // 跨库关系移除：按 exercise_id 使用 MainDataSource 手动查练习
 
   @Column({ type: 'uuid', nullable: true })
   test_result_id?: string;
 
-  @ManyToOne(() => TestResult, { nullable: true })
-  @JoinColumn({ name: 'test_result_id' })
-  testResult?: TestResult;
+  // 跨库关系移除：按 test_result_id 使用 UserDataSource 手动查测试结果
 
   @Column({ type: 'text', nullable: true })
   user_answer?: string;

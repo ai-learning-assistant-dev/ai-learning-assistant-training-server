@@ -1,10 +1,8 @@
 import { PostgresSaver } from "@langchain/langgraph-checkpoint-postgres";
 import { Pool } from "pg";
-import { AppDataSource } from "../../config/database";
+import { MainDataSource, UserDataSource } from "../../config/database";
 import { AiInteraction } from "../../models/aiInteraction";
-import { User } from "../../models/user";
-import { Section } from "../../models/section";
-import { AiPersona } from "../../models/aiPersona";
+// 其余实体（User/Section/AiPersona）暂未在此类中直接使用，后续若需要跨库查询可引用 MainDataSource/UserDataSource 获取。
 
 /**
  * PostgreSQL 数据库配置接口
@@ -154,11 +152,11 @@ export class IntegratedPostgreSQLStorage {
    * 获取用户的所有会话（基于 AiInteraction 表）
    */
   async getUserSessions(userId: string): Promise<SessionMapping[]> {
-    if (!AppDataSource.isInitialized) {
-      throw new Error("TypeORM DataSource 未初始化");
+    if (!UserDataSource.isInitialized) {
+      throw new Error("UserDataSource 未初始化");
     }
 
-    const aiInteractionRepo = AppDataSource.getRepository(AiInteraction);
+    const aiInteractionRepo = UserDataSource.getRepository(AiInteraction);
     
     // 获取用户的所有不同会话
     const sessions = await aiInteractionRepo
@@ -191,11 +189,11 @@ export class IntegratedPostgreSQLStorage {
    * 获取会话的对话分析数据（基于 AiInteraction 表）
    */
   async getSessionAnalytics(sessionId: string): Promise<ConversationAnalytics | null> {
-    if (!AppDataSource.isInitialized) {
-      throw new Error("TypeORM DataSource 未初始化");
-    }
+      if (!UserDataSource.isInitialized) {
+        throw new Error("UserDataSource 未初始化");
+      }
 
-    const aiInteractionRepo = AppDataSource.getRepository(AiInteraction);
+      const aiInteractionRepo = UserDataSource.getRepository(AiInteraction);
     
     const analytics = await aiInteractionRepo
       .createQueryBuilder("ai")
@@ -251,11 +249,11 @@ export class IntegratedPostgreSQLStorage {
    * 清理过期的会话数据（基于 AiInteraction 表）
    */
   async cleanupExpiredSessions(daysOld: number = 30): Promise<number> {
-    if (!AppDataSource.isInitialized) {
-      throw new Error("TypeORM DataSource 未初始化");
-    }
+      if (!UserDataSource.isInitialized) {
+        throw new Error("UserDataSource 未初始化");
+      }
 
-    const aiInteractionRepo = AppDataSource.getRepository(AiInteraction);
+      const aiInteractionRepo = UserDataSource.getRepository(AiInteraction);
     
     const cutoffDate = new Date();
     cutoffDate.setDate(cutoffDate.getDate() - daysOld);
@@ -312,8 +310,8 @@ export function createIntegratedPostgreSQLConfig(): PostgreSQLConfig {
   return {
     host: process.env.DB_HOST || "localhost",
     port: parseInt(process.env.DB_PORT || "5432"),
-    database: process.env.DB_NAME || "ai_learning_db",
-    user: process.env.DB_USER || "postgres",
+    database: process.env.DB_DATABASE || process.env.DB_NAME || "ai_learning_assistant",
+    user: process.env.DB_USERNAME || process.env.DB_USER || "postgres",
     password: process.env.DB_PASSWORD || "password",
     ssl: process.env.DB_SSL === "true",
   };

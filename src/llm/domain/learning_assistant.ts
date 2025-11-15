@@ -1,6 +1,6 @@
 import { BaseMessage, HumanMessage, AIMessage } from "@langchain/core/messages";
 import { Readable } from "stream";
-import { AppDataSource } from "../../config/database";
+import { MainDataSource, UserDataSource, initializeDataSources } from "../../config/database";
 import { AiInteraction } from "../../models/aiInteraction";
 import { User } from "../../models/user";
 import { Section } from "../../models/section";
@@ -66,8 +66,8 @@ export class LearningAssistant {
     this.storage = options.storage || new IntegratedPostgreSQLStorage({
       host: process.env.DB_HOST || "localhost",
       port: parseInt(process.env.DB_PORT || "5432"),
-      database: process.env.DB_NAME || "ai_learning_db",
-      user: process.env.DB_USER || "postgres",
+      database: process.env.DB_DATABASE || process.env.DB_NAME || "ai_learning_assistant",
+      user: process.env.DB_USERNAME || process.env.DB_USER || "postgres",
       password: process.env.DB_PASSWORD || "password",
     });
 
@@ -80,8 +80,8 @@ export class LearningAssistant {
    */
   async initialize(): Promise<void> {
     // 确保数据库连接
-    if (!AppDataSource.isInitialized) {
-      await AppDataSource.initialize();
+    if (!MainDataSource.isInitialized || !UserDataSource.isInitialized) {
+      await initializeDataSources();
     }
 
     // 连接 LLM 存储
@@ -99,7 +99,7 @@ export class LearningAssistant {
     // attempt to load srt file path from DB and create tools
     let tools: any[] | undefined = undefined;
     try {
-      const sectionRepo = AppDataSource.getRepository(Section);
+  const sectionRepo = MainDataSource.getRepository(Section);
       const section = await sectionRepo.findOne({ where: { section_id: this.sectionId } });
       const srtPath = section?.srt_path;
       if (srtPath) {
@@ -277,7 +277,7 @@ export class LearningAssistant {
    */
   async switchPersona(newPersonaId: string): Promise<void> {
     // 验证新人设是否存在
-    const personaRepo = AppDataSource.getRepository(AiPersona);
+  const personaRepo = MainDataSource.getRepository(AiPersona);
     const persona = await personaRepo.findOne({ where: { persona_id: newPersonaId } });
     
     if (!persona) {
@@ -294,36 +294,48 @@ export class LearningAssistant {
    * 获取用户的学习记录和进度（集成现有的学习系统）
    */
   async getUserLearningProgress(): Promise<any> {
-    if (!AppDataSource.isInitialized) {
+    if (!UserDataSource.isInitialized) {
       throw new Error("TypeORM DataSource 未初始化");
     }
+    // 分库后移除跨数据源 relations，这里改为分步查询 / 传统方式组装
+    const userRepo = UserDataSource.getRepository(User);
+    const user = await userRepo.findOne({ where: { user_id: this.userId } });
 
-    const userRepo = AppDataSource.getRepository(User);
-    const user = await userRepo.findOne({
-      where: { user_id: this.userId },
-      relations: ['learningRecords', 'courseSchedules']
-    });
+    if (!user) {
+      return { user: null, learningRecords: [], courseSchedules: [] };
+    }
 
-    return {
-      user: user,
-      learningRecords: user?.learningRecords || [],
-      courseSchedules: user?.courseSchedules || []
-    };
+    // learning_records / course_schedules 都在用户库，可直接各自查找
+    const learningRecordRepo = UserDataSource.getRepository(require('../../models/learningRecord').LearningRecord);
+    const courseScheduleRepo = UserDataSource.getRepository(require('../../models/courseSchedule').CourseSchedule);
+
+    const [learningRecords, courseSchedules] = await Promise.all([
+      learningRecordRepo.find({ where: { user_id: this.userId } }),
+      courseScheduleRepo.find({ where: { user_id: this.userId } })
+    ]);
+
+    return { user, learningRecords, courseSchedules };
   }
 
   /**
    * 获取课程信息
    */
   async getCourseInfo(): Promise<any> {
-    if (!this.courseId || !AppDataSource.isInitialized) {
+    if (!this.courseId || !MainDataSource.isInitialized) {
       return null;
     }
 
-    const courseRepo = AppDataSource.getRepository(Course);
+    const courseRepo = MainDataSource.getRepository(Course);
     const course = await courseRepo.findOne({
       where: { course_id: this.courseId },
-      relations: ['chapters', 'defaultAiPersona', 'titles', 'tests']
+      relations: ['chapters', 'defaultAiPersona', 'tests'] // titles 在用户库
     });
+    if (course && UserDataSource.isInitialized) {
+      try {
+        const titleRepo = UserDataSource.getRepository(require('../../models/title').Title);
+        (course as any).titles = await titleRepo.find({ where: { course_id: this.courseId } });
+      } catch {}
+    }
 
     return course;
   }
@@ -347,7 +359,7 @@ export class LearningAssistant {
     }
 
     // 加载完整的章节和小节信息
-    const chapterRepo = AppDataSource.getRepository(Chapter);
+  const chapterRepo = MainDataSource.getRepository(Chapter);
     const chapters = await chapterRepo.find({
       where: { course_id: this.courseId },
       order: { chapter_order: 'ASC' }
@@ -359,7 +371,7 @@ export class LearningAssistant {
     }
 
     // 获取所有章节的小节
-    const sectionRepo = AppDataSource.getRepository(Section);
+  const sectionRepo = MainDataSource.getRepository(Section);
     
     outline += "📋 课程大纲:\n";
     
@@ -391,11 +403,11 @@ export class LearningAssistant {
    * 获取当前章节在课程中的上下文信息
    */
   async getSectionContext(): Promise<string> {
-    if (!AppDataSource.isInitialized) {
+    if (!MainDataSource.isInitialized) {
       return "数据库未初始化";
     }
 
-    const sectionRepo = AppDataSource.getRepository(Section);
+  const sectionRepo = MainDataSource.getRepository(Section);
     const section = await sectionRepo.findOne({
       where: { section_id: this.sectionId },
       relations: ['chapter', 'chapter.course']
@@ -436,7 +448,7 @@ export class LearningAssistant {
    * 加载课程信息并设置默认AI人设
    */
   private async loadCourseInfo(): Promise<void> {
-    if (!AppDataSource.isInitialized) {
+    if (!MainDataSource.isInitialized) {
       return;
     }
 
@@ -474,8 +486,8 @@ export class LearningAssistant {
     let personaPrompt = "信心十足的教育家，耐心且乐于助人。";
 
     // 获取AI人设的提示
-    if (this.personaId && AppDataSource.isInitialized) {
-      const personaRepo = AppDataSource.getRepository(AiPersona);
+    if (this.personaId && MainDataSource.isInitialized) {
+      const personaRepo = MainDataSource.getRepository(AiPersona);
       const persona = await personaRepo.findOne({ where: { persona_id: this.personaId } });
       personaPrompt = persona ? persona.prompt : personaPrompt;
     }
@@ -567,12 +579,12 @@ export class LearningAssistant {
    * 验证用户、章节、人设实体是否存在
    */
   private async validateEntities(): Promise<void> {
-    if (!AppDataSource.isInitialized) {
+    if (!UserDataSource.isInitialized || !MainDataSource.isInitialized) {
       throw new Error("TypeORM DataSource 未初始化");
     }
 
     // 验证用户
-    const userRepo = AppDataSource.getRepository(User);
+  const userRepo = UserDataSource.getRepository(User);
     const user = await userRepo.findOne({ where: { user_id: this.userId } });
     if (!user) {
       throw new Error(`用户不存在: ${this.userId}`);
@@ -581,7 +593,7 @@ export class LearningAssistant {
     // 验证章节（跳过演示用的虚拟章节）
     const isDemoSection = this.sectionId === "00000000-0000-0000-0000-000000000001";
     if (!isDemoSection) {
-      const sectionRepo = AppDataSource.getRepository(Section);
+  const sectionRepo = MainDataSource.getRepository(Section);
       const section = await sectionRepo.findOne({ where: { section_id: this.sectionId } });
       if (!section) {
         throw new Error(`章节不存在: ${this.sectionId}`);
@@ -592,7 +604,7 @@ export class LearningAssistant {
 
     // 验证AI人设（如果指定了）
     if (this.personaId) {
-      const personaRepo = AppDataSource.getRepository(AiPersona);
+      const personaRepo = MainDataSource.getRepository(AiPersona);
       const persona = await personaRepo.findOne({ where: { persona_id: this.personaId } });
       if (!persona) {
         throw new Error(`AI人设不存在: ${this.personaId}`);
@@ -604,11 +616,11 @@ export class LearningAssistant {
    * 保存对话记录到现有的 AiInteraction 表
    */
   private async saveInteraction(userMessage: string, aiResponse: string): Promise<void> {
-    if (!AppDataSource.isInitialized) {
+    if (!UserDataSource.isInitialized) {
       throw new Error("TypeORM DataSource 未初始化");
     }
 
-    const aiInteractionRepo = AppDataSource.getRepository(AiInteraction);
+  const aiInteractionRepo = UserDataSource.getRepository(AiInteraction);
     
     const interaction = new AiInteraction();
     interaction.user_id = this.userId;
@@ -695,15 +707,15 @@ export async function createCourseAssistant(
   // 如果没有指定章节，使用第一个章节
   let finalSectionId = sectionId;
   
-  if (!finalSectionId && AppDataSource.isInitialized) {
-    const chapterRepo = AppDataSource.getRepository(Chapter);
+  if (!finalSectionId && MainDataSource.isInitialized) {
+    const chapterRepo = MainDataSource.getRepository(Chapter);
     const firstChapter = await chapterRepo.findOne({
       where: { course_id: courseId },
       order: { chapter_order: 'ASC' }
     });
     
     if (firstChapter) {
-      const sectionRepo = AppDataSource.getRepository(Section);
+      const sectionRepo = MainDataSource.getRepository(Section);
       const firstSection = await sectionRepo.findOne({
         where: { chapter_id: firstChapter.chapter_id },
         order: { section_order: 'ASC' }

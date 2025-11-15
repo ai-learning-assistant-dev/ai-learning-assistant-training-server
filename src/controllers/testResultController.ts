@@ -1,4 +1,4 @@
-import { AppDataSource } from '../config/database';
+import { UserDataSource } from '../config/database';
 import { TestResult } from '../models/testResult';
 import { ApiResponse } from '../types/express';
 import { TestResultResponse, CreateTestResultRequest, UpdateTestResultRequest } from '../types/testResult';
@@ -16,7 +16,7 @@ export class TestResultController extends BaseController {
       const pageNum = body.page || 1;
       const limitNum = body.limit || 10;
       const offset = (pageNum - 1) * limitNum;
-      const repo = AppDataSource.getRepository(TestResult);
+  const repo = UserDataSource.getRepository(TestResult);
       const [items, count] = await repo.findAndCount({
         skip: offset,
         take: limitNum,
@@ -33,7 +33,7 @@ export class TestResultController extends BaseController {
     @Body() body: { result_id: string }
   ): Promise<ApiResponse<TestResultResponse>> {
     try {
-      const repo = AppDataSource.getRepository(TestResult);
+  const repo = UserDataSource.getRepository(TestResult);
       const result = await repo.findOneBy({ result_id: body.result_id });
       if (!result) {
         return this.fail('测试结果不存在');
@@ -52,7 +52,7 @@ export class TestResultController extends BaseController {
       if (!requestBody.user_id || !requestBody.test_id || !requestBody.start_date) {
         return this.fail('user_id、test_id、start_date 必填', null, 400);
       }
-      const repo = AppDataSource.getRepository(TestResult);
+  const repo = UserDataSource.getRepository(TestResult);
       const item = repo.create(requestBody);
       const saved = await repo.save(item);
       return this.ok(saved, '测试结果创建成功');
@@ -69,7 +69,7 @@ export class TestResultController extends BaseController {
       if (!requestBody.result_id) {
         return this.fail('result_id 必填', null, 400);
       }
-      const repo = AppDataSource.getRepository(TestResult);
+  const repo = UserDataSource.getRepository(TestResult);
       const item = await repo.findOneBy({ result_id: requestBody.result_id });
       if (!item) {
         return this.fail('测试结果不存在');
@@ -87,7 +87,7 @@ export class TestResultController extends BaseController {
     @Body() body: { result_id: string }
   ): Promise<ApiResponse<any>> {
     try {
-      const repo = AppDataSource.getRepository(TestResult);
+  const repo = UserDataSource.getRepository(TestResult);
       const item = await repo.findOneBy({ result_id: body.result_id });
       if (!item) {
         return this.fail('测试结果不存在');
