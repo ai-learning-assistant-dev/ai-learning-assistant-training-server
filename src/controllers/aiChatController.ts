@@ -9,6 +9,8 @@ import {
 } from '../llm/domain/learning_assistant';
 import { MainDataSource, UserDataSource } from '../config/database';
 import { AiInteraction } from '../models/aiInteraction';
+import { User } from '../models/user';
+import { AiPersona } from '../models/aiPersona';
 import { ApiResponse } from '../types/express';
 import { 
   ChatRequest, 
@@ -505,8 +507,7 @@ export class AiChatController extends BaseController {
     @Query() courseId?: string
   ): Promise<ApiResponse<any[]>> {
     try {
-      const { AiPersona } = await import('../models/aiPersona');
-      const personaRepo = AppDataSource.getRepository(AiPersona);
+      const personaRepo = MainDataSource.getRepository(AiPersona);
       
       // 如果指定了 courseId，可以根据课程筛选（目前返回所有）
       const personas = await personaRepo.find({

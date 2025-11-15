@@ -1,9 +1,9 @@
-import { AppDataSource } from '../config/database';
+import { MainDataSource } from '../config/database';
 import { SystemPrompt } from '../models/systemPrompt';
 import { getDefaultPrompt, getDefaultPromptKeys, getAudioPrompt } from '../llm/prompt/default';
 
 export const updateSystemPrompt = async (title: string, prompt_text: string): Promise<SystemPrompt> => {
-  const repo = AppDataSource.getRepository(SystemPrompt);
+  const repo = MainDataSource.getRepository(SystemPrompt);
   const existing = await repo.findOne({ where: { title } });
   if (!existing) {
     throw new Error('SystemPrompt not found');
@@ -13,7 +13,7 @@ export const updateSystemPrompt = async (title: string, prompt_text: string): Pr
 };
 
 export const getAllSystemPrompts = async (): Promise<SystemPrompt[]> => {
-  const repo = AppDataSource.getRepository(SystemPrompt);
+  const repo = MainDataSource.getRepository(SystemPrompt);
   const dbItems = await repo.find({ order: { created_at: 'DESC' } });
 
   // include defaults that are not present in DB
@@ -35,7 +35,7 @@ export const getAllSystemPrompts = async (): Promise<SystemPrompt[]> => {
 };
 
 export const getSystemPromptByTitle = async (title: string): Promise<SystemPrompt | null> => {
-  const repo = AppDataSource.getRepository(SystemPrompt);
+  const repo = MainDataSource.getRepository(SystemPrompt);
   const item = await repo.findOne({ where: { title } });
   if (item) return item;
   const def = getDefaultPrompt(title);
@@ -51,7 +51,7 @@ export const getSystemPromptByTitle = async (title: string): Promise<SystemPromp
 };
 
 export const getAllSystemPromptKeys = async (): Promise<string[]> => {
-  const repo = AppDataSource.getRepository(SystemPrompt);
+  const repo = MainDataSource.getRepository(SystemPrompt);
   const items = await repo.find({ select: ['title'] as (keyof SystemPrompt)[] });
   const keys = new Set(items.map(i => i.title));
   const defaultKeys = getDefaultPromptKeys();
@@ -65,7 +65,7 @@ export const getAllSystemPromptKeys = async (): Promise<string[]> => {
  */
 export const getAudioPromptByOption = async (optionKey: string): Promise<string | null> => {
   // First try to get from database
-  const repo = AppDataSource.getRepository(SystemPrompt);
+  const repo = MainDataSource.getRepository(SystemPrompt);
   const dbKey = `audio_communication_${optionKey.toLowerCase()}`;
   const item = await repo.findOne({ where: { title: dbKey } });
   if (item && item.prompt_text) {
@@ -76,3 +76,4 @@ export const getAudioPromptByOption = async (optionKey: string): Promise<string 
   const defaultPrompt = getAudioPrompt(optionKey);
   return defaultPrompt ?? null;
 };
+
