@@ -5,7 +5,7 @@ import { create } from 'xmlbuilder2';
 import { BaseController } from './baseController';
 import { ApiResponse } from '../types/express';
 import { ofetchJson } from '../utils/ofetch';
-import { BaseResponse, EncWbiParams, EncWbiResult, DashData, NavData, PlayVideoData, VideoViewData, WbiKeysResponse, VideoManifestResponse, XmlListItem } from '../types/bilibili';
+import { BaseResponse, EncWbiParams, EncWbiResult, DashData, NavData, PlayVideoData, VideoViewData, WbiKeysResponse, VideoManifestResponse, FormatListItem } from '../types/bilibili';
 
 
 /**
@@ -224,34 +224,131 @@ function generateMPD(dashData: DashData, baseUrl: string, bvid:string, videoInde
 
   return root.end({ prettyPrint: true });
 }
-function generateMPDList(dashData: DashData, baseUrl: string, bvid: string): XmlListItem[] {
-  let videoStreams = dashData.video || [];
-  const mpdList: XmlListItem[] = [];
+function generateFormatList(dashData: DashData): FormatListItem[] {
+  const videoStreams = dashData.video || [];
+  const formatList: FormatListItem[] = [];
   dashData.supportFormats.forEach(v => { 
-    mpdList.push({
+    formatList.push({
       id: v.quality,
       format: v.format,
       new_description: v.new_description,
       display_desc: v.display_desc,
-      xml:""
     })
   });
 
-  videoStreams.forEach((v, index) => { 
+  videoStreams.forEach((v) => { 
     if(sanitizeCodec(v.codecs)?.startsWith('avc1.64')) {
-      if(mpdList.find(mpdI => mpdI.id === v.id)) {
-        mpdList.find(mpdI => mpdI.id === v.id)!.xml = generateMPD(dashData, baseUrl,bvid, index );
+      let findItem = formatList.find(mpdI => mpdI.id === v.id);
+      if(findItem) {
+        findItem = Object.assign(findItem, v);
       }else {
-        mpdList.push({
-          id: v.id,
-          xml: generateMPD(dashData, baseUrl,bvid, index)
+        formatList.push({
+          ...v,
         })
 
       }
     }
   });
-  return mpdList;
 
+  return formatList;
+}
+
+/**
+ * 生成包含所有清晰度的统一 MPD
+ */
+function generateUnifiedMPD(dashData: DashData, baseUrl: string, bvid: string): string {
+  const duration = dashData.duration || Math.floor((dashData.timelength || 0) / 1000);
+  const minBufferTime = dashData.minBufferTime || 1;
+  
+  const root = create({ version: '1.0', encoding: 'UTF-8' }).ele('MPD', {
+    xmlns: 'urn:mpeg:dash:schema:mpd:2011',
+    type: 'static',
+    mediaPresentationDuration: `PT${duration}S`,
+    minBufferTime: `PT${minBufferTime}S`,
+    profiles: 'urn:mpeg:dash:profile:isoff-on-demand:2011',
+  });
+
+  const period = root.ele('Period', { duration: `PT${duration}S` });
+
+  // Video AdaptationSet - 包含所有 avc1.64 编码的视频流
+  const videoAdaptationSet = period.ele('AdaptationSet', {
+    segmentAlignment: 'true',
+    subsegmentAlignment: 'true',
+    subsegmentStartsWithSAP: '1',
+  });
+
+  // 筛选所有 avc1.64 编码的视频流
+  const videoStreams = (dashData.video || []).filter((v) => 
+    sanitizeCodec(v.codecs)?.startsWith('avc1.64')
+  );
+
+  videoStreams.forEach((video) => {
+    const attributes: Record<string, string> = {
+      id: String(video.id),
+    };
+    const cleanMime = sanitizeMime(video.mime_type);
+    const cleanCodec = sanitizeCodec(video.codecs);
+    if (cleanMime) attributes.mimeType = cleanMime;
+    if (cleanCodec) attributes.codecs = cleanCodec;
+    if (video.width) attributes.width = String(video.width);
+    if (video.height) attributes.height = String(video.height);
+    if (video.frame_rate) attributes.frameRate = String(video.frame_rate);
+    if (video.sar) attributes.sar = String(video.sar);
+    if (video.start_with_sap !== undefined) attributes.startWithSAP = String(video.start_with_sap);
+    if (video.bandwidth !== undefined) attributes.bandwidth = String(video.bandwidth);
+
+    const rep = videoAdaptationSet.ele('Representation', attributes);
+    rep.ele('BaseURL').txt(replaceProxyUrl(video.base_url, baseUrl, bvid));
+    if (video.backup_url && video.backup_url.length > 0) {
+      video.backup_url.forEach((u) =>
+        rep.ele('BaseURL', { serviceLocation: 'backup' }).txt(replaceProxyUrl(u, baseUrl, bvid))
+      );
+    }
+    rep
+      .ele('SegmentBase', { indexRange: video.segment_base.index_range })
+      .ele('Initialization', { range: video.segment_base.initialization });
+  });
+
+  // Audio AdaptationSet
+  const audioAdaptationSet = period.ele('AdaptationSet', {
+    segmentAlignment: 'true',
+    subsegmentAlignment: 'true',
+    subsegmentStartsWithSAP: '1',
+  });
+
+  let audioStreams = dashData.audio || [];
+  const preferredAudio = audioStreams.find((a) => sanitizeCodec(a.codecs) === 'mp4a.40.2');
+  if (preferredAudio) audioStreams = [preferredAudio];
+
+  audioStreams.forEach((audio) => {
+    const attributes: Record<string, string> = {
+      id: String(audio.id),
+    };
+    const cleanMime = sanitizeMime(audio.mime_type);
+    const cleanCodec = sanitizeCodec(audio.codecs);
+    if (cleanMime) attributes.mimeType = cleanMime;
+    if (cleanCodec) attributes.codecs = cleanCodec;
+    if (audio.start_with_sap !== undefined) attributes.startWithSAP = String(audio.start_with_sap);
+    if (audio.bandwidth !== undefined) attributes.bandwidth = String(audio.bandwidth);
+    if (audio.audioSamplingRate !== undefined) attributes['audioSamplingRate'] = String(audio.audioSamplingRate);
+
+    const rep = audioAdaptationSet.ele('Representation', attributes);
+    rep.ele('AudioChannelConfiguration', {
+      schemeIdUri: 'urn:mpeg:dash:23003:3:audio_channel_configuration:2011',
+      value: '2',
+    });
+    rep.ele('BaseURL').txt(replaceProxyUrl(audio.base_url, baseUrl, bvid));
+    if (audio.backup_url && audio.backup_url.length > 0) {
+      audio.backup_url.forEach((u) =>
+        rep.ele('BaseURL', { serviceLocation: 'backup' }).txt(replaceProxyUrl(u, baseUrl, bvid))
+      );
+    }
+    rep
+      .ele('SegmentBase', { indexRange: audio.segment_base.index_range })
+      .ele('Initialization', { range: audio.segment_base.initialization });
+  });
+
+  return root.end({ prettyPrint: true });
 }
 
 
@@ -388,12 +485,14 @@ export class BilibiliVideoController extends BaseController {
 
       const dashInfo = await getDashInfo(bvid, sessionDataCookie, cid);
       const mpdXML = generateMPD(dashInfo.dash, baseUrl + "/api", bvid);
-      const mpdList = generateMPDList(dashInfo.dash, baseUrl + "/api", bvid)
+      const formatList = generateFormatList(dashInfo.dash)
+      const unifiedMpd = generateUnifiedMPD(dashInfo.dash, baseUrl + "/api", bvid)
 
 
       return this.ok({
         xml: mpdXML,
-        mpdList,
+        formatList,
+        unifiedMpd,
         pages: dashInfo.pages,
       });
     } catch (err) {
