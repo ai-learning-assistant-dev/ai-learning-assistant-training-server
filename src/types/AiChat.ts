@@ -115,3 +115,22 @@ export interface UserSectionSessionsResponse {
   session_count: number;
   sessions: SessionDetail[];
 }
+
+/**
+ * 学习总结评语请求
+ */
+export interface LearningReviewRequest {
+  userId: string;
+  sectionId: string;
+  sessionId: string;
+}
+
+/**
+ * 学习总结评语响应
+ */
+export interface LearningReviewResponse {
+  strengths: string[];           // 表现良好的方面
+  weaknesses: string[];          // 需要加强的方面
+  recommendations: string[];     // 推荐额外学习的知识点
+  overallComment: string;        // 总体评语
+}
