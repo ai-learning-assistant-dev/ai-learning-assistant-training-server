@@ -19,10 +19,12 @@ import {
   ChatResponse,
   ChatStreamlyResponse, 
   SessionInfo,
-  UserSectionSessionsResponse
+  UserSectionSessionsResponse,
+  LearningReviewRequest
 } from '../types/AiChat';
 import { AnswerEvaluateRequest, AnswerEvaluateResponse } from '../types/AiChat';
 import AnswerEvaluator from '../llm/domain/answer_evaluator';
+import LearningReviewEvaluator from '../llm/domain/learning_review_evaluator';
 import { Readable } from 'node:stream';
 import { Section } from '../models/section';
 import DailyChat from '../llm/domain/daily_chat';
@@ -166,6 +168,57 @@ export class AiChatController extends BaseController {
       console.error('答案评估失败:', error);
       const errorMessage = error instanceof Error ? error.message : String(error);
       throw this.fail('答案评估失败', errorMessage);
+    }
+  }
+
+  /**
+   * 生成学习完一节课后的总结评语（流式返回）
+   * 基于聊天记录、课程大纲、题目和学习成绩生成评语
+   */
+  @Post('/learning-review')
+  public async generateLearningReview(@Body() request: LearningReviewRequest): Promise<Readable> {
+    try {
+      const { userId, sectionId, sessionId } = request;
+      
+      if (!userId || !sectionId || !sessionId) {
+        throw new Error('缺少必要参数：userId, sectionId, sessionId');
+      }
+
+      const evaluator = new LearningReviewEvaluator();
+      const reviewPrompt = "请针对课程学习情况进行总结";
+
+      const { stream, fullTextPromise } = await evaluator.evaluate(request);
+
+      fullTextPromise
+        .then(async (reviewText) => {
+          try {
+            if (!UserDataSource.isInitialized) {
+              throw new Error('UserDataSource 未初始化');
+            }
+            const aiInteractionRepo = UserDataSource.getRepository(AiInteraction);
+            const aiInteraction = aiInteractionRepo.create({
+              user_id: userId,
+              section_id: sectionId,
+              session_id: sessionId,
+              user_message: reviewPrompt,
+              ai_response: reviewText,
+              query_time: new Date()
+            });
+            await aiInteractionRepo.save(aiInteraction);
+            console.log(`💾 学习总结评语已保存到聊天记录: ${sessionId}`);
+          } catch (saveErr) {
+            console.error('保存学习总结评语到聊天记录失败:', saveErr);
+          }
+        })
+        .catch((err) => {
+          console.error('学习总结评语流式生成失败:', err);
+        });
+
+      return stream;
+    } catch (error) {
+      console.error('学习总结评语生成失败:', error);
+      const errorMessage = error instanceof Error ? error.message : String(error);
+      throw this.fail('学习总结评语生成失败', errorMessage);
     }
   }
 

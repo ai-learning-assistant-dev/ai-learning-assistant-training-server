@@ -115,3 +115,12 @@ export interface UserSectionSessionsResponse {
   session_count: number;
   sessions: SessionDetail[];
 }
+
+/**
+ * 学习总结评语请求
+ */
+export interface LearningReviewRequest {
+  userId: string;
+  sectionId: string;
+  sessionId: string;
+}

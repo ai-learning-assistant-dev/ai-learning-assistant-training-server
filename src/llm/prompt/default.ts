@@ -4,6 +4,7 @@ export const KEY_LEARNING_ASSISTANT_FALLBACK = 'learning_assistant_fallback';
 export const KEY_AUDIO_COMMUNICATION_REQUIRE = 'audio_communication_require';
 export const KEY_AUDIO_COMMUNICATION_OPTIONS = 'audio_communication_options';
 export const KEY_DAILY_CHAT = 'daily_chat';
+export const KEY_LEARNING_REVIEW = 'learning_review';
 
 // Default in-memory prompts fallback.
 // Add entries here for keys that should have a built-in default when DB is missing.
@@ -17,7 +18,32 @@ const DEFAULT_PROMPTS: Record<string, string> = {
     DEFAULT: `你正在和用户进行音频交互，请确保你的回答简洁明了，适合通过语音传达。不要生成emoji表情符号和markdown格式的特殊字符。`,
     kokoro: `你正在和用户进行音频交互，使用的是kokoro TTS模型。请你使用中文回复，确保你的回答的句子简短。避免回答中出现场景或情绪描述（如"（收拾教案）"、"（语气轻快）"等）、复杂的句子结构和不必要的修饰词，不要生成emoji表情符号和markdown格式的特殊字符。多一些语气助词让朗读更加自然。`
   }),
-  [KEY_DAILY_CHAT]: `你是一个友好的学习助理，简短回答用户问题。\n\n #人设：\${personaPrompt}\n\n #重要要求：\n\${requirements}`
+  [KEY_DAILY_CHAT]: `你是一个友好的学习助理，简短回答用户问题。\n\n #人设：\${personaPrompt}\n\n #重要要求：\n\${requirements}`,
+  [KEY_LEARNING_REVIEW]: `你是一个专业的学习评估专家，请根据以下信息为学生生成一份学习总结评语：
+
+\${sectionOutline}
+
+\${exerciseData}
+
+\${chatHistory}
+
+请基于以上信息，分析学生的学习情况，生成一份详细的学习总结评语。
+
+要求：
+1. 使用友好、鼓励的语气
+2. 包含以下内容：
+   - 表现良好的方面（2-5条）
+   - 需要加强的方面（2-5条）
+   - 推荐额外学习的相关知识点（2-5条）
+   - 总体评价和鼓励
+3. 使用清晰的段落结构，便于阅读
+4. 直接输出评语文本，不要使用JSON格式
+
+分析维度：
+- 知识点掌握程度（根据练习题完成情况）
+- 学习态度和主动性（根据聊天记录中的提问质量和频率）
+- 理解深度（根据对话中的思考深度）
+- 答题准确性（根据练习成绩）`
 };
 
 export function getDefaultPrompt(key: string): string | undefined {
