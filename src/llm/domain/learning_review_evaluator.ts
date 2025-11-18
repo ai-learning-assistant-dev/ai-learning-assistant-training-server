@@ -1,5 +1,6 @@
 import SingleChat from '../agent/single_chat';
-import type { LearningReviewRequest, LearningReviewResponse } from '../../types/AiChat';
+import type { LearningReviewRequest } from '../../types/AiChat';
+import { Readable } from 'stream';
 import { getPromptWithArgs } from '../prompt/manager';
 import { KEY_LEARNING_REVIEW } from '../prompt/default';
 import { MainDataSource, UserDataSource } from '../../config/database';
@@ -26,7 +27,7 @@ export class LearningReviewEvaluator {
   /**
    * 生成学习总结评语
    */
-  async evaluate(req: LearningReviewRequest): Promise<LearningReviewResponse> {
+  async evaluate(req: LearningReviewRequest): Promise<{ stream: Readable; fullTextPromise: Promise<string> }> {
     try {
       console.log('正在生成学习总结评语:', JSON.stringify(req, null, 2));
 
@@ -44,17 +45,80 @@ export class LearningReviewEvaluator {
 
       // 5. 调用LLM
       const sc = new SingleChat(this.chatOptions);
-      try {
-        const response = await sc.chat(instruction);
-        
-        // 6. 解析响应
-        const result = this.parseResponse(response);
-        
-        console.log('学习总结评语生成成功');
-        return result;
-      } finally {
-        await sc.cleanup();
-      }
+
+      const readable = new Readable({
+        read() {
+          // no-op; data pushed asynchronously
+        }
+      });
+
+      const fullTextPromise = (async () => {
+        let fullResponse = '';
+        try {
+          const streamIter = await sc.stream(instruction);
+          let chunkIndex = 0;
+
+          for await (const chunk of streamIter) {
+            chunkIndex++;
+            try {
+              let content = '';
+
+              if (chunkIndex <= 3) {
+                console.log(`[LearningReview] Chunk ${chunkIndex} structure:`, JSON.stringify(chunk).substring(0, 200));
+              }
+
+              if (Array.isArray(chunk) && chunk.length > 0) {
+                const messageChunk = chunk[0];
+                if (messageChunk?.kwargs?.content) {
+                  content = messageChunk.kwargs.content;
+                } else if (typeof messageChunk?.content === 'string') {
+                  content = messageChunk.content;
+                }
+              } else if (typeof chunk === 'string') {
+                content = chunk;
+              } else if (chunk && typeof (chunk as any).content === 'string') {
+                content = (chunk as any).content;
+              }
+
+              if (content) {
+                fullResponse += content;
+                readable.push(content);
+              }
+            } catch (chunkErr) {
+              console.warn(`[LearningReview] Chunk ${chunkIndex} 处理错误:`, chunkErr);
+              continue;
+            }
+          }
+
+          if (!fullResponse) {
+            console.warn('学习总结流未产生内容，回退到非流模式');
+            const fallback = await sc.chat(instruction);
+            fullResponse = fallback;
+            readable.push(fallback);
+          }
+
+          readable.push(null);
+          console.log('学习总结评语生成成功 (stream)');
+          return fullResponse;
+        } catch (err) {
+          console.error('学习总结评语流式生成失败:', err);
+          try {
+            console.log('回退到普通模式生成学习总结评语');
+            const fallback = await sc.chat(instruction);
+            readable.push(fallback);
+            readable.push(null);
+            return fallback;
+          } catch (fallbackErr) {
+            const message = fallbackErr instanceof Error ? fallbackErr.message : String(fallbackErr);
+            readable.destroy(new Error(`学习总结评语生成失败: ${message}`));
+            throw fallbackErr;
+          }
+        } finally {
+          await sc.cleanup();
+        }
+      })();
+
+      return { stream: readable, fullTextPromise };
     } catch (err) {
       console.error('学习总结评语生成失败:', err);
       throw new Error(`学习总结评语生成失败: ${err instanceof Error ? err.message : String(err)}`);
@@ -248,21 +312,17 @@ ${exerciseData}
 
 ${chatHistory}
 
-请基于以上信息，分析学生的学习情况，输出严格的 JSON 对象，格式如下：
-
-{
-  "strengths": ["表现良好的方面1", "表现良好的方面2", ...],
-  "weaknesses": ["需要加强的方面1", "需要加强的方面2", ...],
-  "recommendations": ["推荐额外学习的知识点1", "推荐额外学习的知识点2", ...],
-  "overallComment": "总体评语（100-200字）"
-}
+请基于以上信息，分析学生的学习情况，生成一份详细的学习总结评语。
 
 要求：
-1. 严格输出JSON格式，不要包含其他文本
-2. strengths: 列出学生在学习过程中表现良好的方面（2-5条）
-3. weaknesses: 列出需要加强的方面（2-5条）
-4. recommendations: 推荐额外学习的相关知识点（2-5条）
-5. overallComment: 综合评价，鼓励为主，指出改进方向
+1. 使用友好、鼓励的语气
+2. 包含以下内容：
+   - 表现良好的方面（2-5条）
+   - 需要加强的方面（2-5条）
+   - 推荐额外学习的相关知识点（2-5条）
+   - 总体评价和鼓励
+3. 使用清晰的段落结构，便于阅读
+4. 直接输出评语文本，不要使用JSON格式
 
 分析维度：
 - 知识点掌握程度（根据练习题完成情况）
@@ -272,52 +332,7 @@ ${chatHistory}
     }
   }
 
-  /**
-   * 解析LLM响应
-   */
-  private parseResponse(response: string): LearningReviewResponse {
-    try {
-      // 尝试提取JSON（有时LLM会在JSON前后加一些说明文字）
-      const jsonMatch = response.match(/\{[\s\S]*\}/);
-      if (!jsonMatch) {
-        throw new Error('响应中未找到JSON对象');
-      }
 
-      const parsed = JSON.parse(jsonMatch[0]);
-
-      // 验证必要字段
-      if (!parsed.strengths || !Array.isArray(parsed.strengths)) {
-        throw new Error('缺少或格式错误: strengths');
-      }
-      if (!parsed.weaknesses || !Array.isArray(parsed.weaknesses)) {
-        throw new Error('缺少或格式错误: weaknesses');
-      }
-      if (!parsed.recommendations || !Array.isArray(parsed.recommendations)) {
-        throw new Error('缺少或格式错误: recommendations');
-      }
-      if (!parsed.overallComment || typeof parsed.overallComment !== 'string') {
-        throw new Error('缺少或格式错误: overallComment');
-      }
-
-      return {
-        strengths: parsed.strengths,
-        weaknesses: parsed.weaknesses,
-        recommendations: parsed.recommendations,
-        overallComment: parsed.overallComment
-      };
-    } catch (err) {
-      console.error('解析响应失败:', err);
-      console.error('原始响应:', response);
-      
-      // 返回默认值
-      return {
-        strengths: ['积极参与学习'],
-        weaknesses: ['建议多做练习'],
-        recommendations: ['复习本节知识点'],
-        overallComment: '继续保持学习热情，多加练习！'
-      };
-    }
-  }
 
   /**
    * 获取题目类型名称

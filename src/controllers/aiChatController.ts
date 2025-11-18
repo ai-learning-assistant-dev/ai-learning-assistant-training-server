@@ -20,8 +20,7 @@ import {
   ChatStreamlyResponse, 
   SessionInfo,
   UserSectionSessionsResponse,
-  LearningReviewRequest,
-  LearningReviewResponse
+  LearningReviewRequest
 } from '../types/AiChat';
 import { AnswerEvaluateRequest, AnswerEvaluateResponse } from '../types/AiChat';
 import AnswerEvaluator from '../llm/domain/answer_evaluator';
@@ -173,11 +172,11 @@ export class AiChatController extends BaseController {
   }
 
   /**
-   * 生成学习完一节课后的总结评语
+   * 生成学习完一节课后的总结评语（流式返回）
    * 基于聊天记录、课程大纲、题目和学习成绩生成评语
    */
   @Post('/learning-review')
-  public async generateLearningReview(@Body() request: LearningReviewRequest): Promise<ApiResponse<LearningReviewResponse>> {
+  public async generateLearningReview(@Body() request: LearningReviewRequest): Promise<Readable> {
     try {
       const { userId, sectionId, sessionId } = request;
       
@@ -186,54 +185,36 @@ export class AiChatController extends BaseController {
       }
 
       const evaluator = new LearningReviewEvaluator();
-      const result = await evaluator.evaluate(request);
-      
-      // 将总结评语保存为对话记录
-      if (!UserDataSource.isInitialized) {
-        throw new Error("UserDataSource 未初始化");
-      }
+      const reviewPrompt = "请针对课程学习情况进行总结";
 
-      const aiInteractionRepo = UserDataSource.getRepository(AiInteraction);
-      
-      // 第一条：用户请求总结
-      const userInteraction = aiInteractionRepo.create({
-        user_id: userId,
-        section_id: sectionId,
-        session_id: sessionId,
-        user_message: "请针对课程学习情况进行总结",
-        ai_response: "",
-        query_time: new Date()
-      });
-      await aiInteractionRepo.save(userInteraction);
-      
-      // 第二条：AI的总结评语
-      const reviewText = `## 学习总结评语
+      const { stream, fullTextPromise } = await evaluator.evaluate(request);
 
-### 表现良好的方面
-${result.strengths.map((s, i) => `${i + 1}. ${s}`).join('\n')}
+      fullTextPromise
+        .then(async (reviewText) => {
+          try {
+            if (!UserDataSource.isInitialized) {
+              throw new Error('UserDataSource 未初始化');
+            }
+            const aiInteractionRepo = UserDataSource.getRepository(AiInteraction);
+            const aiInteraction = aiInteractionRepo.create({
+              user_id: userId,
+              section_id: sectionId,
+              session_id: sessionId,
+              user_message: reviewPrompt,
+              ai_response: reviewText,
+              query_time: new Date()
+            });
+            await aiInteractionRepo.save(aiInteraction);
+            console.log(`💾 学习总结评语已保存到聊天记录: ${sessionId}`);
+          } catch (saveErr) {
+            console.error('保存学习总结评语到聊天记录失败:', saveErr);
+          }
+        })
+        .catch((err) => {
+          console.error('学习总结评语流式生成失败:', err);
+        });
 
-### 需要加强的方面
-${result.weaknesses.map((w, i) => `${i + 1}. ${w}`).join('\n')}
-
-### 推荐额外学习的知识点
-${result.recommendations.map((r, i) => `${i + 1}. ${r}`).join('\n')}
-
-### 总体评语
-${result.overallComment}`;
-
-      const aiInteraction = aiInteractionRepo.create({
-        user_id: userId,
-        section_id: sectionId,
-        session_id: sessionId,
-        user_message: "",
-        ai_response: reviewText,
-        query_time: new Date()
-      });
-      await aiInteractionRepo.save(aiInteraction);
-      
-      console.log(`💾 学习总结评语已保存到聊天记录: ${sessionId}`);
-      
-      return this.ok(result);
+      return stream;
     } catch (error) {
       console.error('学习总结评语生成失败:', error);
       const errorMessage = error instanceof Error ? error.message : String(error);
