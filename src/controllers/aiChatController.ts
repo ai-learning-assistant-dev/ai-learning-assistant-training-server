@@ -631,7 +631,11 @@ export class AiChatController extends BaseController {
       const modelList = models.map(model => model.name);
 
       const defaultModel = modelConfigManager.getDefaultModel();
-      const defaultModelName = defaultModel ? defaultModel.name : undefined;
+      const defaultModelName = defaultModel.name;
+
+      if (modelList.length == 0) {
+        modelList.push(defaultModelName);
+      }
 
       return this.ok({ all: modelList, default: defaultModelName });
     } catch (error) {
