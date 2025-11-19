@@ -28,6 +28,7 @@ export class AnswerEvaluator {
       // Fallback in case of circular references
       console.log('正在评估学生答案 (非序列化):', req);
     }
+    // 使用默认模型
     const sc = new SingleChat(this.chatOptions);
     try {
       // If req.prompt is provided, treat it as a template key stored in DB and instantiate with values.

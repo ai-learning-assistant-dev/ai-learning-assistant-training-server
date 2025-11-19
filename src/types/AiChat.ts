@@ -1,6 +1,6 @@
 import { Readable } from "stream";
 
-// 简易聊天，用于AI简答题评价。
+// 简易聊天，用于AI简答题评价。简答题评价默认采用default模型。
 export interface AnswerEvaluateRequest {
   studentAnswer: string;
   prompt?: string;
@@ -32,6 +32,7 @@ export interface DailyChatResponse {
   message: string;
   personaId?: string;
   sessionId?: string;
+  modelName?: string;  // 添加模型ID字段
 }
 
 /**
@@ -46,6 +47,7 @@ export interface StreamChatRequest {
   useAudio?: boolean;
   ttsOption?: string[];
   daily?: boolean;
+  modelName?: string;  // 添加模型ID字段
 }
 
 /**
@@ -123,4 +125,5 @@ export interface LearningReviewRequest {
   userId: string;
   sectionId: string;
   sessionId: string;
+  modelName?: string; // 可选的模型名称
 }

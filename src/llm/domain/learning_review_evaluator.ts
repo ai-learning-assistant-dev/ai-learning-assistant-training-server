@@ -8,6 +8,14 @@ import { AiInteraction } from '../../models/aiInteraction';
 import { Section } from '../../models/section';
 import { Exercise } from '../../models/exercise';
 import { ExerciseResult } from '../../models/exerciseResult';
+import { modelConfigManager } from '../utils/modelConfigManager';
+import { create } from 'domain';
+import { createLLM } from '../utils/create_llm';
+
+export type LearningReviewEvaluatorOptions = {
+  tools?: any[];
+  modelName?: string;
+};
 
 /**
  * LearningReviewEvaluator
@@ -17,10 +25,10 @@ import { ExerciseResult } from '../../models/exerciseResult';
  * 输出：需要加强的方面、推荐额外学习的知识点
  */
 export class LearningReviewEvaluator {
-  private chatOptions?: any;
+  private chatOptions?: LearningReviewEvaluatorOptions;
   private readonly MAX_TOKENS = 96000;  // 上下文token限制
 
-  constructor(chatOptions?: any) {
+  constructor(chatOptions?: LearningReviewEvaluatorOptions) {
     this.chatOptions = chatOptions;
   }
 
@@ -44,7 +52,9 @@ export class LearningReviewEvaluator {
       const instruction = await this.buildPrompt(sectionOutline, exerciseData, chatHistory);
 
       // 5. 调用LLM
-      const sc = new SingleChat(this.chatOptions);
+      const llmModel = this.chatOptions?.modelName ? modelConfigManager.getModelConfig(this.chatOptions.modelName) : modelConfigManager.getDefaultModel();
+      const llm = llmModel ? createLLM(llmModel) : undefined;
+      const sc = new SingleChat({ llm });
 
       const readable = new Readable({
         read() {
