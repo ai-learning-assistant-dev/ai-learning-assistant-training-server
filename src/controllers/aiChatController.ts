@@ -32,7 +32,7 @@ import { getPromptWithArgs } from '../llm/prompt/manager';
 import { KEY_AUDIO_COMMUNICATION_REQUIRE } from '../llm/prompt/default';
 import { getAudioPromptByOption } from '../services/systemPromptService';
 import { LanguageModelLike } from '@langchain/core/language_models/base';
-import { modelConfigManager } from '@/llm/utils/modelConfigManager';
+import { modelConfigManager } from '../llm/utils/modelConfigManager';
 
 /**
  * 集成LLM Agent的AI聊天控制器
