@@ -617,4 +617,27 @@ export class AiChatController extends BaseController {
       throw this.fail('切换人设失败', errorMessage);
     }
   }
+
+    /**
+   * 获取可用的大模型列表
+   */
+  @Get('/models')
+  public async getAvailableModels(): Promise<ApiResponse<{ all: string[], default?: string }>> {
+    try {
+      // 获取所有非嵌入模型
+      const models = modelConfigManager.getNonEmbeddingModels();
+
+      // 返回简化版的模型信息供前端使用
+      const modelList = models.map(model => model.name);
+
+      const defaultModel = modelConfigManager.getDefaultModel();
+      const defaultModelName = defaultModel ? defaultModel.name : undefined;
+
+      return this.ok({ all: modelList, default: defaultModelName });
+    } catch (error) {
+      console.error('获取模型列表失败:', error);
+      const errorMessage = error instanceof Error ? error.message : String(error);
+      throw this.fail("获取模型列表失败", errorMessage);
+    }
+  }
 }
