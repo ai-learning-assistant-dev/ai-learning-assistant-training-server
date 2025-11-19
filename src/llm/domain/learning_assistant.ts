@@ -13,6 +13,7 @@ import { createLLM } from "../utils/create_llm";
 import { createSrtTools } from "../tool/srt_tools";
 import { getPromptWithArgs } from "../prompt/manager";
 import { KEY_LEARNING_ASSISTANT, KEY_LEARNING_ASSISTANT_FALLBACK } from "../prompt/default";
+import { ModelConfig, modelConfigManager } from "../utils/modelConfigManager";
 
 /**
  * 学习助手配置选项
@@ -32,6 +33,8 @@ export interface LearningAssistantOptions {
   storage?: IntegratedPostgreSQLStorage;
   /** 附加在系统提示词中的额外要求 */
   requirements?: string;
+  /** 选择的llm模型配置（可选） */
+  modelName?: string
 }
 
 /**
@@ -50,6 +53,7 @@ export class LearningAssistant {
   private sessionId: string;
   private personaId?: string;
   private requirements?: string;
+  private selectedModelConfig?: ModelConfig;
 
   constructor(options: LearningAssistantOptions) {
     this.userId = options.userId;
@@ -61,6 +65,7 @@ export class LearningAssistant {
       this.sectionId
     );
     this.requirements = options.requirements;
+    this.selectedModelConfig = options.modelName ? modelConfigManager.getModelConfig(options.modelName) || undefined : undefined;
     
     // 使用集成存储
     this.storage = options.storage || new IntegratedPostgreSQLStorage({
@@ -99,7 +104,7 @@ export class LearningAssistant {
     // attempt to load srt file path from DB and create tools
     let tools: any[] | undefined = undefined;
     try {
-  const sectionRepo = MainDataSource.getRepository(Section);
+      const sectionRepo = MainDataSource.getRepository(Section);
       const section = await sectionRepo.findOne({ where: { section_id: this.sectionId } });
       const srtPath = section?.srt_path;
       if (srtPath) {
@@ -117,7 +122,7 @@ export class LearningAssistant {
     }
 
     this.agent = new ReactAgent({
-      llm: createLLM(),
+      llm: createLLM(this.selectedModelConfig ? this.selectedModelConfig : modelConfigManager.getDefaultModel()),
       defaultThreadId: this.sessionId,
       checkpointSaver: this.storage.getSaver(),
       postgresStorage: this.storage as any,
@@ -646,7 +651,8 @@ export async function createLearningAssistant(
   personaId?: string,
   sessionId?: string,
   courseId?: string,
-  requirements?: string
+  requirements?: string,
+  modelName?: string
 ): Promise<LearningAssistant> {
   const assistant = new LearningAssistant({
     userId,
@@ -654,7 +660,8 @@ export async function createLearningAssistant(
     sectionId,
     personaId,
     sessionId,
-    requirements
+    requirements,
+    modelName
   });
   
   await assistant.initialize();
@@ -682,7 +689,8 @@ export async function startNewLearningSession(
 export async function resumeLearningSession(
   userId: string,
   sessionId: string,
-  requirements?: string
+  requirements?: string,
+  modelName?: string
 ): Promise<LearningAssistant> {
   // 从会话ID中解析章节ID（假设使用标准格式）
   const parts = sessionId.split('_');
@@ -692,7 +700,7 @@ export async function resumeLearningSession(
   
   const sectionId = parts[2]; // session_{userId}_{sectionId}_{date} 格式
   
-  return createLearningAssistant(userId, sectionId, undefined, sessionId, undefined, requirements);
+  return createLearningAssistant(userId, sectionId, undefined, sessionId, undefined, requirements, modelName);
 }
 
 /**
@@ -702,7 +710,8 @@ export async function createCourseAssistant(
   userId: string,
   courseId: string,
   sectionId?: string,
-  requirements?: string
+  requirements?: string,
+  modelName?: string
 ): Promise<LearningAssistant> {
   // 如果没有指定章节，使用第一个章节
   let finalSectionId = sectionId;
@@ -732,5 +741,5 @@ export async function createCourseAssistant(
     throw new Error("无法确定课程的章节信息，请指定 sectionId");
   }
   
-  return createLearningAssistant(userId, finalSectionId, undefined, undefined, courseId, requirements);
+  return createLearningAssistant(userId, finalSectionId, undefined, undefined, courseId, requirements, modelName);
 }

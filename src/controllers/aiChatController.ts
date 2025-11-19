@@ -31,6 +31,8 @@ import DailyChat from '../llm/domain/daily_chat';
 import { getPromptWithArgs } from '../llm/prompt/manager';
 import { KEY_AUDIO_COMMUNICATION_REQUIRE } from '../llm/prompt/default';
 import { getAudioPromptByOption } from '../services/systemPromptService';
+import { LanguageModelLike } from '@langchain/core/language_models/base';
+import { modelConfigManager } from '../llm/utils/modelConfigManager';
 
 /**
  * 集成LLM Agent的AI聊天控制器
@@ -45,7 +47,7 @@ export class AiChatController extends BaseController {
   @Post('/chat')
   public async chat(@Body() request: ChatRequest): Promise<ApiResponse<ChatResponse>> {
     try {
-      const { userId, sectionId, message, personaId, sessionId } = request;
+      const { userId, sectionId, message, personaId, sessionId, modelName } = request;
 
       // 验证必要参数
       if (!userId || !sectionId || !message) {
@@ -56,10 +58,10 @@ export class AiChatController extends BaseController {
 
       if (sessionId) {
         // 恢复现有会话
-        assistant = await resumeLearningSession(userId, sessionId);
+        assistant = await resumeLearningSession(userId, sessionId, undefined, modelName);
       } else {
         // 创建新会话
-        assistant = await createLearningAssistant(userId, sectionId, personaId);
+        assistant = await createLearningAssistant(userId, sectionId, personaId, undefined, undefined, undefined, modelName);
       }
 
       // const realMessage = message.replace("[inner]", "");
@@ -178,13 +180,13 @@ export class AiChatController extends BaseController {
   @Post('/learning-review')
   public async generateLearningReview(@Body() request: LearningReviewRequest): Promise<Readable> {
     try {
-      const { userId, sectionId, sessionId } = request;
+      const { userId, sectionId, sessionId, modelName } = request;
       
       if (!userId || !sectionId || !sessionId) {
         throw new Error('缺少必要参数：userId, sectionId, sessionId');
       }
 
-      const evaluator = new LearningReviewEvaluator();
+      const evaluator = new LearningReviewEvaluator({ modelName });
       const reviewPrompt = "请针对课程学习情况进行总结";
 
       const { stream, fullTextPromise } = await evaluator.evaluate(request);
@@ -240,7 +242,7 @@ export class AiChatController extends BaseController {
         requirements = audioPrompts.join('\n');
       }
 
-      const { userId, sectionId, message, personaId, sessionId } = request;
+      const { userId, sectionId, message, personaId, sessionId, modelName } = request;
 
       // 验证必要参数
       if (!userId || !sectionId || !message) {
@@ -252,10 +254,10 @@ export class AiChatController extends BaseController {
       try {
         if (sessionId) {
           // 恢复现有会话
-          assistant = await resumeLearningSession(userId, sessionId, requirements);
+          assistant = await resumeLearningSession(userId, sessionId, requirements, modelName);
         } else {
           // 创建新会话
-          assistant = await createLearningAssistant(userId, sectionId, personaId,undefined,undefined, requirements);
+          assistant = await createLearningAssistant(userId, sectionId, personaId,undefined,undefined, requirements, modelName);
         }
 
         // const realMessage = message.replace("[inner]", "");
@@ -613,6 +615,33 @@ export class AiChatController extends BaseController {
       console.error('切换人设失败:', error);
       const errorMessage = error instanceof Error ? error.message : String(error);
       throw this.fail('切换人设失败', errorMessage);
+    }
+  }
+
+    /**
+   * 获取可用的大模型列表
+   */
+  @Get('/models')
+  public async getAvailableModels(): Promise<ApiResponse<{ all: string[], default?: string }>> {
+    try {
+      // 获取所有非嵌入模型
+      const models = modelConfigManager.getNonEmbeddingModels();
+
+      // 返回简化版的模型信息供前端使用
+      const modelList = models.map(model => model.name);
+
+      const defaultModel = modelConfigManager.getDefaultModel();
+      const defaultModelName = defaultModel.name;
+
+      if (modelList.length == 0) {
+        modelList.push(defaultModelName);
+      }
+
+      return this.ok({ all: modelList, default: defaultModelName });
+    } catch (error) {
+      console.error('获取模型列表失败:', error);
+      const errorMessage = error instanceof Error ? error.message : String(error);
+      throw this.fail("获取模型列表失败", errorMessage);
     }
   }
 }

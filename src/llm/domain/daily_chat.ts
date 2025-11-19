@@ -2,6 +2,8 @@ import SingleChat from '../agent/single_chat';
 import { Readable } from 'stream';
 import { getPromptWithArgs } from '../prompt/manager';
 import { KEY_DAILY_CHAT } from '../prompt/default';
+import { ModelConfig, modelConfigManager } from '../utils/modelConfigManager';
+import { createLLM } from '../utils/create_llm';
 
 /**
  * DailyChat
@@ -26,8 +28,10 @@ export class DailyChat {
     const realRequirements = options?.requirements || '请简要回答';
     const personaPrompt = `信心十足的教育家`
     const prompt = await getPromptWithArgs(KEY_DAILY_CHAT, { requirements: realRequirements, personaPrompt });
+    const modelConfig = options?.modelName ? modelConfigManager.getModelConfig(options.modelName) : modelConfigManager.getDefaultModel();
+    const llm = modelConfig ? createLLM(modelConfig) : undefined;
 
-    const sc = new SingleChat({ prompt, enableMemory: true, tools: options?.tools });
+    const sc = new SingleChat({ prompt, enableMemory: true, tools: options?.tools, llm });
     return new DailyChat(sc);
   }
 
@@ -152,6 +156,7 @@ export class DailyChat {
 export class DailyChatOptions {
   tools?: any[];
   requirements?: string;
+  modelName?: string;
 } 
 
 export default DailyChat;

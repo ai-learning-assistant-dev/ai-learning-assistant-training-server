@@ -4,9 +4,11 @@ import ReactAgent from "./react_agent_base";
 import { createLLM } from "../utils/create_llm";
 import { MemorySaver } from "@langchain/langgraph";
 import e from "express";
+import { modelConfigManager } from "../utils/modelConfigManager";
+import { LanguageModelLike } from "@langchain/core/language_models/base";
 
 export type SingleChatOptions = {
-  llm?: any;
+  llm?: LanguageModelLike;
   prompt?: any;
   tools?: any[];
   enableMemory?: boolean;
@@ -24,7 +26,7 @@ export class SingleChat {
   private threadId: string;
 
   constructor(options?: SingleChatOptions) {
-    const llm = options?.llm ?? createLLM();
+    const llm = options?.llm ?? createLLM(modelConfigManager.getDefaultModel());
 
     const agentOpts: any = {
       llm,
