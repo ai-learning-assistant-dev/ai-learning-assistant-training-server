@@ -1,5 +1,4 @@
 import { Get, Query, Route, Request, Tags } from 'tsoa';
-import { Request as ExpressRequest } from 'express'; // 引入 Express 类型
 import md5 from 'md5';
 import { create } from 'xmlbuilder2';
 import { BaseController } from './baseController';
@@ -376,11 +375,8 @@ async function getDashInfo(bvid: string, sessdata?: string, cid?: number): Promi
     { method: 'GET', headers, timeout: 5000 }
   );
   if (!cid) {
-
-
     paramsCid = viewRes?.data?.cid;
     if (!paramsCid) throw new Error('Failed to fetch video cid');
-
   }
 
   const { img_key, sub_key } = await getWbiKeys(sessdata);
@@ -440,14 +436,16 @@ export class BilibiliVideoController extends BaseController {
    *
    * @param bvid Bilibili BV id
    * @param cid 通过cid获取不同的分p视频
+   * @param p 通过p参数获取不同的分p视频
    * @param req Request object
    * @param res Response object
    */
   @Get('video-manifest')
   public async getVideoManifest(
-    @Request() req: ExpressRequest,
+    @Request() req: import("express").Request,
     @Query() bvid: string,
     @Query() cid?: number,
+    @Query() p?: number,
   ): Promise<ApiResponse<VideoManifestResponse>> {
     try {
       if (!bvid || !bvid.trim()) {
@@ -483,7 +481,11 @@ export class BilibiliVideoController extends BaseController {
       const cookieHeader = typeof req?.headers?.cookie === 'string' ? req.headers.cookie : '';
       const sessionDataCookie = getCookieValue(cookieHeader, 'SESSDATA');
 
-      const dashInfo = await getDashInfo(bvid, sessionDataCookie, cid);
+      let dashInfo = await getDashInfo(bvid, sessionDataCookie, cid);
+      if(p && dashInfo.pages)  {
+        let cid = dashInfo.pages[p-1].cid
+        dashInfo = await getDashInfo(bvid, sessionDataCookie, cid);
+      }
       const mpdXML = generateMPD(dashInfo.dash, baseUrl + "/api", bvid);
       const formatList = generateFormatList(dashInfo.dash)
       const unifiedMpd = generateUnifiedMPD(dashInfo.dash, baseUrl + "/api", bvid)
@@ -497,7 +499,6 @@ export class BilibiliVideoController extends BaseController {
       });
     } catch (err) {
       const msg = err instanceof Error ? err.message : String(err);
-      console.error('[BilibiliVideoController.getVideoManifest] error:', msg);
       return this.fail(msg)
     }
   }
