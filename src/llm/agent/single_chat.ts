@@ -16,6 +16,8 @@ export type SingleChatOptions = {
   threadId?: string;
 };
 
+var memorySaver = new MemorySaver();
+
 /**
  * SingleChat: a lightweight disposable chat wrapper around ReactAgent.
  *
@@ -37,7 +39,7 @@ export class SingleChat {
       prompt: options?.prompt,
       tools: options?.tools ?? [],
       defaultThreadId: options?.threadId ?? undefined,
-      checkpointSaver: options?.enableMemory ? new MemorySaver() : undefined,
+      checkpointSaver: options?.enableMemory ? memorySaver : undefined,
     };
 
     this.agent = new ReactAgent(agentOpts);
@@ -58,7 +60,7 @@ export class SingleChat {
   async stream(userInput: string, options?: Record<string, any>) {
     // 获取当前对话历史
     const existingMessages = await this.agent.getConversationHistory(this.threadId);
-
+    console.log(`[thread ${this.threadId}] SingleChat.stream ${existingMessages.length} existingMessages`);
     // 添加新的用户消息
     const { HumanMessage } = await import("@langchain/core/messages");
     const allMessages = [...existingMessages, new HumanMessage(userInput)];

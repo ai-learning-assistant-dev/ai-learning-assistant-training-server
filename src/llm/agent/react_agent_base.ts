@@ -75,9 +75,9 @@ export class ReactAgent {
 
     // 优先使用 checkpointSaver/checkpointer，否则默认 MemorySaver
     let resolvedSaver = checkpointSaver ?? checkpointer;
-    if (!resolvedSaver) {
-      resolvedSaver = new MemorySaver();
-    }
+    // if (!resolvedSaver) {
+    //   resolvedSaver = new MemorySaver();
+    // }
 
     this.graph = createReactAgent({
       llm,
@@ -183,6 +183,7 @@ export class ReactAgent {
   async getConversationHistory(threadId?: string): Promise<BaseMessage[]> {
     const resolvedThreadId = threadId ?? this.defaultThreadId;
     if (!resolvedThreadId) {
+      console.log(`[ReactAgent] No thread ID provided or defaulted; returning empty history.`);
       return [];
     }
 
