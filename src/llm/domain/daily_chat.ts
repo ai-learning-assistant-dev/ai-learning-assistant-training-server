@@ -15,7 +15,7 @@ import { createLLM } from '../utils/create_llm';
  */
 export class DailyChat {
   private sc: SingleChat;
-  private static sessionId = '12345672';
+  static sessionId = '12345672';
   private static readonly FIXED_PERSONA_NAME = '信心十足的教育家';
 
   private constructor(sc: SingleChat) {

@@ -115,7 +115,7 @@ export class AiChatController extends BaseController {
       const dc = await DailyChat.create({ requirements, reasoning, modelName });
 
       // 获取 Readable 流
-      const readable = dc.stream(message, { configurable: { thread_id: dc['sessionId'] } });
+      const readable = dc.stream(message, { configurable: { thread_id: DailyChat.sessionId } });
 
       // 当流结束或出错时，清理 DailyChat 资源
       readable.on('end', async () => {
