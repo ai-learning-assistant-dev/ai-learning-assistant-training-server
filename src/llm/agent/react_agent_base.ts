@@ -137,7 +137,7 @@ export class ReactAgent {
    */
   async chat(userInput: string, options?: InvokeOptions): Promise<string> {
     // Get current conversation state to build upon existing messages
-    const threadId = options?.configurable?.thread_id ?? this.defaultThreadId;
+    const threadId = options?.configurable?.thread_id;
     let existingMessages: BaseMessageLike[] = [];
     
     if (threadId) {
