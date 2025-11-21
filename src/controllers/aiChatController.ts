@@ -99,7 +99,7 @@ export class AiChatController extends BaseController {
     @Body() request: StreamChatRequest
   ): Promise<Readable> {
     try {
-      const { message } = request;
+      const { message, reasoning, modelName } = request;
 
       if (!message) {
         throw new Error('缺少必要参数： message');
@@ -112,7 +112,7 @@ export class AiChatController extends BaseController {
       }
 
       // 创建 DailyChat（短期有记忆的 SingleChat 封装，固定使用"信心十足的教育家"人设）
-      const dc = await DailyChat.create({ requirements });
+      const dc = await DailyChat.create({ requirements, reasoning, modelName });
 
       // 获取 Readable 流
       const readable = dc.stream(message, { configurable: { thread_id: dc['sessionId'] } });

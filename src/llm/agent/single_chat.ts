@@ -12,6 +12,7 @@ export type SingleChatOptions = {
   prompt?: any;
   tools?: any[];
   enableMemory?: boolean;
+  reasoning?: boolean;
 };
 
 /**
@@ -24,9 +25,11 @@ export type SingleChatOptions = {
 export class SingleChat {
   private agent: ReactAgent;
   private threadId: string;
+  private readonly reasoningEnabled: boolean;
 
   constructor(options?: SingleChatOptions) {
     const llm = options?.llm ?? createLLM(modelConfigManager.getDefaultModel());
+    this.reasoningEnabled = options?.reasoning ?? true;
 
     const agentOpts: any = {
       llm,
@@ -79,5 +82,4 @@ export class SingleChat {
     }
   }
 }
-
 export default SingleChat;

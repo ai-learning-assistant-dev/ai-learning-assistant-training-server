@@ -9,6 +9,7 @@ export interface ModelConfig {
   apiKey: string;
   displayName?: string;
   isEmbeddingModel?: boolean;
+  reasoning?: boolean;
 }
 
 export class ModelConfigManager {

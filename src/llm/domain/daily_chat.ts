@@ -31,7 +31,13 @@ export class DailyChat {
     const modelConfig = options?.modelName ? modelConfigManager.getModelConfig(options.modelName) : modelConfigManager.getDefaultModel();
     const llm = modelConfig ? createLLM(modelConfig) : undefined;
 
-    const sc = new SingleChat({ prompt, enableMemory: true, tools: options?.tools, llm });
+    const sc = new SingleChat({
+      prompt,
+      enableMemory: true,
+      tools: options?.tools,
+      llm,
+      reasoning: options?.reasoning,
+    });
     return new DailyChat(sc);
   }
 
@@ -157,6 +163,7 @@ export class DailyChatOptions {
   tools?: any[];
   requirements?: string;
   modelName?: string;
+  reasoning?: boolean;
 } 
 
 export default DailyChat;
