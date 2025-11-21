@@ -2,6 +2,7 @@ import { MainDataSource, UserDataSource } from '../config/database';
 import { Course } from '../models/course';
 import { Chapter } from '../models/chapter';
 import { Section } from '../models/section';
+import { Exercise } from '../models/exercise';
 import { ApiResponse } from '../types/express';
 import { CourseResponse, CreateCourseRequest, UpdateCourseRequest } from '../types/course';
 import { Route, Get, Post, Body, Path, Tags } from 'tsoa';
@@ -23,10 +24,11 @@ export class CourseController extends BaseController {
       if (!body.course_id || !body.user_id) {
         return this.fail('course_id 和 user_id 必填', null, 400);
       }
-  const courseRepo = MainDataSource.getRepository(Course);
-  const chapterRepo = MainDataSource.getRepository(Chapter);
-  const sectionRepo = MainDataSource.getRepository(Section);
-  const unlockRepo = UserDataSource.getRepository(UserSectionUnlock);
+      const courseRepo = MainDataSource.getRepository(Course);
+      const chapterRepo = MainDataSource.getRepository(Chapter);
+      const sectionRepo = MainDataSource.getRepository(Section);
+      const exerciseRepo = MainDataSource.getRepository(Exercise);
+      const unlockRepo = UserDataSource.getRepository(UserSectionUnlock);
 
       const course = await courseRepo.findOneBy({ course_id: body.course_id });
       if (!course) {
@@ -41,6 +43,15 @@ export class CourseController extends BaseController {
         sections = await sectionRepo.find({ where: { chapter_id: In(chapterIds) }, order: { section_order: 'ASC' } });
       }
 
+      // 1.1 查询这些 section 是否有练习
+      const sectionIds = sections.map(s => s.section_id);
+      let hasExerciseMap = new Map<string, boolean>();
+      if (sectionIds.length > 0) {
+        const exercises = await exerciseRepo.find({ where: { section_id: In(sectionIds) } });
+        const set = new Set(exercises.map(e => e.section_id!));
+        hasExerciseMap = new Map(sectionIds.map(id => [id, set.has(id)]));
+      }
+
       // 2. 获取用户在该课程所有相关章节的解锁记录
       const userUnlocks = await unlockRepo.find({
         where: { user_id: body.user_id, chapter_id: In(chapterIds) }
@@ -51,23 +62,43 @@ export class CourseController extends BaseController {
       const chapterList = chapters.map(ch => {
         const chapterSections = sections
           .filter(sec => sec.chapter_id === ch.chapter_id)
-          .map(sec => ({ ...sec, unlocked: unlockMap.get(sec.section_id) || 0 }));
+          .map(sec => ({
+            ...sec,
+            unlocked: unlockMap.get(sec.section_id) || 0,
+            has_exercise: hasExerciseMap.get(sec.section_id) || false
+          }));
 
         return {
           ...ch,
           unlocked: 0, // 默认锁定，稍后计算
           sections: chapterSections
-        };
+        } as any;
       });
 
-      // 4. 瀑布式解锁逻辑
+      // 4. 瀑布式解锁逻辑（考虑练习情况并跳过无练习章节）
       let lastSectionPassed = false; // 用于跟踪上一个section是否通过
       let nextSectionUnlocked = false; // 确保只解锁紧邻的下一个
 
-      // 默认解锁第一章第一节
-      if (chapterList.length > 0 && chapterList[0].sections.length > 0) {
-        if (chapterList[0].sections[0].unlocked === 0) {
-          chapterList[0].sections[0].unlocked = 1;
+      // 4.1 预处理：如果前面有一串没有任何带练习节的章节，视为已通过
+      let firstNonEmptyChapterIndex = -1;
+      for (let i = 0; i < chapterList.length; i++) {
+        const chapter = chapterList[i];
+        const hasExerciseSection = chapter.sections.some((s: any) => s.has_exercise);
+        if (hasExerciseSection) {
+          firstNonEmptyChapterIndex = i;
+          break;
+        } else {
+          // 没有练习的章节在进度上视为已通过
+          chapter.unlocked = 2;
+        }
+      }
+
+      // 4.2 默认解锁第一个有练习章节的第一节
+      if (firstNonEmptyChapterIndex !== -1) {
+        const firstChapterWithExercises = chapterList[firstNonEmptyChapterIndex];
+        const firstSection = firstChapterWithExercises.sections[0];
+        if (firstSection && firstSection.unlocked === 0) {
+          firstSection.unlocked = 1;
         }
       }
 
@@ -100,18 +131,38 @@ export class CourseController extends BaseController {
           }
         }
 
-        // 更新章节状态
-        if (allSectionsInChapterPassed) {
-          chapter.unlocked = 2;
-        } else if (chapterInProgress) {
-          chapter.unlocked = 1;
+        const hasExerciseSection = chapter.sections.some((s: any) => s.has_exercise);
+
+        // 更新章节状态：无练习章节在进度到达时视为通过
+        if (!hasExerciseSection) {
+          if (lastSectionPassed || chapter.unlocked === 2) {
+            chapter.unlocked = 2;
+          }
+        } else {
+          if (allSectionsInChapterPassed) {
+            chapter.unlocked = 2;
+          } else if (chapterInProgress) {
+            chapter.unlocked = 1;
+          }
         }
 
-        // 如果整章都通过了，解锁下一章的第一节
-        if (chapter.unlocked === 2 && i + 1 < chapterList.length) {
-          const nextChapter = chapterList[i + 1];
-          if (nextChapter.sections.length > 0 && nextChapter.sections[0].unlocked === 0) {
-            nextChapter.sections[0].unlocked = 1;
+        // 如果整章都通过了，解锁后面第一个有练习章节的第一节，跳过中间无练习章节
+        if (chapter.unlocked === 2) {
+          let nextIndex = i + 1;
+          while (nextIndex < chapterList.length) {
+            const nextChapter = chapterList[nextIndex];
+            const nextHasExerciseSection = nextChapter.sections.some((s: any) => s.has_exercise);
+            if (nextHasExerciseSection) {
+              const firstSec = nextChapter.sections[0];
+              if (firstSec && firstSec.unlocked === 0) {
+                firstSec.unlocked = 1;
+              }
+              break; // 只解锁最近的一个有练习章节
+            } else {
+              // 中间无练习章节自动视为通过
+              nextChapter.unlocked = 2;
+              nextIndex++;
+            }
           }
         }
       }
