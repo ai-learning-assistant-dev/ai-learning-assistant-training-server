@@ -69,6 +69,7 @@ USER_DB_DATABASE
 ### 1. 安装依赖
 ```bash
 npm install
+npm i nodemon -g
 ```
 
 ### 2. 热更新开发启动（推荐开发时使用）
