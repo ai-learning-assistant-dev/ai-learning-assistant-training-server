@@ -32,8 +32,8 @@ export class Section {
   @Column({ type: 'varchar', length: 512, nullable: true })
   srt_path?: string;
 
-  @Column({ type: 'jsonb',  nullable: true })
-  knowledge_content?: any;
+  @Column({ type: 'text',  nullable: true })
+  knowledge_content?: string;
 
   @Column({ type: 'int', nullable: true })
   estimated_time?: number;
