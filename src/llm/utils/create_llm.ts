@@ -27,11 +27,15 @@ export function createLLM(modelConfig: ModelConfig): BaseChatModel {
     switch (modelConfig.provider.toLowerCase()) {
         case 'openai':
         case 'azure openai':
+        case 'doubao':
             return new ChatOpenAI({
                 apiKey: modelConfig.apiKey,
                 model: modelConfig.name,
                 configuration: {
                     baseURL: modelConfig.baseUrl
+                },
+                reasoning: {
+                    effort: modelConfig.reasoning ? 'medium' : 'minimal' // todo: adjust based on config when reasoning is true
                 }
             });
 
@@ -39,19 +43,23 @@ export function createLLM(modelConfig: ModelConfig): BaseChatModel {
             return new ChatAnthropic({
                 anthropicApiKey: modelConfig.apiKey,
                 model: modelConfig.name,
-                anthropicApiUrl: modelConfig.baseUrl
+                anthropicApiUrl: modelConfig.baseUrl,
+                thinking: modelConfig.reasoning ? { type: 'enabled', budget_tokens: 10240 } : { type: 'disabled' } // todo: 设置思考上限
             });
 
         case 'google':
+            // todo: 没看到google的reasoning配置
             return new ChatGoogleGenerativeAI({
                 apiKey: modelConfig.apiKey,
-                model: modelConfig.name
+                model: modelConfig.name,
+                baseUrl: modelConfig.baseUrl
             });
 
         case 'ollama':
             return new ChatOllama({
                 baseUrl: modelConfig.baseUrl,
-                model: modelConfig.name
+                model: modelConfig.name,
+                think: modelConfig.reasoning ? true : false
             });
 
         case 'deepseek':
@@ -60,6 +68,9 @@ export function createLLM(modelConfig: ModelConfig): BaseChatModel {
                 model: modelConfig.name,
                 configuration: {
                     baseURL: modelConfig.baseUrl
+                },
+                reasoning: {
+                    effort: modelConfig.reasoning ? 'medium' : 'minimal' // todo: adjust based on config when reasoning is true
                 }
             });
 
@@ -76,6 +87,9 @@ export function createLLM(modelConfig: ModelConfig): BaseChatModel {
                 configuration: {
                     apiKey: modelConfig.apiKey,
                     baseURL: modelConfig.baseUrl
+                },
+                reasoning: {
+                    effort: modelConfig.reasoning ? 'medium' : 'minimal' // todo: adjust based on config when reasoning is true
                 }
             });
     }

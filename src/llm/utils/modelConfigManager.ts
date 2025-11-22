@@ -9,6 +9,7 @@ export interface ModelConfig {
   apiKey: string;
   displayName?: string;
   isEmbeddingModel?: boolean;
+  reasoning?: boolean;
 }
 
 export class ModelConfigManager {
@@ -17,7 +18,8 @@ export class ModelConfigManager {
 
   constructor() {
     // 使用项目中的配置文件
-    this.configPath = path.join(__dirname, '../../config/llm-config.json');
+    this.configPath = path.join(process.cwd(), '/src/config/llm-config.json');
+    console.log('Config path:', this.configPath);
     this.loadConfigs();
   }
 
@@ -35,10 +37,10 @@ export class ModelConfigManager {
     }
   }
 
-  public getModelConfig(modelId?: string): ModelConfig | null {
-    // 如果提供了modelId，查找对应配置
-    if (modelId) {
-      const config = this.configs.find(m => m.id === modelId);
+  public getModelConfig(name?: string): ModelConfig | null {
+    // 如果提供了name，查找对应配置
+    if (name) {
+      const config = this.configs.find(m => m.name === name);
       if (config) {
         return config;
       }

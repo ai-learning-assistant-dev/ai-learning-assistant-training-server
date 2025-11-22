@@ -15,12 +15,12 @@ import { createLLM } from '../utils/create_llm';
  */
 export class DailyChat {
   private sc: SingleChat;
-  private sessionId = '12345672';
+  static sessionId = '12345672';
   private static readonly FIXED_PERSONA_NAME = '信心十足的教育家';
 
   private constructor(sc: SingleChat) {
     this.sc = sc;
-    console.log(`DailyChat created with sessionId=${this.sessionId}, persona=${DailyChat.FIXED_PERSONA_NAME}, memory enabled=${true}`);
+    console.log(`DailyChat created with sessionId=${DailyChat.sessionId}, persona=${DailyChat.FIXED_PERSONA_NAME}, memory enabled=${true}`);
   }
 
   static async create(options?: DailyChatOptions): Promise<DailyChat> {
@@ -31,7 +31,14 @@ export class DailyChat {
     const modelConfig = options?.modelName ? modelConfigManager.getModelConfig(options.modelName) : modelConfigManager.getDefaultModel();
     const llm = modelConfig ? createLLM(modelConfig) : undefined;
 
-    const sc = new SingleChat({ prompt, enableMemory: true, tools: options?.tools, llm });
+    const sc = new SingleChat({
+      prompt,
+      enableMemory: true,
+      tools: options?.tools,
+      llm,
+      reasoning: options?.reasoning,
+      threadId: DailyChat.sessionId, // 固定threadId以保持会话一致
+    });
     return new DailyChat(sc);
   }
 
@@ -40,9 +47,9 @@ export class DailyChat {
    */
   async chat(userInput: string): Promise<string> {
     try {
-      console.log(`DailyChat.chat [${this.sessionId}] request:`, userInput);
+      console.log(`DailyChat.chat [${DailyChat.sessionId}] request:`, userInput);
       const reply = await this.sc.chat(userInput);
-      console.log(`DailyChat.chat [${this.sessionId}] reply:`, reply);
+      console.log(`DailyChat.chat [${DailyChat.sessionId}] reply:`, reply);
       return reply;
     } catch (err) {
       console.error('DailyChat.chat error:', err);
@@ -55,7 +62,7 @@ export class DailyChat {
    * This mirrors the approach used in `learning_assistant.chatStream`.
    */
   stream(userInput: string, options?: Record<string, any>): Readable {
-    console.log(`DailyChat.stream [${this.sessionId}] request:`, userInput);
+    console.log(`DailyChat.stream [${DailyChat.sessionId}] request:`, userInput);
 
     const readable = new Readable({
       async read() {
@@ -146,7 +153,7 @@ export class DailyChat {
   async cleanup(): Promise<void> {
     try {
       await this.sc.cleanup();
-      console.log(`DailyChat cleaned up session=${this.sessionId}`);
+      console.log(`DailyChat cleaned up session=${DailyChat.sessionId}`);
     } catch (err) {
       console.warn('DailyChat.cleanup error:', err);
     }
@@ -157,6 +164,7 @@ export class DailyChatOptions {
   tools?: any[];
   requirements?: string;
   modelName?: string;
+  reasoning?: boolean;
 } 
 
 export default DailyChat;

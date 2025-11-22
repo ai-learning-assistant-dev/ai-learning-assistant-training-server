@@ -15,6 +15,7 @@ import { createLLM } from '../utils/create_llm';
 export type LearningReviewEvaluatorOptions = {
   tools?: any[];
   modelName?: string;
+  reasoning?: boolean;
 };
 
 /**
@@ -54,7 +55,7 @@ export class LearningReviewEvaluator {
       // 5. 调用LLM
       const llmModel = this.chatOptions?.modelName ? modelConfigManager.getModelConfig(this.chatOptions.modelName) : modelConfigManager.getDefaultModel();
       const llm = llmModel ? createLLM(llmModel) : undefined;
-      const sc = new SingleChat({ llm });
+      const sc = new SingleChat({ llm, reasoning: this.chatOptions?.reasoning ?? true });
 
       const readable = new Readable({
         read() {
