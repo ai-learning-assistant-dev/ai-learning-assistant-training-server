@@ -18,7 +18,8 @@ export class ModelConfigManager {
 
   constructor() {
     // 使用项目中的配置文件
-    this.configPath = path.join(__dirname, '../../config/llm-config.json');
+    this.configPath = path.join(process.cwd(), '/src/config/llm-config.json');
+    console.log('Config path:', this.configPath);
     this.loadConfigs();
   }
 
