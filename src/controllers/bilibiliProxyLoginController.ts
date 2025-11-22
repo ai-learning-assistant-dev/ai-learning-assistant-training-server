@@ -1,4 +1,4 @@
-import { Get, Route, Tags, Post, Body } from 'tsoa';
+import { Get, Route, Tags, Post, Body, Header } from 'tsoa';
 
 import { BaseController } from './baseController';
 import { ApiResponse } from '../types/express';
@@ -44,7 +44,8 @@ export class BilibiliProxyLoginController extends BaseController {
 
   @Post("sms")
   public async proxyBilibiliSms(
-    @Body() params: SmsRequestParams
+    @Body() params: SmsRequestParams,
+    @Header('User-Agent') userAgent: string
   ): Promise<ApiResponse> {
     const urlString = "https://passport.bilibili.com/x/passport-login/web/sms/send";
 
@@ -77,7 +78,7 @@ export class BilibiliProxyLoginController extends BaseController {
           'sec-fetch-dest': 'empty',
           'sec-fetch-mode': 'cors',
           'sec-fetch-site': 'same-site',
-          'user-agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/142.0.0.0 Safari/537.36'
+          'user-agent': userAgent
         },
         body
       } as any));
