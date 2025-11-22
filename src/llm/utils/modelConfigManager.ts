@@ -36,10 +36,10 @@ export class ModelConfigManager {
     }
   }
 
-  public getModelConfig(modelId?: string): ModelConfig | null {
-    // 如果提供了modelId，查找对应配置
-    if (modelId) {
-      const config = this.configs.find(m => m.id === modelId);
+  public getModelConfig(name?: string): ModelConfig | null {
+    // 如果提供了name，查找对应配置
+    if (name) {
+      const config = this.configs.find(m => m.name === name);
       if (config) {
         return config;
       }
