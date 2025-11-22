@@ -1,8 +1,10 @@
 import { tool } from "@langchain/core/tools";
 import type { JSONSchema } from "@langchain/core/utils/json_schema";
 
+import { SRTItem } from "./types";
 import {
 	getLinesAtTimestamp,
+	parseSrtItems,
 	readNextLines,
 	readPreviousLines,
 } from "./read_srt";
@@ -18,7 +20,7 @@ const timestampSchema = {
 const positiveIntegerSchema = {
 	type: "integer",
 	minimum: 1,
-	description: "1-based line number used as the reference point.",
+	description: "Positive sequence number used as the reference point.",
 } as const satisfies JSONSchema;
 
 const getLineNumberAtTimestampSchema = {
@@ -30,12 +32,12 @@ const getLineNumberAtTimestampSchema = {
 	},
 } as const satisfies JSONSchema;
 
-const readLinesSchema = {
+const readSeqSchema = {
 	type: "object",
 	additionalProperties: false,
-	required: ["lineNumber"],
+	required: ["seq"],
 	properties: {
-		lineNumber: positiveIntegerSchema,
+		seq: positiveIntegerSchema,
 	},
 } as const satisfies JSONSchema;
 
@@ -43,83 +45,84 @@ type GetLineNumberAtTimestampArgs = {
 	timestamp: string;
 };
 
-type ReadLinesArgs = {
-	lineNumber: number;
+type ReadSeqArgs = {
+	seq: number;
 };
 
-function ensureFilePath(filePath: string) {
-	if (!filePath) {
-		throw new Error("SRT file path must be provided when creating the tool.");
+function ensureItems(source: string | SRTItem[]): SRTItem[] {
+	const items = parseSrtItems(source);
+	if (!items.length) {
+		throw new Error("SRTItem list is empty; cannot create SRT tools.");
 	}
-	return filePath;
+	return items;
 }
 
-export function createGetLinesAtTimestampTool(filePath: string) {
-	const boundPath = ensureFilePath(filePath);
+export function createGetLinesAtTimestampTool(source: string | SRTItem[]) {
+	const items = ensureItems(source);
 	return tool(
 		async (input) => {
 			const { timestamp } = input as GetLineNumberAtTimestampArgs;
 			console.log(
 				"[tool:get_lines_at_timestamp]",
-				JSON.stringify({ filePath: boundPath, timestamp })
+				JSON.stringify({ timestamp })
 			);
 			return jsonStringify(
-				getLinesAtTimestamp(boundPath, timestamp)
+				getLinesAtTimestamp(items, timestamp)
 			);
 		},
 		{
 			name: "get_lines_at_timestamp",
 			description:
-				"Given a timestamp (HH:MM:SS,mmm), return the matching subtitle entry with its line number, start/end line numbers, and surrounding context lines (including content from x lines before to x lines after the matched entry) as JSON.",
+				"Given a timestamp (HH:MM:SS,mmm), return the matching subtitle entry with its sequence number, surrounding entries within the configured context window, and metadata as JSON.",
 			schema: getLineNumberAtTimestampSchema,
 		}
 	);
 }
 
-export function createReadPreviousLinesTool(filePath: string) {
-	const boundPath = ensureFilePath(filePath);
+export function createReadPreviousLinesTool(source: string | SRTItem[]) {
+	const items = ensureItems(source);
 	return tool(
 		async (input) => {
-			const { lineNumber } = input as ReadLinesArgs;
+			const { seq } = input as ReadSeqArgs;
 			console.log(
 				"[tool:read_previous_srt_lines]",
-				JSON.stringify({ filePath: boundPath, lineNumber })
+				JSON.stringify({ seq })
 			);
-			return jsonStringify(readPreviousLines(boundPath, lineNumber));
+			return jsonStringify(readPreviousLines(items, seq));
 		},
 		{
 			name: "read_previous_srt_lines",
 			description:
-				"Read the configured number of lines before a given SRT line number and return them as JSON.",
-			schema: readLinesSchema,
+				"Read the configured number of subtitle entries before the provided sequence number and return them as JSON.",
+			schema: readSeqSchema,
 		}
 	);
 }
 
-export function createReadNextLinesTool(filePath: string) {
-	const boundPath = ensureFilePath(filePath);
+export function createReadNextLinesTool(source: string | SRTItem[]) {
+	const items = ensureItems(source);
 	return tool(
 		async (input) => {
-			const { lineNumber } = input as ReadLinesArgs;
+			const { seq } = input as ReadSeqArgs;
 			console.log(
 				"[tool:read_next_srt_lines]",
-				JSON.stringify({ filePath: boundPath, lineNumber })
+				JSON.stringify({ seq })
 			);
-			return jsonStringify(readNextLines(boundPath, lineNumber));
+			return jsonStringify(readNextLines(items, seq));
 		},
 		{
 			name: "read_next_srt_lines",
 			description:
-				"Read the configured number of lines after a given SRT line number and return them as JSON.",
-			schema: readLinesSchema,
+				"Read the configured number of subtitle entries after the provided sequence number and return them as JSON.",
+			schema: readSeqSchema,
 		}
 	);
 }
 
-export function createSrtTools(filePath: string) {
+export function createSrtTools(source: string | SRTItem[]) {
 	return [
-		createGetLinesAtTimestampTool(filePath),
-		createReadPreviousLinesTool(filePath),
-		createReadNextLinesTool(filePath),
+		createGetLinesAtTimestampTool(source),
+		createReadPreviousLinesTool(source),
+		createReadNextLinesTool(source),
 	];
 }

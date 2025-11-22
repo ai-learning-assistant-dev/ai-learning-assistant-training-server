@@ -1,4 +1,3 @@
-import { resolve } from "node:path";
 import { describe, it, expect, beforeAll, afterAll } from "vitest";
 
 import {
@@ -11,15 +10,22 @@ import {
     setSrtInitWindow,
     SRT_CONTEXT_WINDOW,
 } from "../../src/llm/tool/const";
+import { SRTItem } from "../../src/llm/tool/types";
 
-const SAMPLE_SRT_PATH = resolve(process.cwd(), "voice/01/01.srt");
+const SAMPLE_ITEMS: SRTItem[] = [
+    { seq: 1, start: "00:00:00,000", end: "00:00:02,000", text: "开场欢迎大家" },
+    { seq: 2, start: "00:00:02,500", end: "00:00:04,000", text: "我们来聊聊群论" },
+    { seq: 3, start: "00:00:04,200", end: "00:00:06,000", text: "首先介绍它的定义" },
+    { seq: 4, start: "00:00:06,200", end: "00:00:08,000", text: "接着讨论应用场景" },
+    { seq: 5, start: "00:00:08,500", end: "00:00:10,500", text: "总结关键要点" },
+];
 
 let originalWindow: number;
 
 beforeAll(() => {
     originalWindow = SRT_CONTEXT_WINDOW;
-    setSrtContextWindow(3);
-    setSrtInitWindow(3);
+    setSrtContextWindow(1);
+    setSrtInitWindow(1);
 });
 
 afterAll(() => {
@@ -27,72 +33,45 @@ afterAll(() => {
 });
 
 describe("read_srt tools", () => {
-    it("locates the line number for a given timestamp", () => {
-        const result = getLinesAtTimestamp(SAMPLE_SRT_PATH, "00:00:59,000");
+    it("returns the matching subtitle entry for a given timestamp", () => {
+        const result = getLinesAtTimestamp(SAMPLE_ITEMS, "00:00:02,700");
 
         expect(result.success).toBe(true);
-        expect(result.startLine).toBe(99);
-        expect(result.endLine).toBe(105);
-        expect(result.contextLines).toBeDefined();
-
-        const entry = result.entry as Array<{ lineNumber: number; content: string }>;
-        expect(entry).toBeDefined();
-        expect(entry?.some((line) => line.content.includes("我们要学群论干什么用或者是研究什么东西的"))).toBe(
-            true
-        );
+        expect(result).toHaveProperty("entry");
+        const entry = result.entry as { seq: number; text: string };
+        expect(entry.seq).toBe(2);
+        expect(entry.text).toContain("群论");
+        expect(result.startSeq).toBe(1);
+        expect(result.endSeq).toBe(3);
+        const context = result.contextItems as Array<{ seq: number }>;
+        expect(context.map((item) => item.seq)).toEqual([1, 2, 3]);
     });
 
-    it("locates the line number for a given timestamp 2.", () => {
-        const result = getLinesAtTimestamp(SAMPLE_SRT_PATH, "01:06:20,980");
+    it("returns failure when no entry matches the timestamp", () => {
+        const result = getLinesAtTimestamp(SAMPLE_ITEMS, "00:00:15,000");
 
-        expect(result.success).toBe(true);
-        expect(result.startLine).toBe(6875);
-        expect(result.endLine).toBe(6881);
-        expect(result.contextLines).toBeDefined();
-
-        const entry = result.entry as Array<{ lineNumber: number; content: string }>;
-        expect(entry).toBeDefined();
-        expect(entry?.some((line) => line.content.includes("我每一个元素有没有逆元"))).toBe(
-            true
-        );
+        expect(result.success).toBe(false);
+        expect(result.message).toContain("No subtitle entry");
     });
 
-    it("locates the line number for a given timestamp 3.", () => {
-        const result = getLinesAtTimestamp(SAMPLE_SRT_PATH, "01:07:24,620");
+    it("reads the previous context window from the target seq", () => {
+        const result = readPreviousLines(SAMPLE_ITEMS, 4);
 
         expect(result.success).toBe(true);
-        expect(result.startLine).toBe(7039);
-        expect(result.endLine).toBe(7045);
-        expect(result.contextLines).toBeDefined();
-
-        const entry = result.entry as Array<{ lineNumber: number; content: string }>;
-        expect(entry).toBeDefined();
-        expect(entry?.some((line) => line.content.includes("它换成阿猫阿狗都可以的"))).toBe(
-            true
-        );
+        expect(result.firstSeq).toBe(3);
+        const items = result.items as Array<{ seq: number; text: string }>;
+        expect(items.length).toBe(1);
+        expect(items[0].text).toContain("定义");
     });
 
-    it("reads the previous context window from the target line", () => {
-        const result = readPreviousLines(SAMPLE_SRT_PATH, 5645);
+    it("reads the next context window from the target seq", () => {
+        const result = readNextLines(SAMPLE_ITEMS, 2);
 
         expect(result.success).toBe(true);
-        expect(result.firstLineNumber).toBe(5642);
-
-        const lines = result.lines as Array<{ lineNumber: number; content: string }>;
-        expect(lines.length).toBe(3);
-        expect(lines[1].content).toBe("同构是说的什么呢");
-        expect(lines[lines.length - 1].content).toBe("");
-    });
-
-    it("reads the next context window from the target line", () => {
-        const result = readNextLines(SAMPLE_SRT_PATH, 7760);
-
-        expect(result.success).toBe(true);
-        expect(result.lastLineNumber).toBe(7763);
-
-        const lines = result.lines as Array<{ lineNumber: number; content: string }>;
-        expect(lines.length).toBe(3);
-        expect(lines[1].content).toBe("01:12:35,220 --> 01:12:35,820");
-        expect(lines[lines.length - 1].content).toBe("这个乘法表");
+        expect(result.lastSeq).toBe(4);
+        const items = result.items as Array<{ seq: number; text: string }>;
+        expect(items.length).toBe(2);
+        expect(items[0].seq).toBe(3);
+        expect(items[1].text).toContain("应用场景");
     });
 });

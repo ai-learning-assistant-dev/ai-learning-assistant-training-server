@@ -11,6 +11,7 @@ import { ReactAgent } from "../agent/react_agent_base";
 import { IntegratedPostgreSQLStorage } from "../storage/integrated_storage";
 import { createLLM } from "../utils/create_llm";
 import { createSrtTools } from "../tool/srt_tools";
+import { SRTItem } from "../tool/types";
 import { getPromptWithArgs } from "../prompt/manager";
 import { KEY_LEARNING_ASSISTANT, KEY_LEARNING_ASSISTANT_FALLBACK } from "../prompt/default";
 import { ModelConfig, modelConfigManager } from "../utils/modelConfigManager";
@@ -106,16 +107,19 @@ export class LearningAssistant {
     try {
       const sectionRepo = MainDataSource.getRepository(Section);
       const section = await sectionRepo.findOne({ where: { section_id: this.sectionId } });
-      const srtPath = section?.srt_path;
-      if (srtPath) {
+      const videoSubtitles = section?.video_subtitles; // 使用新字段 video_subtitles 替代废弃字段 srt_path
+      if (videoSubtitles) {
         try {
-          tools = createSrtTools(srtPath);
-          console.log(`Loaded SRT tools for section ${this.sectionId}: ${srtPath}`);
+          const subtitlesSource: string | SRTItem[] = Array.isArray(videoSubtitles)
+            ? (videoSubtitles as SRTItem[])
+            : JSON.stringify(videoSubtitles);
+          tools = createSrtTools(subtitlesSource);
+          console.log(`Loaded SRT tools for section ${this.sectionId} from video_subtitles.`);
         } catch (toolErr) {
-          console.warn(`Failed to create SRT tools for path ${srtPath}:`, toolErr);
+          console.warn(`Failed to create SRT tools for section ${this.sectionId}:`, toolErr);
         }
       } else {
-        console.log(`No srt_path found for section ${this.sectionId}, SRT tools not attached.`);
+        console.log(`No video_subtitles found for section ${this.sectionId}, SRT tools not attached.`);
       }
     } catch (err) {
       console.warn(`Failed to load section ${this.sectionId} for SRT tools:`, err);

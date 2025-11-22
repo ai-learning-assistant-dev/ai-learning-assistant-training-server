@@ -29,6 +29,7 @@ export class Section {
   @Column({ type: 'jsonb',  nullable: true })
   video_subtitles?: any;
 
+  // 该字段已被废弃，数据库中无此字段，请勿使用
   @Column({ type: 'varchar', length: 512, nullable: true })
   srt_path?: string;
 

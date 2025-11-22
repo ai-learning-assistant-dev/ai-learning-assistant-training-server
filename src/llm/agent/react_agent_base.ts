@@ -113,10 +113,28 @@ export class ReactAgent {
       streamMode: options?.streamMode ?? "messages",
     } as StreamOptions | undefined;
 
-    return this.graph.stream(
+    const baseStreamPromise = this.graph.stream(
       { messages },
       this.applyThreadConfig(mergedOptions) as StreamOptions
     );
+
+    return baseStreamPromise.then(async (rawStream) => {
+      async function* filteredStream() {
+        for await (const chunk of rawStream as AsyncIterable<any>) {
+          if (Array.isArray(chunk)) {
+            const filtered = chunk.filter((entry) => shouldEmitStreamEntry(entry));
+            if (filtered.length === 0) {
+              continue;
+            }
+            yield filtered;
+            continue;
+          }
+          yield chunk;
+        }
+      }
+
+      return filteredStream();
+    });
   }
 
   /**
@@ -321,6 +339,33 @@ function messageContentToString(message: BaseMessage): string {
   }
 
   return "";
+}
+
+function shouldEmitStreamEntry(entry: unknown): entry is BaseMessage {
+  if (!entry || typeof entry !== "object") {
+    return false;
+  }
+
+  const message = entry as BaseMessage & {
+    additional_kwargs?: Record<string, unknown>;
+    _getType?: () => string;
+  };
+
+  const messageType = typeof message._getType === "function"
+    ? message._getType()
+    : (message as unknown as { type?: string }).type;
+
+  if (messageType === "tool" || messageType === "function") {
+    return false;
+  }
+
+  const additionalKwargs = (message as any).additional_kwargs;
+  if (additionalKwargs && Array.isArray(additionalKwargs.tool_calls) && additionalKwargs.tool_calls.length > 0) {
+    return false;
+  }
+
+  const textContent = messageContentToString(message);
+  return textContent.length > 0;
 }
 
 export default ReactAgent;
