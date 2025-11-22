@@ -33,6 +33,7 @@ export interface DailyChatResponse {
   personaId?: string;
   sessionId?: string;
   modelName?: string;  // 添加模型ID字段
+    reasoning?: boolean;
 }
 
 /**
@@ -48,6 +49,7 @@ export interface StreamChatRequest {
   ttsOption?: string[];
   daily?: boolean;
   modelName?: string;  // 添加模型ID字段
+  reasoning?: boolean;
 }
 
 /**
