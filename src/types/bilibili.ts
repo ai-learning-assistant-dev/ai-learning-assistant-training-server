@@ -63,9 +63,9 @@ export interface DashData {
   minBufferTime: number;
   video: DashStream[];
   audio: DashStream[];
-  supportFormats: VideoFormate[];
+  supportFormats: VideoFormat[];
 }
-export interface VideoFormate {
+export interface VideoFormat {
   quality: number;
   format: string;
   new_description: string;
@@ -110,11 +110,11 @@ export interface PlayVideoData {
     audio?: DashStream[];
   };
   accept_quality?: number[];
-  support_formats?: VideoFormate[];
+  support_formats?: VideoFormat[];
   data?: {
     timelength?: number;
     accept_quality?: number[];
-    support_formats?: VideoFormate[];
+    support_formats?: VideoFormat[];
     dash?: {
       duration?: number;
       minBufferTime?: number;
