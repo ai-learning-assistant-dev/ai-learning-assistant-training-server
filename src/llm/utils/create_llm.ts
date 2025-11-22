@@ -27,6 +27,7 @@ export function createLLM(modelConfig: ModelConfig): BaseChatModel {
     switch (modelConfig.provider.toLowerCase()) {
         case 'openai':
         case 'azure openai':
+        case 'doubao':
             return new ChatOpenAI({
                 apiKey: modelConfig.apiKey,
                 model: modelConfig.name,
