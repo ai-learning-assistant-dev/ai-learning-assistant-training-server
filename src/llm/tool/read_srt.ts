@@ -1,24 +1,16 @@
-import { readFileSync, statSync } from "node:fs";
 import { SRT_CONTEXT_WINDOW, SRT_INIT_WINDOW } from "./const";
+import { SRTItem } from "./types";
 
 type JsonRecord = Record<string, unknown>;
 
-const TIMESTAMP_REGEX = /^(\d{2}:\d{2}:\d{2},\d{3})\s+-->\s+(\d{2}:\d{2}:\d{2},\d{3})/;
-
-type SrtEntry = {
-	start: number;
-	end: number;
-	timestampLine: number;
-	entryLines: { lineNumber: number; content: string }[];
+type NormalizedSrtItem = {
+	seq: number;
+	start: string;
+	end: string;
+	text: string;
+	startMs: number;
+	endMs: number;
 };
-
-type SrtCacheValue = {
-	version: number;
-	lines: string[];
-	entries: SrtEntry[];
-};
-
-const srtCache = new Map<string, SrtCacheValue>();
 
 function parseTimestamp(value: string): number | null {
 	const match = value.match(
@@ -42,70 +34,98 @@ function parseTimestamp(value: string): number | null {
 	);
 }
 
-function loadSrtLines(filePath: string): string[] {
-	return getSrtData(filePath).lines;
+function isSrtItemArray(value: unknown): value is SRTItem[] {
+	return (
+		Array.isArray(value) &&
+		value.every((item) =>
+			typeof item === "object" &&
+			item !== null &&
+			typeof (item as Partial<SRTItem>).start === "string" &&
+			typeof (item as Partial<SRTItem>).end === "string" &&
+			typeof (item as Partial<SRTItem>).text === "string" &&
+			typeof (item as Partial<SRTItem>).seq === "number"
+		)
+	);
 }
 
-function extractEntries(lines: string[]): SrtEntry[] {
-	const entries: SrtEntry[] = [];
-
-	for (let i = 0; i < lines.length; i += 1) {
-		const match = lines[i].match(TIMESTAMP_REGEX);
-		if (!match) {
-			continue;
+export function parseSrtItems(source: string | SRTItem[]): SRTItem[] {
+	if (typeof source === "string") {
+		const parsed = JSON.parse(source);
+		if (!isSrtItemArray(parsed)) {
+			throw new Error("Parsed SRT JSON is not an array of SRTItem objects.");
 		}
+		return parsed;
+	}
 
-		const start = parseTimestamp(match[1]);
-		const end = parseTimestamp(match[2]);
+	if (!isSrtItemArray(source)) {
+		throw new Error("Provided SRT data is not a valid SRTItem array.");
+	}
 
-		if (start === null || end === null) {
-			continue;
-		}
+	return source;
+}
 
-		let entryStart = i;
-		while (entryStart > 0 && lines[entryStart - 1].trim().length > 0) {
-			entryStart -= 1;
-		}
+export function normalizeSrtItems(source: string | SRTItem[]): NormalizedSrtItem[] {
+	const items = parseSrtItems(source);
 
-		const entryLines: { lineNumber: number; content: string }[] = [];
-		let cursor = entryStart;
+	const normalized = items
+		.map((item) => {
+			const startMs = parseTimestamp(item.start);
+			const endMs = parseTimestamp(item.end);
+			if (startMs === null || endMs === null) {
+				return null;
+			}
 
-		while (cursor < lines.length && lines[cursor].trim().length > 0) {
-			entryLines.push({ lineNumber: cursor + 1, content: lines[cursor] });
-			cursor += 1;
-		}
-
-		entries.push({
-			start,
-			end,
-			timestampLine: i,
-			entryLines,
+			return {
+				seq: item.seq,
+				start: item.start,
+				end: item.end,
+				text: item.text,
+				startMs,
+				endMs,
+			} as NormalizedSrtItem;
+		})
+		.filter((entry): entry is NormalizedSrtItem => entry !== null)
+		.sort((a, b) => {
+			if (a.startMs === b.startMs) {
+				return a.seq - b.seq;
+			}
+			return a.startMs - b.startMs;
 		});
-	}
 
-	return entries;
+	return normalized;
 }
 
-function getSrtData(filePath: string): SrtCacheValue {
-	const stats = statSync(filePath);
-	const version = stats.mtimeMs;
-	const cached = srtCache.get(filePath);
+function findIndexBySeq(items: NormalizedSrtItem[], seq: number): number {
+	return items.findIndex((entry) => entry.seq === seq);
+}
 
-	if (cached && cached.version === version) {
-		return cached;
-	}
+function sliceContext(
+	items: NormalizedSrtItem[],
+	centerIndex: number,
+	window: number
+) {
+	const startIndex = Math.max(0, centerIndex - window);
+	const endIndex = Math.min(items.length, centerIndex + window + 1);
+	const contextSlice = items.slice(startIndex, endIndex);
 
-	const content = readFileSync(filePath, "utf-8");
-	const lines = content.split(/\r?\n/);
-	const entries = extractEntries(lines);
-	const value: SrtCacheValue = { version, lines, entries };
+	return {
+		contextSlice,
+		startSeq: contextSlice.length > 0 ? contextSlice[0].seq : null,
+		endSeq: contextSlice.length > 0 ? contextSlice[contextSlice.length - 1].seq : null,
+	} as const;
+}
 
-	srtCache.set(filePath, value);
-	return value;
+function serializeItems(items: NormalizedSrtItem[]) {
+	return items.map((entry) => ({
+		seq: entry.seq,
+		start: entry.start,
+		end: entry.end,
+		text: entry.text,
+	}));
 }
 
 export function getLinesAtTimestamp(
-	filePath: string,
+	source: string | SRTItem[],
 	timestamp: string
 ): JsonRecord {
 	try {
@@ -117,37 +137,45 @@ export function getLinesAtTimestamp(
 			};
 		}
 
-		const { lines, entries } = getSrtData(filePath);
+		const items = normalizeSrtItems(source);
+		if (items.length === 0) {
+			return {
+				success: false,
+				message: "No subtitle entries available.",
+			};
+		}
+
 		let left = 0;
-		let right = entries.length - 1;
+		let right = items.length - 1;
 		while (left <= right) {
 			const mid = Math.floor((left + right) / 2);
-			const entry = entries[mid];
-			if (targetMs < entry.start) {
+			const entry = items[mid];
+			if (targetMs < entry.startMs) {
 				right = mid - 1;
 				continue;
 			}
-			if (targetMs > entry.end) {
+			if (targetMs > entry.endMs) {
 				left = mid + 1;
 				continue;
 			}
 			
-			// 获取匹配的字幕条目的行号
-			const matchedLineNumber = entry.timestampLine + 1;
-			
-			// 计算前后扩展的范围
-			const startLineIndex = Math.max(0, matchedLineNumber - 1 - SRT_INIT_WINDOW);
-			const endLineIndex = Math.min(lines.length, matchedLineNumber - 1 + SRT_INIT_WINDOW + 1);
-			
-			// 提取扩展范围内的内容
-			const contextLines = lines.slice(startLineIndex, endLineIndex);
-			
+			const { contextSlice, startSeq, endSeq } = sliceContext(
+				items,
+				mid,
+				SRT_INIT_WINDOW
+			);
+
 			return {
 				success: true,
-				startLine: startLineIndex + 1,
-				endLine: endLineIndex,
-				entry: entry.entryLines,
-				contextLines: contextLines.join('\n'),
+				entry: {
+					seq: entry.seq,
+					start: entry.start,
+					end: entry.end,
+					text: entry.text,
+				},
+				contextItems: serializeItems(contextSlice),
+				startSeq,
+				endSeq,
 			};
 		}
 
@@ -164,31 +192,36 @@ export function getLinesAtTimestamp(
 }
 
 export function readPreviousLines(
-	filePath: string,
-	lineNumber: number
+	source: string | SRTItem[],
+	seq: number
 ): JsonRecord {
 	try {
-		if (lineNumber <= 1) {
+		const items = normalizeSrtItems(source);
+		if (items.length === 0) {
 			return {
 				success: true,
-				lines: [],
-				firstLineNumber: null,
-				note: "Requested line is at the start of the file.",
+				items: [],
+				firstSeq: null,
+				note: "No subtitle items available.",
 			};
 		}
 
-		const lines = loadSrtLines(filePath);
-		const startIndex = Math.max(0, lineNumber - 1 - SRT_CONTEXT_WINDOW);
-		const endIndex = Math.max(0, lineNumber - 1);
+		const index = findIndexBySeq(items, seq);
+		if (index <= 0) {
+			return {
+				success: true,
+				items: [],
+				firstSeq: null,
+				note: "Requested seq is at the start of the subtitle list or not found.",
+			};
+		}
 
-		const slice = lines.slice(startIndex, endIndex);
+		const startIndex = Math.max(0, index - SRT_CONTEXT_WINDOW);
+		const slice = items.slice(startIndex, index);
 		return {
 			success: true,
-			firstLineNumber: slice.length > 0 ? startIndex + 1 : null,
-			lines: slice.map((content, index) => ({
-				lineNumber: startIndex + index + 1,
-				content,
-			})),
+			firstSeq: slice.length > 0 ? slice[0].seq : null,
+			items: serializeItems(slice),
 		};
 	} catch (error) {
 		return {
@@ -199,31 +232,38 @@ export function readPreviousLines(
 }
 
 export function readNextLines(
-	filePath: string,
-	lineNumber: number
+	source: string | SRTItem[],
+	seq: number
 ): JsonRecord {
 	try {
-		const lines = loadSrtLines(filePath);
-		if (lineNumber >= lines.length) {
+		const items = normalizeSrtItems(source);
+		if (items.length === 0) {
 			return {
 				success: true,
-				lines: [],
-				lastLineNumber: null,
-				note: "Requested line is at or beyond the end of the file.",
+				items: [],
+				lastSeq: null,
+				note: "No subtitle items available.",
 			};
 		}
 
-		const startIndex = Math.max(0, lineNumber);
-		const endIndex = Math.min(lines.length, startIndex + SRT_CONTEXT_WINDOW);
-		const slice = lines.slice(startIndex, endIndex);
+		const index = findIndexBySeq(items, seq);
+		if (index === -1 || index >= items.length - 1) {
+			return {
+				success: true,
+				items: [],
+				lastSeq: null,
+				note: "Requested seq is at or beyond the end of the subtitle list.",
+			};
+		}
+
+		const startIndex = index + 1;
+		const endIndex = Math.min(items.length, startIndex + SRT_CONTEXT_WINDOW);
+		const slice = items.slice(startIndex, endIndex);
 
 		return {
 			success: true,
-			lastLineNumber: slice.length > 0 ? startIndex + slice.length : null,
-			lines: slice.map((content, index) => ({
-				lineNumber: startIndex + index + 1,
-				content,
-			})),
+			lastSeq: slice.length > 0 ? slice[slice.length - 1].seq : null,
+			items: serializeItems(slice),
 		};
 	} catch (error) {
 		return {

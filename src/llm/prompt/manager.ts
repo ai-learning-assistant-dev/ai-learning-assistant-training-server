@@ -1,4 +1,5 @@
 import { getSystemPromptByTitle, getAudioPromptByOption } from '../../services/systemPromptService';
+import { ARGS_MAX_LENGTH } from './const';
 
 function getByPath(obj: Record<string, any>, path: string): any {
     const parts = path.split('.');
@@ -28,6 +29,10 @@ export async function getPromptWithArgs(key: string, args: Record<string, any>):
     const result = template.replace(/\$\{([^}]+)\}/g, (_m, token) => {
         const val = getByPath(args, token.trim());
         if (val === undefined || val === null) return '';
+        if (typeof val === 'string' && val.length > ARGS_MAX_LENGTH) {
+            const truncated = val.slice(0, ARGS_MAX_LENGTH);
+            return `${truncated}（内容过长，后续省略）`;
+        }
         if (typeof val === 'object') return JSON.stringify(val);
         return String(val);
     });
