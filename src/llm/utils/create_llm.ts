@@ -5,6 +5,7 @@ import { ChatOllama } from "@langchain/ollama";
 import { ChatDeepSeek } from '@langchain/deepseek';
 import { ModelConfig } from "./modelConfigManager";
 import { BaseChatModel } from "@langchain/core/language_models/chat_models";
+import { clone } from "lodash";
 
 // export function createLLM(): ChatOpenAI {
 //     const apiKey = process.env.DEEPSEEK_API_KEY;
@@ -22,7 +23,15 @@ import { BaseChatModel } from "@langchain/core/language_models/chat_models";
 //     });
 // }
 
+/** 启动器注入的域名 */
+export const HOST_DOMAIN = 'host.ala.internal';
+
 export function createLLM(modelConfig: ModelConfig): BaseChatModel {
+    // 兼容容器内向容器外访问
+    modelConfig = clone(modelConfig);
+    if(process.env.IN_ALA_DOCKER === 'true'){
+        modelConfig.baseUrl = modelConfig.baseUrl.replace('localhost', HOST_DOMAIN).replace('127.0.0.1', HOST_DOMAIN)
+    }
     // 根据提供商创建相应的LLM实例
     switch (modelConfig.provider.toLowerCase()) {
         case 'openai':

@@ -71,7 +71,6 @@ EXPOSE 3000
 # 设置环境变量
 ENV NODE_ENV=production
 ENV POSTGRES_PASSWORD=123456
-ENV IN_DOCKER=true
 
 # 健康检查
 HEALTHCHECK --interval=3s --timeout=1s --start-period=10s --retries=10 \
