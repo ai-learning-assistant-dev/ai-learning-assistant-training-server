@@ -37,10 +37,18 @@ export class ModelConfigManager {
     }
   }
 
-  public getModelConfig(name?: string): ModelConfig | null {
-    // 如果提供了name，查找对应配置
-    if (name) {
-      const config = this.configs.find(m => m.name === name);
+  public getModelConfig(identifier?: string): ModelConfig | null {
+    // 如果提供了identifier，查找对应配置
+    // 首先尝试按ID查找，然后按名称查找
+    if (identifier) {
+      // 先按ID查找
+      let config = this.configs.find(m => m.id === identifier);
+      if (config) {
+        return config;
+      }
+      
+      // 再按名称查找（向后兼容）
+      config = this.configs.find(m => m.name === identifier);
       if (config) {
         return config;
       }
@@ -65,6 +73,7 @@ export class ModelConfigManager {
     const llm = defaultModelConfig ? defaultModelConfig : {
       id: 'default',
       name: 'deepseek-chat',
+      displayName: 'deepseek-chat',
       provider: 'deepseek',
       baseUrl: process.env.DEEPSEEK_API_BASE ?? "https://api.deepseek.com",
       apiKey: process.env.DEEPSEEK_API_KEY || ''

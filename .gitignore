@@ -7,3 +7,4 @@ AI使用/
 .idea/
 llm-config.json
 .env
+.env.example

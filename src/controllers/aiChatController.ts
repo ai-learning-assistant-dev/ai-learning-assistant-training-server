@@ -622,20 +622,27 @@ export class AiChatController extends BaseController {
    * 获取可用的大模型列表
    */
   @Get('/models')
-  public async getAvailableModels(): Promise<ApiResponse<{ all: string[], default?: string }>> {
+  public async getAvailableModels(): Promise<ApiResponse<{ all: Array<{id: string, name: string, displayName: string}>, default?: string }>> {
     try {
       // 获取所有非嵌入模型
       const models = modelConfigManager.getNonEmbeddingModels();
 
       // 返回简化版的模型信息供前端使用
-      const modelList = models.map(model => model.name);
+      // const modelList = models.map(model => model.displayName || model.name);
+
+      // 返回完整版的模型信息供前端使用
+      const modelList = models.map(model => ({
+        id: model.id,
+        name: model.name,
+        displayName: model.displayName || model.name
+      }));
 
       const defaultModel = modelConfigManager.getDefaultModel();
-      const defaultModelName = defaultModel.name;
+      const defaultModelName = defaultModel.displayName || defaultModel.name;
 
-      if (modelList.length == 0) {
-        modelList.push(defaultModelName);
-      }
+      // if (modelList.length == 0) {
+      //   modelList.push(defaultModelName);
+      // }
 
       return this.ok({ all: modelList, default: defaultModelName });
     } catch (error) {
