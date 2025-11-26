@@ -171,7 +171,7 @@ export class ExerciseResultController extends BaseController {
                 evalRes = await evaluator.evaluate(req);
                 flag = true;
               } catch (err) {
-                console.error('LLM 评估失败，重试中（最大三次）:', err);
+                console.error(`LLM 评估失败，重试第${i + 1}次（最大三次）:`, err);
               }
             }
 
