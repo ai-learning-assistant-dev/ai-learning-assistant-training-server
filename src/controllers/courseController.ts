@@ -79,7 +79,7 @@ export class CourseController extends BaseController {
       let lastSectionPassed = false; // 用于跟踪上一个section是否通过
       let nextSectionUnlocked = false; // 确保只解锁紧邻的下一个
 
-      // 4.1 预处理：如果前面有一串没有任何带练习节的章节，视为已通过
+      // 4.1 查找第一个有练习的章节索引，但不预先把前置空章节标为通过
       let firstNonEmptyChapterIndex = -1;
       for (let i = 0; i < chapterList.length; i++) {
         const chapter = chapterList[i];
@@ -87,9 +87,6 @@ export class CourseController extends BaseController {
         if (hasExerciseSection) {
           firstNonEmptyChapterIndex = i;
           break;
-        } else {
-          // 没有练习的章节在进度上视为已通过
-          chapter.unlocked = 2;
         }
       }
 
@@ -109,6 +106,43 @@ export class CourseController extends BaseController {
 
         for (let j = 0; j < chapter.sections.length; j++) {
           const section = chapter.sections[j];
+
+          // 如果该节没有练习
+          if (!section.has_exercise) {
+            // 特例：课程起点（第一章第一节）如果没有练习，视为可跳过并标为通过，便于解锁后续节
+            if (i === 0 && j === 0) {
+              if (section.unlocked === 0) {
+                section.unlocked = 2;
+              }
+              lastSectionPassed = true;
+              nextSectionUnlocked = false;
+              chapterInProgress = chapterInProgress || (section.unlocked > 0);
+              continue;
+            }
+            if (process.env.UNLOCK_ALL_SECTION == 'true') {
+              if (section.unlocked === 0) {
+                section.unlocked = 2;
+              }
+              lastSectionPassed = true;
+              nextSectionUnlocked = false;
+              chapterInProgress = chapterInProgress || (section.unlocked > 0);
+              continue;
+            }
+
+            if (lastSectionPassed) {
+              if (section.unlocked === 0) {
+                section.unlocked = 2; // 仅在用户到达此节时视为已通过
+              }
+              lastSectionPassed = true;
+              nextSectionUnlocked = false; // 重置，为下一个通过的section做准备
+              chapterInProgress = chapterInProgress || (section.unlocked > 0);
+              continue; // 继续，允许下一节被解锁
+            }
+
+            // 用户尚未按顺序推进到这里，保持其原始锁定状态（不自动通过）
+            allSectionsInChapterPassed = false;
+            continue;
+          }
 
           // 如果上一个section通过了，并且我们还没解锁下一个，就解锁当前这一个
           if (lastSectionPassed && !nextSectionUnlocked) {
