@@ -10,6 +10,7 @@ import { BaseController } from './baseController';
 import { Section } from '../models/section';
 import { Chapter } from '../models/chapter';
 import { UserSectionUnlock } from '../models/userSectionUnlock';
+import { AnswerEvaluateResponse } from '@/types/AiChat';
 // list 只包含 exercise_id/user_answer，顶层有 user_id/section_id/test_result_id
 
 @Tags('习题结果表')
@@ -162,11 +163,16 @@ export class ExerciseResultController extends BaseController {
               question: (exercise?.question as any) || '',
               standardAnswer: (exercise?.answer as any) || ''
             };
-            let evalRes: any = null;
-            try {
-              evalRes = await evaluator.evaluate(req);
-            } catch (err) {
-              console.error('LLM 评估失败，回退到精确匹配:', err);
+            let evalRes: AnswerEvaluateResponse | undefined = undefined;
+            let flag = false;
+            for (let i = 0; i < 3; i++) {
+              if (flag) break;
+              try {
+                evalRes = await evaluator.evaluate(req);
+                flag = true;
+              } catch (err) {
+                console.error('LLM 评估失败，重试中（最大三次）:', err);
+              }
             }
 
             let user_score = 0;
