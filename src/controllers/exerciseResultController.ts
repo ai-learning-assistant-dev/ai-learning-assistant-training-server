@@ -58,7 +58,7 @@ export class ExerciseResultController extends BaseController {
         const exercise = await exerciseRepo.findOneBy({ exercise_id: item.exercise_id });
         let questionScore = exercise?.score || 0;
         // 针对简答题，如果分数为1，强制调整为10分制，适配前端显示
-        if (exercise?.type_status === '2' && questionScore === 1) {
+        if (exercise?.type_status === '2' && questionScore < 10) {
           questionScore = 10;
         }
 
