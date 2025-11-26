@@ -33,11 +33,11 @@ export class ExerciseResultController extends BaseController {
       if (!body.user_id || !body.list || !Array.isArray(body.list) || body.list.length === 0) {
         return this.fail('user_id 和 list 必须传，且 list 为非空数组', null, 400);
       }
-  const repo = UserDataSource.getRepository(ExerciseResult);
-  const exerciseRepo = MainDataSource.getRepository(Exercise);
-  const optionRepo = MainDataSource.getRepository(ExerciseOption);
-  const sectionRepo = MainDataSource.getRepository(Section);
-  const chapterRepo = MainDataSource.getRepository(Chapter);
+      const repo = UserDataSource.getRepository(ExerciseResult);
+      const exerciseRepo = MainDataSource.getRepository(Exercise);
+      const optionRepo = MainDataSource.getRepository(ExerciseOption);
+      const sectionRepo = MainDataSource.getRepository(Section);
+      const chapterRepo = MainDataSource.getRepository(Chapter);
 
       const results: any[] = [];
       let userTotalScore = 0;
@@ -55,7 +55,11 @@ export class ExerciseResultController extends BaseController {
       for (const item of body.list) {
         // 加载习题，计算题目分数
         const exercise = await exerciseRepo.findOneBy({ exercise_id: item.exercise_id });
-        const questionScore = exercise?.score || 0;
+        let questionScore = exercise?.score || 0;
+        // 针对简答题，如果分数为1，强制调整为10分制，适配前端显示
+        if (exercise?.type_status === '2' && questionScore === 1) {
+          questionScore = 10;
+        }
 
         const userAnswerRaw = item.user_answer ?? '';
         const typeStatus = exercise?.type_status ?? '';
@@ -129,7 +133,11 @@ export class ExerciseResultController extends BaseController {
       if (body.section_id) {
   const exerciseRepo = MainDataSource.getRepository(Exercise);
         const exercises = await exerciseRepo.find({ where: { section_id: body.section_id } });
-        score = exercises.reduce((sum, ex) => sum + (ex.score || 0), 0);
+        score = exercises.reduce((sum, ex) => {
+          let s = ex.score || 0;
+          if (ex.type_status === '2' && s === 1) s = 10;
+          return sum + s;
+        }, 0);
         
         // 获取当前节的信息
         currentSection = await sectionRepo.findOneBy({ section_id: body.section_id });
@@ -258,13 +266,16 @@ export class ExerciseResultController extends BaseController {
   const repo = UserDataSource.getRepository(ExerciseResult);
   const exerciseRepo = MainDataSource.getRepository(Exercise);
   const optionRepo = MainDataSource.getRepository(ExerciseOption);
-      // 查询该 section 下所有题目
       const exercises = await exerciseRepo.find({ where: { section_id: body.section_id } });
       let score = 0;
       let userTotalScore = 0;
       const results: any[] = [];
       for (const exercise of exercises) {
-        const questionScore = exercise?.score || 0;
+        let questionScore = exercise?.score || 0;
+        // 针对简答题，如果分数小于10，强制调整为10分制
+        if (exercise?.type_status === '2' && questionScore < 10) {
+          questionScore = 10;
+        }
         score += questionScore;
         // 查找用户答题结果
         const where: any = { user_id: body.user_id, exercise_id: exercise.exercise_id };
@@ -291,13 +302,21 @@ export class ExerciseResultController extends BaseController {
             }
           }
         } else if (typeStatus === '2') {
-          const expect = (exercise?.answer ?? '').toString().trim().toLowerCase();
-          const actual = (userAnswerRaw ?? '').toString().trim().toLowerCase();
-          isCorrect = expect !== '' && expect === actual;
+          // const expect = (exercise?.answer ?? '').toString().trim().toLowerCase();
+          // const actual = (userAnswerRaw ?? '').toString().trim().toLowerCase();
+          // isCorrect = expect !== '' && expect === actual;
         } else {
           isCorrect = false;
         }
-        const user_score = isCorrect ? questionScore : 0;
+        
+        let user_score = isCorrect ? questionScore : 0;
+        // 如果是简答题且已存在评分，优先使用已保存的分数，避免被严格匹配逻辑覆盖为0
+        if (typeStatus === '2' && exist && typeof exist.score === 'number') {
+          user_score = exist.score;
+          // 简答题根据得分判断是否正确（例如得分>60%）
+          isCorrect = user_score >= (questionScore * 0.6);
+        }
+
         userTotalScore += user_score;
         results.push({
           ...(exist || {}),
