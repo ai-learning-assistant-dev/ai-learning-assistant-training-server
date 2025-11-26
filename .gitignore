@@ -5,5 +5,5 @@ dist/
 build/
 AI使用/
 .idea/
-.env
 llm-config.json
+.env
