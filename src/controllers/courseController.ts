@@ -64,7 +64,7 @@ export class CourseController extends BaseController {
           .filter(sec => sec.chapter_id === ch.chapter_id)
           .map(sec => ({
             ...sec,
-            unlocked: unlockMap.get(sec.section_id) || 0,
+            unlocked: process.env.UNLOCK_ALL_SECTION == 'true' ? 2 : (unlockMap.get(sec.section_id) || 0),
             has_exercise: hasExerciseMap.get(sec.section_id) || false
           }));
 
