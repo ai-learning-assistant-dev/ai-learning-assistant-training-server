@@ -108,16 +108,10 @@ export class ExerciseResultController extends BaseController {
 
         if (exist) {
           exist.user_answer = userAnswerRaw;
-          // 仅在新分数大于已存在分数时覆盖，否则保留原分数
-          const prevScore = typeof exist.score === 'number' ? exist.score : 0;
-          const finalScore = Math.max(prevScore, user_score);
-          exist.score = finalScore;
+          // 将用户得分写入 result.score 字段
+          exist.score = user_score;
           await repo.save(exist);
-          // user_score 应反映写入数据库的分数（不降低历史分数）
-          results.push({ ...exist, _action: 'updated', score: questionScore, user_score: finalScore, ai_feedback: (exist as any).ai_feedback ?? '' });
-          // 累加使用写入的最终分数
-          userTotalScore -= user_score; // 之前已加入 user_score，先回退
-          userTotalScore += finalScore;
+          results.push({ ...exist, _action: 'updated', score: questionScore, user_score, ai_feedback: (exist as any).ai_feedback ?? '' });
         } else {
           const toCreate: Partial<ExerciseResult> = {
             user_id: body.user_id,
@@ -201,20 +195,12 @@ export class ExerciseResultController extends BaseController {
 
             if (exist) {
               exist.user_answer = userAnswerRaw;
-              // 仅在新分数大于已存在分数时覆盖 score 和 ai_feedback
-              const prevScore = typeof exist.score === 'number' ? exist.score : 0;
-              const finalScore = Math.max(prevScore, user_score);
-              exist.score = finalScore;
-              if (user_score > prevScore) {
-                (exist as any).ai_feedback = ai_feedback;
-              }
+              exist.score = user_score;
+              (exist as any).ai_feedback = ai_feedback;
               await repo.save(exist);
 
-              // 反映写入的最终分数
-              results.push({ ...exist, _action: 'updated', score: questionScore, user_score: finalScore, ai_feedback: (exist as any).ai_feedback ?? '' });
-              // 累加使用写入的最终分数
-              userTotalScore -= user_score; // 之前已加入 user_score，先回退
-              userTotalScore += finalScore;
+              // console.log(`Short answer question ${item.exercise_id} for user ${body.user_id} updated: score=${user_score}, feedback=${ai_feedback}`);
+              results.push({ ...exist, _action: 'updated', score: questionScore, user_score, ai_feedback });
             } else {
               const toCreate: Partial<ExerciseResult> = {
                 user_id: body.user_id,
