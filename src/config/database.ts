@@ -154,9 +154,20 @@ export const initializeDataSources = async () => {
 
 // 已移除旧的 AppDataSource 兼容导出；请直接使用 MainDataSource / UserDataSource。
 
-export async function backupDatabase(){
-  if(process.env.IN_ALA_DOCKER === 'true'){
+let isBackingUp = false; // 共享状态，仅在单个进程内有效
+
+export async function backupDatabase() {
+  if (isBackingUp) {
+    console.log('备份正在进行中，跳过本次请求。');
+    return;
+  }
+
+  if (process.env.IN_ALA_DOCKER === 'true') {
+    isBackingUp = true;
+    console.log('开始执行备份...');
+
     exec('/app/container-script/backup.sh', (error, stdout, stderr) => {
+      isBackingUp = false;
       if (error) {
         console.error(`备份出错: ${error.message}`);
         return;
