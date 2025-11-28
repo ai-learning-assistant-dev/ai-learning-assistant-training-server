@@ -63,5 +63,5 @@ manage_backup_file() {
 manage_backup_file "/var/lib/postgresql/ala-backup/ai_learning_assistant_users.sql" "/var/lib/postgresql/ala-backup/ai_learning_assistant_users_" ".sql" 10
 manage_backup_file "/var/lib/postgresql/ala-backup/ai_learning_assistant_course.sql" "/var/lib/postgresql/ala-backup/ai_learning_assistant_course_" ".sql" 10
 
-pg_dump -U postgres -d ai_learning_assistant_users -h 127.0.0.1 -p 5432 -F p -C > /var/lib/postgresql/ala-backup/ai_learning_assistant_users.sql
-pg_dump -U postgres -d ai_learning_assistant -h 127.0.0.1 -p 5432 -F p -C > /var/lib/postgresql/ala-backup/ai_learning_assistant_course.sql
+pg_dump -U postgres -d ai_learning_assistant_users -h 127.0.0.1 -p 5432 -F p -C -f /var/lib/postgresql/ala-backup/ai_learning_assistant_users.sql
+pg_dump -U postgres -d ai_learning_assistant -h 127.0.0.1 -p 5432 -F p -C -f /var/lib/postgresql/ala-backup/ai_learning_assistant_course.sql
