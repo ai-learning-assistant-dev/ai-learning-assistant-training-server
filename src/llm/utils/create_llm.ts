@@ -32,6 +32,8 @@ export function createLLM(modelConfig: ModelConfig): BaseChatModel {
     if(process.env.IN_ALA_DOCKER === 'true'){
         modelConfig.baseUrl = modelConfig.baseUrl.replace('localhost', HOST_DOMAIN).replace('127.0.0.1', HOST_DOMAIN)
     }
+
+    console.log("[createLLM] modelConfig:", JSON.stringify(modelConfig));
     // 根据提供商创建相应的LLM实例
     switch (modelConfig.provider.toLowerCase()) {
         case 'openai':
@@ -44,7 +46,7 @@ export function createLLM(modelConfig: ModelConfig): BaseChatModel {
                     baseURL: modelConfig.baseUrl
                 },
                 reasoning: {
-                    effort: modelConfig.reasoning ? 'medium' : 'minimal' // todo: adjust based on config when reasoning is true
+                    effort: modelConfig.reasoning ? 'high' : 'minimal' // todo: adjust based on config when reasoning is true
                 }
             });
 
@@ -79,7 +81,7 @@ export function createLLM(modelConfig: ModelConfig): BaseChatModel {
                     baseURL: modelConfig.baseUrl
                 },
                 reasoning: {
-                    effort: modelConfig.reasoning ? 'medium' : 'minimal' // todo: adjust based on config when reasoning is true
+                    effort: modelConfig.reasoning ? 'high' : 'minimal' // todo: adjust based on config when reasoning is true
                 }
             });
 
@@ -98,7 +100,7 @@ export function createLLM(modelConfig: ModelConfig): BaseChatModel {
                     baseURL: modelConfig.baseUrl
                 },
                 reasoning: {
-                    effort: modelConfig.reasoning ? 'medium' : 'minimal' // todo: adjust based on config when reasoning is true
+                    effort: modelConfig.reasoning ? 'high' : 'minimal' // todo: adjust based on config when reasoning is true
                 }
             });
     }

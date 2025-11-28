@@ -66,9 +66,11 @@ export function createGetLinesAtTimestampTool(source: string | SRTItem[]) {
 				"[tool:get_lines_at_timestamp]",
 				JSON.stringify({ timestamp })
 			);
-			return jsonStringify(
+			var result = jsonStringify(
 				getLinesAtTimestamp(items, timestamp)
 			);
+			console.log("[tool:get_lines_at_timestamp] result", result);
+			return result;
 		},
 		{
 			name: "get_lines_at_timestamp",
@@ -88,7 +90,9 @@ export function createReadPreviousLinesTool(source: string | SRTItem[]) {
 				"[tool:read_previous_srt_lines]",
 				JSON.stringify({ seq })
 			);
-			return jsonStringify(readPreviousLines(items, seq));
+			var result = jsonStringify(readPreviousLines(items, seq));
+			console.log("[tool:read_previous_srt_lines] result", result);
+			return result;
 		},
 		{
 			name: "read_previous_srt_lines",
@@ -108,7 +112,9 @@ export function createReadNextLinesTool(source: string | SRTItem[]) {
 				"[tool:read_next_srt_lines]",
 				JSON.stringify({ seq })
 			);
-			return jsonStringify(readNextLines(items, seq));
+			var result = jsonStringify(readNextLines(items, seq));
+			console.log("[tool:read_next_srt_lines] result", result);
+			return result;
 		},
 		{
 			name: "read_next_srt_lines",

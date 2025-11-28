@@ -1,3 +1,4 @@
+import { LLM } from '@langchain/core/language_models/llms';
 import * as fs from 'fs';
 import * as path from 'path';
 
@@ -37,7 +38,7 @@ export class ModelConfigManager {
     }
   }
 
-  public getModelConfig(identifier?: string): ModelConfig | null {
+  public getModelConfig(identifier?: string): ModelConfig | undefined {
     // 如果提供了identifier，查找对应配置
     // 首先尝试按ID查找，然后按名称查找
     if (identifier) {
@@ -56,7 +57,7 @@ export class ModelConfigManager {
 
     // 返回第一个可用的非嵌入模型
     const firstNonEmbeddingModel = this.configs.find(m => !m.isEmbeddingModel);
-    return firstNonEmbeddingModel || null;
+    return firstNonEmbeddingModel || undefined;
   }
 
   public getAllModels(): ModelConfig[] {
@@ -71,12 +72,12 @@ export class ModelConfigManager {
     // 获取默认模型配置
     const defaultModelConfig = modelConfigManager.getModelConfig();
     const llm = defaultModelConfig ? defaultModelConfig : {
-      id: 'default',
-      name: 'deepseek-chat',
-      displayName: 'deepseek-chat',
-      provider: 'deepseek',
-      baseUrl: process.env.DEEPSEEK_API_BASE ?? "https://api.deepseek.com",
-      apiKey: process.env.DEEPSEEK_API_KEY || ''
+      id: process.env.LLM_MODEL_ID || 'default',
+      name: process.env.LLM_MODEL_NAME || 'deepseek-chat',
+      displayName: process.env.LLM_DISPLAY_NAME || 'deepseek-chat',
+      provider: process.env.LLM_PROVIDER || 'deepseek',
+      baseUrl: process.env.LLM_API_BASE ?? process.env.DEEPSEEK_API_BASE ?? "https://api.deepseek.com",
+      apiKey: process.env.LLM_API_KEY ?? process.env.DEEPSEEK_API_KEY ?? ''
     };
     return llm;
   }

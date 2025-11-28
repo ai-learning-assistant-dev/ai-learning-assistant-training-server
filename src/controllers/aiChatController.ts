@@ -242,7 +242,7 @@ export class AiChatController extends BaseController {
         requirements = audioPrompts.join('\n');
       }
 
-      const { userId, sectionId, message, personaId, sessionId, modelName } = request;
+      const { userId, sectionId, message, personaId, sessionId, modelName, reasoning } = request;
 
       // 验证必要参数
       if (!userId || !sectionId || !message) {
@@ -254,21 +254,30 @@ export class AiChatController extends BaseController {
       try {
         if (sessionId) {
           // 恢复现有会话
-          assistant = await resumeLearningSession(userId, sessionId, requirements, modelName);
+          assistant = await resumeLearningSession(userId, sessionId, requirements, modelName, reasoning);
         } else {
           // 创建新会话
-          assistant = await createLearningAssistant(userId, sectionId, personaId,undefined,undefined, requirements, modelName);
+          assistant = await createLearningAssistant(userId, sectionId, personaId,undefined,undefined, requirements, modelName, reasoning);
         }
 
         // const realMessage = message.replace("[inner]", "");
         // 获取Readable流
         const readableStream = assistant.chatStream(message);
 
-        // 清理资源
-        await assistant.cleanup();
+        // 安全保障：在将流传递给框架之前，附加一个空的 'error' 监听器。
+        // 这可以防止未处理的 'error' 事件升级为未捕获的异常，从而避免程序崩溃。
+        readableStream.on('error', (err) => {
+          console.error('Stream error caught in controller:', err.message);
+          // 这个监听器是空的，它的唯一目的就是“接住”错误，防止它使程序崩溃。
+          // Express/Node.js 框架会处理流的中断和向客户端发送错误。
+        });
+
+        readableStream.on('close', async () => {
+          console.log('Stream closed, cleaning up assistant resources.');
+          await assistant.cleanup();
+        });
 
         return readableStream;
-
       } catch (streamError) {
         const errorMessage = streamError instanceof Error ? streamError.message : String(streamError);
         throw this.fail('流式处理错误', errorMessage);

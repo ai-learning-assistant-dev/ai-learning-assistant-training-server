@@ -36,6 +36,8 @@ export interface LearningAssistantOptions {
   requirements?: string;
   /** 选择的llm模型配置（可选） */
   modelName?: string
+  /** 是否启用推理模式（可选） */
+  reasoning?: boolean;
 }
 
 /**
@@ -66,8 +68,11 @@ export class LearningAssistant {
       this.sectionId
     );
     this.requirements = options.requirements;
-    this.selectedModelConfig = options.modelName ? modelConfigManager.getModelConfig(options.modelName) || undefined : undefined;
-    
+    this.selectedModelConfig = options.modelName ? modelConfigManager.getModelConfig(options.modelName) : modelConfigManager.getDefaultModel();
+    if (this.selectedModelConfig && options.reasoning !== undefined) {
+      this.selectedModelConfig.reasoning = options.reasoning;
+    }
+
     // 使用集成存储
     this.storage = options.storage || new IntegratedPostgreSQLStorage({
       host: process.env.DB_HOST || "localhost",
@@ -656,7 +661,8 @@ export async function createLearningAssistant(
   sessionId?: string,
   courseId?: string,
   requirements?: string,
-  modelName?: string
+  modelName?: string,
+  reasoning?: boolean
 ): Promise<LearningAssistant> {
   const assistant = new LearningAssistant({
     userId,
@@ -665,7 +671,8 @@ export async function createLearningAssistant(
     personaId,
     sessionId,
     requirements,
-    modelName
+    modelName,
+    reasoning
   });
   
   await assistant.initialize();
@@ -694,7 +701,8 @@ export async function resumeLearningSession(
   userId: string,
   sessionId: string,
   requirements?: string,
-  modelName?: string
+  modelName?: string,
+  reasoning?: boolean
 ): Promise<LearningAssistant> {
   // 从会话ID中解析章节ID（假设使用标准格式）
   const parts = sessionId.split('_');
@@ -704,7 +712,7 @@ export async function resumeLearningSession(
   
   const sectionId = parts[2]; // session_{userId}_{sectionId}_{date} 格式
   
-  return createLearningAssistant(userId, sectionId, undefined, sessionId, undefined, requirements, modelName);
+  return createLearningAssistant(userId, sectionId, undefined, sessionId, undefined, requirements, modelName, reasoning);
 }
 
 /**

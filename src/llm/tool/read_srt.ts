@@ -145,6 +145,19 @@ export function getLinesAtTimestamp(
 			};
 		}
 
+		if (targetMs < items[0].startMs ) {
+			return {
+				success: false,
+				message: "Timestamp is before the start of the subtitle entries. please input a later timestamp.",
+			}
+		}
+		if (targetMs > items[items.length - 1].endMs ) {
+			return {
+				success: false,
+				message: "Timestamp is after the end of the subtitle entries. please input an earlier timestamp.",
+			}
+		}
+
 		let left = 0;
 		let right = items.length - 1;
 		while (left <= right) {
