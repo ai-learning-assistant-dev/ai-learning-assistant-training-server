@@ -34,7 +34,9 @@ RUN git clone --depth 1 https://github.com/ai-learning-assistant-dev/ai-learning
 WORKDIR /app/ai-learning-assistant-training-front
 
 # 安装所有依赖（包括开发依赖）
-RUN npm i
+RUN npm i pnpm -g
+
+RUN pnpm i
 
 RUN npm run build
 
