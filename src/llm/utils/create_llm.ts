@@ -59,11 +59,17 @@ export function createLLM(modelConfig: ModelConfig): BaseChatModel {
             });
 
         case 'google':
+            var url = modelConfig.baseUrl
+            // 弱智第三方平台
+            // todo：hook fetch, 在这个url后面添加query ?key=${modelConfig.apiKey}
+            if (modelConfig.baseUrl.includes("dmxapi")) {
+                url = "https://www.dmxapi.cn"
+            }
             // todo: 没看到google的reasoning配置
             return new ChatGoogleGenerativeAI({
                 apiKey: modelConfig.apiKey,
                 model: modelConfig.name,
-                baseUrl: modelConfig.baseUrl
+                baseUrl: url,
             });
 
         case 'ollama':
