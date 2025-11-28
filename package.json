@@ -33,6 +33,7 @@
     "cors": "^2.8.5",
     "dotenv": "^16.3.1",
     "express": "^4.18.2",
+    "fastest-levenshtein": "^1.0.16",
     "helmet": "^7.1.0",
     "lodash": "^4.17.21",
     "md5": "^2.3.0",

@@ -11,6 +11,8 @@ import { Section } from '../models/section';
 import { Chapter } from '../models/chapter';
 import { UserSectionUnlock } from '../models/userSectionUnlock';
 import { AnswerEvaluateResponse } from '@/types/AiChat';
+import { distance } from 'fastest-levenshtein';
+
 // list 只包含 exercise_id/user_answer，顶层有 user_id/section_id/test_result_id
 
 @Tags('习题结果表')
@@ -155,41 +157,49 @@ export class ExerciseResultController extends BaseController {
           const batch = shortAnswerTasks.slice(i, i + batchSize);
           await Promise.all(batch.map(async (task) => {
             const { item, exercise, questionScore, userAnswerRaw, where, exist } = task;
-            // build request
-            const req = {
-              studentAnswer: userAnswerRaw,
-              prompt: '',
-              priorKnowledge: '',
-              question: (exercise?.question as any) || '',
-              standardAnswer: (exercise?.answer as any) || ''
-            };
-            let evalRes: AnswerEvaluateResponse | undefined = undefined;
-            let flag = false;
-            for (let i = 0; i < 3; i++) {
-              if (flag) break;
-              try {
-                evalRes = await evaluator.evaluate(req);
-                flag = true;
-              } catch (err) {
-                console.error(`LLM 评估失败，重试第${i + 1}次（最大三次）:`, err);
-              }
-            }
+            const refAnswer = (exercise?.answer ?? '').toString().trim();
+            const repeatCheck = this.repeatDetect(userAnswerRaw, refAnswer);
 
             let user_score = 0;
             let ai_feedback = '';
-
-            if (evalRes && typeof evalRes.score === 'number') {
-              // map 0-100 score to questionScore proportionally
-              user_score = Math.round((evalRes.score / 100) * questionScore);
-              ai_feedback = String(evalRes.reply ?? '');
+            if (!repeatCheck.isValid) {
+              // 如果查重不通过，直接feedback
+              user_score = 0;
+              ai_feedback =  repeatCheck.message || '答案不符合要求，无法进行评分';
             } else {
-              // fallback to strict text match as before
-              const expect = (exercise?.answer ?? '').toString().trim().toLowerCase();
-              const actual = (userAnswerRaw ?? '').toString().trim().toLowerCase();
-              const isCorrect = expect !== '' && expect === actual;
-              user_score = isCorrect ? questionScore : 0;
-              ai_feedback = '大模型评分失败，采用完全匹配模式进行评分。';
-            }
+              // build request
+              const req = {
+                studentAnswer: userAnswerRaw,
+                prompt: '',
+                priorKnowledge: '',
+                question: (exercise?.question as any) || '',
+                standardAnswer: (exercise?.answer as any) || ''
+              };
+              let evalRes: AnswerEvaluateResponse | undefined = undefined;
+              let flag = false;
+              for (let i = 0; i < 3; i++) {
+                if (flag) break;
+                try {
+                  evalRes = await evaluator.evaluate(req);
+                  flag = true;
+                } catch (err) {
+                  console.error(`LLM 评估失败，重试第${i + 1}次（最大三次）:`, err);
+                }
+              }
+
+              if (evalRes && typeof evalRes.score === 'number') {
+                // map 0-100 score to questionScore proportionally
+                user_score = Math.round((evalRes.score / 100) * questionScore);
+                ai_feedback = String(evalRes.reply ?? '');
+              } else {
+                // fallback to strict text match as before
+                const expect = (exercise?.answer ?? '').toString().trim().toLowerCase();
+                const actual = (userAnswerRaw ?? '').toString().trim().toLowerCase();
+                const ratio: number =  distance(expect, actual) / Math.max(expect.length, actual.length);
+                user_score = (1 - ratio) * questionScore;
+                ai_feedback = '大模型评分失败，采用距离向量模式进行评分。';
+              }
+            } 
 
             userTotalScore += user_score;
 
@@ -224,7 +234,7 @@ export class ExerciseResultController extends BaseController {
     
     // 如果通过，只将当前节的解锁状态在 UserSectionUnlock 表中设置为2
     if (pass && currentChapter && currentSection) {
-  const unlockRepo = UserDataSource.getRepository(UserSectionUnlock);
+      const unlockRepo = UserDataSource.getRepository(UserSectionUnlock);
       let unlock = await unlockRepo.findOneBy({
         user_id: body.user_id,
         chapter_id: currentChapter.chapter_id,
@@ -255,6 +265,41 @@ export class ExerciseResultController extends BaseController {
   }
 
   /**
+   * 简答题查重
+   */
+  private repeatDetect(userAnswer: string, refAnswer: string): { isValid: boolean; message?: string } {
+    const user = userAnswer.trim();
+    const ref = refAnswer.trim();
+    
+    if (ref === "") {
+      return { isValid: true};
+    }
+
+    if (user === '') {
+      return {isValid: false, message: '答案为空，无法进行评分'};
+    }
+
+    // 1. 检查完全相同
+    if (user === ref) {
+      return { isValid: false, message: "答案与参考答案完全相同" };
+    }
+
+    // 2. 检查子集关系
+    if (ref.includes(user) || user.includes(ref)) {
+      return { isValid: false, message: "答案直接摘抄自参考答案" };
+    }
+
+    // 3. 检查编辑距离相似度
+    const dist = distance(user, ref);
+    const similarity = 1 - dist / Math.max(user.length, ref.length);
+
+    if (similarity >= 0.8) {
+      return { isValid: false, message: "答案与参考答案过于相似" };
+    }
+    return {isValid: true};
+  }
+
+  /**
    * 查询用户在某节下的答题结果及得分统计
    */
   @Post('/getExerciseResults')
@@ -269,9 +314,9 @@ export class ExerciseResultController extends BaseController {
       if (!body.user_id || !body.section_id) {
         return this.fail('user_id 和 section_id 必须传', null, 400);
       }
-  const repo = UserDataSource.getRepository(ExerciseResult);
-  const exerciseRepo = MainDataSource.getRepository(Exercise);
-  const optionRepo = MainDataSource.getRepository(ExerciseOption);
+      const repo = UserDataSource.getRepository(ExerciseResult);
+      const exerciseRepo = MainDataSource.getRepository(Exercise);
+      const optionRepo = MainDataSource.getRepository(ExerciseOption);
       const exercises = await exerciseRepo.find({ where: { section_id: body.section_id } });
       let score = 0;
       let userTotalScore = 0;
