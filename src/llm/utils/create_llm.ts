@@ -60,16 +60,22 @@ export function createLLM(modelConfig: ModelConfig): BaseChatModel {
 
         case 'google':
             var url = modelConfig.baseUrl
+            // todo: 没看到google的reasoning配置
+            return new ChatGoogleGenerativeAI({
+                apiKey: modelConfig.apiKey,
+                model: modelConfig.name,
+                baseUrl: url,
+            });
+        case 'dmx-google':
             // 弱智第三方平台
-            // todo：hook fetch, 在这个url后面添加query ?key=${modelConfig.apiKey}
-            if (modelConfig.baseUrl.includes("dmxapi")) {
+            if (modelConfig.baseUrl.endsWith("www.dmxapi.cn/v1")) {
                 url = "https://www.dmxapi.cn"
             }
             // todo: 没看到google的reasoning配置
             return new ChatGoogleGenerativeAI({
                 apiKey: modelConfig.apiKey,
                 model: modelConfig.name,
-                baseUrl: url,
+                baseUrl: modelConfig.baseUrl,
             });
 
         case 'ollama':
