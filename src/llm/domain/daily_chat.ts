@@ -29,6 +29,9 @@ export class DailyChat {
     const personaPrompt = `信心十足的教育家`
     const prompt = await getPromptWithArgs(KEY_DAILY_CHAT, { requirements: realRequirements, personaPrompt });
     const modelConfig = options?.modelName ? modelConfigManager.getModelConfig(options.modelName) : modelConfigManager.getDefaultModel();
+    if (modelConfig && options?.reasoning !== undefined) {
+      modelConfig.reasoning = options.reasoning;
+    }
     const llm = modelConfig ? createLLM(modelConfig) : undefined;
 
     const sc = new SingleChat({

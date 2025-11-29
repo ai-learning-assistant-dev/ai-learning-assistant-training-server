@@ -32,6 +32,8 @@ export function createLLM(modelConfig: ModelConfig): BaseChatModel {
     if(process.env.IN_ALA_DOCKER === 'true'){
         modelConfig.baseUrl = modelConfig.baseUrl.replace('localhost', HOST_DOMAIN).replace('127.0.0.1', HOST_DOMAIN)
     }
+
+    console.log("[createLLM] modelConfig:", JSON.stringify(modelConfig));
     // 根据提供商创建相应的LLM实例
     switch (modelConfig.provider.toLowerCase()) {
         case 'openai':
@@ -44,7 +46,7 @@ export function createLLM(modelConfig: ModelConfig): BaseChatModel {
                     baseURL: modelConfig.baseUrl
                 },
                 reasoning: {
-                    effort: modelConfig.reasoning ? 'medium' : 'minimal' // todo: adjust based on config when reasoning is true
+                    effort: modelConfig.reasoning ? 'high' : 'minimal' // todo: adjust based on config when reasoning is true
                 }
             });
 
@@ -57,11 +59,24 @@ export function createLLM(modelConfig: ModelConfig): BaseChatModel {
             });
 
         case 'google':
+            var url = modelConfig.baseUrl
             // todo: 没看到google的reasoning配置
             return new ChatGoogleGenerativeAI({
                 apiKey: modelConfig.apiKey,
                 model: modelConfig.name,
-                baseUrl: modelConfig.baseUrl
+                baseUrl: url,
+            });
+        case 'dmx-google':
+            // 弱智第三方平台
+            url = modelConfig.baseUrl
+            if (modelConfig.baseUrl.endsWith("www.dmxapi.cn/v1")) {
+                url = "https://www.dmxapi.cn"
+            }
+            // todo: 没看到google的reasoning配置
+            return new ChatGoogleGenerativeAI({
+                apiKey: modelConfig.apiKey,
+                model: modelConfig.name,
+                baseUrl: url,
             });
 
         case 'ollama':
@@ -79,7 +94,7 @@ export function createLLM(modelConfig: ModelConfig): BaseChatModel {
                     baseURL: modelConfig.baseUrl
                 },
                 reasoning: {
-                    effort: modelConfig.reasoning ? 'medium' : 'minimal' // todo: adjust based on config when reasoning is true
+                    effort: modelConfig.reasoning ? 'high' : 'minimal' // todo: adjust based on config when reasoning is true
                 }
             });
 
@@ -98,7 +113,7 @@ export function createLLM(modelConfig: ModelConfig): BaseChatModel {
                     baseURL: modelConfig.baseUrl
                 },
                 reasoning: {
-                    effort: modelConfig.reasoning ? 'medium' : 'minimal' // todo: adjust based on config when reasoning is true
+                    effort: modelConfig.reasoning ? 'high' : 'minimal' // todo: adjust based on config when reasoning is true
                 }
             });
     }
