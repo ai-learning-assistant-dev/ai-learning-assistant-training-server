@@ -68,6 +68,7 @@ export function createLLM(modelConfig: ModelConfig): BaseChatModel {
             });
         case 'dmx-google':
             // 弱智第三方平台
+            url = modelConfig.baseUrl
             if (modelConfig.baseUrl.endsWith("www.dmxapi.cn/v1")) {
                 url = "https://www.dmxapi.cn"
             }
@@ -75,7 +76,7 @@ export function createLLM(modelConfig: ModelConfig): BaseChatModel {
             return new ChatGoogleGenerativeAI({
                 apiKey: modelConfig.apiKey,
                 model: modelConfig.name,
-                baseUrl: modelConfig.baseUrl,
+                baseUrl: url,
             });
 
         case 'ollama':
