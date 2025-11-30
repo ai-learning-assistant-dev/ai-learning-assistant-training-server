@@ -279,6 +279,7 @@ export class AiChatController extends BaseController {
 
         return readableStream;
       } catch (streamError) {
+        console.error(streamError)
         const errorMessage = streamError instanceof Error ? streamError.message : String(streamError);
         throw this.fail('流式处理错误', errorMessage);
       }
