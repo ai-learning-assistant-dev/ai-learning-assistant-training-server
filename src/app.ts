@@ -20,19 +20,6 @@ dotenv.config();
 const app = express();
 const PORT = process.env.PORT || 3000;
 
-
-        // "default-src 'self' http://127.0.0.1:7100 blob: data:",
-        // "script-src 'self' 'unsafe-inline' blob: data: https://api.geetest.com https://static.geetest.com https://monitor.geetest.com https://static.geevisit.com",
-        // "connect-src 'self' blob: data: https://api.geetest.com https://static.geetest.com https://monitor.geetest.com https://static.geevisit.com",
-        // "style-src 'self' 'unsafe-inline' https://static.geetest.com https://static.geevisit.com",
-        // "img-src 'self' data: blob: https://github.com https://*.github.com https://*.githubusercontent.com https://static.geetest.com https://static.geevisit.com",
-        // "media-src 'self' blob: data: http://127.0.0.1:7100 https://static.geetest.com https://static.geevisit.com",
-        // "font-src 'self' data:",
-        // "object-src 'none'",
-        // "base-uri 'self'",
-        // "frame-src 'self' blob: data: https://*.geetest.com",
-        // "worker-src 'self' blob: data:",
-
 const geetestDomains = [
   "https://api.geetest.com",
   "https://static.geetest.com",
