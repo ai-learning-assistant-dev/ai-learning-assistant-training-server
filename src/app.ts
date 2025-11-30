@@ -21,16 +21,40 @@ const app = express();
 const PORT = process.env.PORT || 3000;
 
 
+        // "default-src 'self' http://127.0.0.1:7100 blob: data:",
+        // "script-src 'self' 'unsafe-inline' blob: data: https://api.geetest.com https://static.geetest.com https://monitor.geetest.com https://static.geevisit.com",
+        // "connect-src 'self' blob: data: https://api.geetest.com https://static.geetest.com https://monitor.geetest.com https://static.geevisit.com",
+        // "style-src 'self' 'unsafe-inline' https://static.geetest.com https://static.geevisit.com",
+        // "img-src 'self' data: blob: https://github.com https://*.github.com https://*.githubusercontent.com https://static.geetest.com https://static.geevisit.com",
+        // "media-src 'self' blob: data: http://127.0.0.1:7100 https://static.geetest.com https://static.geevisit.com",
+        // "font-src 'self' data:",
+        // "object-src 'none'",
+        // "base-uri 'self'",
+        // "frame-src 'self' blob: data: https://*.geetest.com",
+        // "worker-src 'self' blob: data:",
+
+const geetestDomains = [
+  "https://api.geetest.com",
+  "https://static.geetest.com",
+]
 
 // 中间件配置
 app.use(helmet({
   contentSecurityPolicy: {
     directives: {
-      defaultSrc: ["'self'"],
-      connectSrc: ["'self'", "blob:", 'blob: http://127.0.0.1:8989', 'http://127.0.0.1:8989'],  // 添加blob:允许blob URL连接
-      mediaSrc: ["'self'", "blob:", 'blob: http://127.0.0.1:8989', 'http://127.0.0.1:8989'],
-      scriptSrc: ["'self'"],
-      styleSrc: ["'self'", "'unsafe-inline'"],
+      defaultSrc: ["'self'","http://127.0.0.1:7100", 'blob:', 'data:', ...geetestDomains ],
+      connectSrc: [
+        "'self'",
+        "blob:",
+        'blob: http://127.0.0.1:8989',
+        "data:",
+        'http://127.0.0.1:8989',
+        ...geetestDomains
+      ],  // 添加blob:允许blob URL连接
+      mediaSrc: ["'self'", "blob:", 'blob: http://127.0.0.1:8989', 'http://127.0.0.1:8989', ...geetestDomains],
+      scriptSrc: ["'self'", "https://api.geetest.com", ...geetestDomains],
+      styleSrc: ["'self'", "'unsafe-inline'", ...geetestDomains],
+      imgSrc: ["'self'", 'blob:', 'data:', ...geetestDomains],
       // TODO 这个代码会导致隐私泄漏，只在开发或本地环境使用，不要用在远程生产环境
       "upgrade-insecure-requests": null,
     }
