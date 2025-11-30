@@ -27,16 +27,19 @@ app.use(helmet({
   contentSecurityPolicy: {
     directives: {
       defaultSrc: ["'self'"],
-      connectSrc: ["'self'", "blob:"],  // 添加blob:允许blob URL连接
-      mediaSrc: ["'self'", "blob:"],
+      connectSrc: ["'self'", "blob:", 'blob: http://127.0.0.1:8989', 'http://127.0.0.1:8989'],  // 添加blob:允许blob URL连接
+      mediaSrc: ["'self'", "blob:", 'blob: http://127.0.0.1:8989', 'http://127.0.0.1:8989'],
       scriptSrc: ["'self'"],
       styleSrc: ["'self'", "'unsafe-inline'"],
       // TODO 这个代码会导致隐私泄漏，只在开发或本地环境使用，不要用在远程生产环境
       "upgrade-insecure-requests": null,
     }
-  }
+  },
+  crossOriginResourcePolicy: {
+    policy: 'same-site'
+  },
 })); // 安全头部
-app.use(cors());   // 跨域支持
+app.use(cors({origin: ["http://127.0.0.1:3000", "http://127.0.0.1:7100", "http://127.0.0.1:8989"]}));   // 跨域支持
 app.use(morgan('combined')); // 请求日志
 app.use(express.json({ limit: '10mb' })); // JSON解析
 app.use(express.urlencoded({ extended: true })); // URL编码解析
