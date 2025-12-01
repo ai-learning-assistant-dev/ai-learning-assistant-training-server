@@ -40,6 +40,15 @@ export interface LearningAssistantOptions {
   reasoning?: boolean;
 }
 
+const normalizePersonaId = (id?: string): string | undefined => {
+  if (!id) {
+    return undefined;
+  }
+
+  const trimmed = id.trim();
+  return trimmed.length > 0 ? trimmed : undefined;
+};
+
 /**
  * 集成现有数据模型的学习助手
  * 
@@ -62,7 +71,7 @@ export class LearningAssistant {
     this.userId = options.userId;
     this.courseId = options.courseId;
     this.sectionId = options.sectionId;
-    this.personaId = options.personaId;
+    this.personaId = normalizePersonaId(options.personaId);
     this.sessionId = options.sessionId || IntegratedPostgreSQLStorage.generateSessionId(
       this.userId, 
       this.sectionId
@@ -643,7 +652,9 @@ export class LearningAssistant {
     interaction.user_message = userMessage;
     interaction.ai_response = aiResponse;
     interaction.query_time = new Date();
-    interaction.persona_id_in_use = this.personaId;
+    if (this.personaId) {
+      interaction.persona_id_in_use = this.personaId;
+    }
 
     await aiInteractionRepo.save(interaction);
     
@@ -668,7 +679,7 @@ export async function createLearningAssistant(
     userId,
     courseId,
     sectionId,
-    personaId,
+    personaId: normalizePersonaId(personaId),
     sessionId,
     requirements,
     modelName,
