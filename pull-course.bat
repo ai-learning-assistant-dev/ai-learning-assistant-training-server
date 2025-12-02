@@ -1,1 +1,1 @@
-pg_dump -U postgres -d ai_learning_assistant -h 121.40.137.135 -p 5432 -F p -C > container-script/ai_learning_assistant.sql
+pg_dump -U postgres -d ai_learning_assistant -h 121.40.137.135 -p 5432 -F p -C -v > container-script/ai_learning_assistant.sql
