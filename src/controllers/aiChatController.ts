@@ -34,6 +34,15 @@ import { getAudioPromptByOption } from '../services/systemPromptService';
 import { LanguageModelLike } from '@langchain/core/language_models/base';
 import { modelConfigManager } from '../llm/utils/modelConfigManager';
 
+const normalizePersonaId = (id?: string): string | undefined => {
+  if (!id) {
+    return undefined;
+  }
+
+  const trimmed = id.trim();
+  return trimmed.length > 0 ? trimmed : undefined;
+};
+
 /**
  * 集成LLM Agent的AI聊天控制器
  */
@@ -48,6 +57,7 @@ export class AiChatController extends BaseController {
   public async chat(@Body() request: ChatRequest): Promise<ApiResponse<ChatResponse>> {
     try {
       const { userId, sectionId, message, personaId, sessionId, modelName } = request;
+      const normalizedPersonaId = normalizePersonaId(personaId);
 
       // 验证必要参数
       if (!userId || !sectionId || !message) {
@@ -61,12 +71,13 @@ export class AiChatController extends BaseController {
         assistant = await resumeLearningSession(userId, sessionId, undefined, modelName);
       } else {
         // 创建新会话
-        assistant = await createLearningAssistant(userId, sectionId, personaId, undefined, undefined, undefined, modelName);
+        assistant = await createLearningAssistant(userId, sectionId, normalizedPersonaId, undefined, undefined, undefined, modelName);
       }
 
       // const realMessage = message.replace("[inner]", "");
       // 与AI进行对话 - 普通模式
       const aiResponse = await assistant.chat(message);
+      const personaInUse = assistant.getPersonaId();
 
       const result: ChatResponse = {
         interaction_id: `${assistant.getSessionId()}_${Date.now()}`,
@@ -76,7 +87,7 @@ export class AiChatController extends BaseController {
         user_message: message,
         ai_response: aiResponse,
         query_time: new Date(),
-        persona_id_in_use: personaId
+        persona_id_in_use: personaInUse
       };
 
       // 清理资源
@@ -243,6 +254,7 @@ export class AiChatController extends BaseController {
       }
 
       const { userId, sectionId, message, personaId, sessionId, modelName, reasoning } = request;
+      const normalizedPersonaId = normalizePersonaId(personaId);
 
       // 验证必要参数
       if (!userId || !sectionId || !message) {
@@ -257,7 +269,7 @@ export class AiChatController extends BaseController {
           assistant = await resumeLearningSession(userId, sessionId, requirements, modelName, reasoning);
         } else {
           // 创建新会话
-          assistant = await createLearningAssistant(userId, sectionId, personaId,undefined,undefined, requirements, modelName, reasoning);
+          assistant = await createLearningAssistant(userId, sectionId, normalizedPersonaId, undefined, undefined, requirements, modelName, reasoning);
         }
 
         // const realMessage = message.replace("[inner]", "");
@@ -491,6 +503,7 @@ export class AiChatController extends BaseController {
   public async startNewSession(@Body() request: CreateSessionRequest): Promise<ApiResponse<SessionInfo>> {
     try {
       const { userId, sectionId, personaId } = request;
+      const normalizedPersonaId = normalizePersonaId(personaId);
 
       if (!userId) {
         throw new Error('缺少必要参数：userId');
@@ -502,13 +515,14 @@ export class AiChatController extends BaseController {
           session_id: "12345672",
           user_id: userId,
           section_id: sectionId,
-          persona_id: personaId,
+          persona_id: normalizedPersonaId,
           created_at: new Date()
         })
       }
 
-      const assistant = await startNewLearningSession(userId, sectionId, personaId);
+      const assistant = await startNewLearningSession(userId, sectionId, normalizedPersonaId);
       const sessionId = assistant.getSessionId();
+  const personaInUse = assistant.getPersonaId();
       await assistant.cleanup();
 
       console.log('创建新会话ID:', sessionId);
@@ -520,7 +534,7 @@ export class AiChatController extends BaseController {
         session_id: sessionId,
         user_id: userId,
         section_id: sectionId,
-        persona_id: personaId,
+        persona_id: personaInUse,
         created_at: new Date()
       });
 
