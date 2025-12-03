@@ -4,10 +4,35 @@ import { ApiResponse } from '../types/express';
 import { LeadingQuestionResponse, CreateLeadingQuestionRequest, UpdateLeadingQuestionRequest } from '../types/leadingQuestion';
 import { Route, Get, Post, Body, Path, Tags } from 'tsoa';
 import { BaseController } from './baseController';
+import { Section } from '../models/section';
 
 @Tags("预设问题表")
 @Route('leading-questions')
 export class LeadingQuestionController extends BaseController {
+  @Post('/searchBySection')
+  public async searchLeadingQuestionsBySection(
+    @Body() body: { section_id: string; page?: number; limit?: number }
+  ): Promise<ApiResponse<LeadingQuestionResponse[]>> {
+    try {
+      const pageNum = body.page || 1;
+      const limitNum = body.limit || 10;
+      const offset = (pageNum - 1) * limitNum;
+      const repo = MainDataSource.getRepository(Section);
+      const section = await repo.findOne({
+        where: { section_id: body.section_id },
+        relations: ['leadingQuestions'],
+      });
+      if (!section) {
+        return this.fail('章节不存在');
+      }
+      const leadingQuestions = section.leadingQuestions || [];
+      const paginated = leadingQuestions.slice(offset, offset + limitNum);
+      return this.paginate(paginated, leadingQuestions.length, pageNum, limitNum);
+    } catch (error) {
+      return this.fail(`基于章节${body.section_id}获取预设问题列表失败`, error);
+    }
+  }
+
   @Post('/search')
   public async searchLeadingQuestions(
     @Body() body: { page?: number; limit?: number }
