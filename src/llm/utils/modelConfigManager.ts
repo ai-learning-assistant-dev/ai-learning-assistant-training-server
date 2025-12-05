@@ -79,9 +79,17 @@ export class ModelConfigManager {
       baseUrl: process.env.LLM_API_BASE ?? process.env.DEEPSEEK_API_BASE ?? "https://api.deepseek.com",
       apiKey: process.env.LLM_API_KEY ?? process.env.DEEPSEEK_API_KEY ?? ''
     };
+
+    if (llm.apiKey == '' && defaultModelConfig == undefined) {
+      isAPIKeyEmpty = true;
+    } else {
+      isAPIKeyEmpty = false;
+    }
     return llm;
   }
 }
 
 // 导出单例实例
 export const modelConfigManager = new ModelConfigManager();
+
+export var isAPIKeyEmpty = false;

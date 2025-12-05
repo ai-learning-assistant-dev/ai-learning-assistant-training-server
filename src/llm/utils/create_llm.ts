@@ -6,6 +6,7 @@ import { ChatDeepSeek } from '@langchain/deepseek';
 import { ModelConfig } from "./modelConfigManager";
 import { BaseChatModel } from "@langchain/core/language_models/chat_models";
 import { clone } from "lodash";
+import { LLMSettingsError } from "../../middleware/llmSettingsError";
 
 // export function createLLM(): ChatOpenAI {
 //     const apiKey = process.env.DEEPSEEK_API_KEY;
@@ -27,6 +28,7 @@ import { clone } from "lodash";
 export const HOST_DOMAIN = 'host.ala.internal';
 
 export function createLLM(modelConfig: ModelConfig): BaseChatModel {
+    try {
     // 兼容容器内向容器外访问
     modelConfig = clone(modelConfig);
     if(process.env.IN_ALA_DOCKER === 'true'){
@@ -116,5 +118,12 @@ export function createLLM(modelConfig: ModelConfig): BaseChatModel {
                     effort: modelConfig.reasoning ? 'high' : 'minimal' // todo: adjust based on config when reasoning is true
                 }
             });
+    }} catch (error) {
+        console.error("Error creating LLM:", error);
+        var errMsg = "请先参考使用手册进行正确的AI配置";
+        if (error instanceof Error) {
+            errMsg += `，错误详情：${error.message}`;
+        }
+        throw new LLMSettingsError(errMsg);
     }
 }

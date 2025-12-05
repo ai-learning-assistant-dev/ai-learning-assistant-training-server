@@ -4,6 +4,7 @@ import type { LanguageModelLike } from "@langchain/core/language_models/base";
 import { MemorySaver } from "@langchain/langgraph";
 import { createReactAgent, type CreateReactAgentParams } from "@langchain/langgraph/prebuilt";
 import { PostgreSQLPersistentStorage } from "../storage/persistent_storage";
+import { isAPIKeyEmpty } from "../utils/modelConfigManager";
 
 /**
  * Configuration required to instantiate a LangGraph React agent without tools.
@@ -108,6 +109,12 @@ export class ReactAgent {
    * Streams intermediate state updates emitted while the agent reasons.
    */
   stream(messages: BaseMessageLike[], options?: StreamOptions) {
+    if (isAPIKeyEmpty) {
+      const fallbackChunk = [{ content: "请先参考使用手册配置大模型，以使用语言模型服务" }];
+      return Promise.resolve((async function* () {
+        yield fallbackChunk;
+      })());
+    }
     const mergedOptions = {
       ...(options ?? {}),
       streamMode: options?.streamMode ?? "messages",
@@ -189,6 +196,10 @@ export class ReactAgent {
    * returns the model's textual reply. Uses checkpointer to maintain conversation history.
    */
   async chat(userInput: string, options?: InvokeOptions): Promise<string> {
+    if (isAPIKeyEmpty) {
+      return "请先参考使用手册配置大模型，以使用语言模型服务。";
+    }
+
     // Get current conversation state to build upon existing messages
     const threadId = options?.configurable?.thread_id;
     let existingMessages: BaseMessageLike[] = [];
