@@ -265,7 +265,8 @@ export class LearningAssistant {
           readable.push(null);
         } catch (fallbackError) {
           const errorMessage = fallbackError instanceof Error ? fallbackError.message : String(fallbackError);
-          readable.destroy(new Error(`流式对话处理失败: ${errorMessage}`));
+          readable.push(`对话处理失败: ${errorMessage}`);
+          readable.push(null);
         }
       }
     })();

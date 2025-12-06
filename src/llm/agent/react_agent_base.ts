@@ -4,6 +4,7 @@ import type { LanguageModelLike } from "@langchain/core/language_models/base";
 import { MemorySaver } from "@langchain/langgraph";
 import { createReactAgent, type CreateReactAgentParams } from "@langchain/langgraph/prebuilt";
 import { PostgreSQLPersistentStorage } from "../storage/persistent_storage";
+import { isAPIKeyEmpty } from "../utils/modelConfigManager";
 
 /**
  * Configuration required to instantiate a LangGraph React agent without tools.
@@ -108,13 +109,54 @@ export class ReactAgent {
    * Streams intermediate state updates emitted while the agent reasons.
    */
   stream(messages: BaseMessageLike[], options?: StreamOptions) {
+    if (isAPIKeyEmpty) {
+      const fallbackChunk = [{ content: "请先参考使用手册配置大模型，以使用语言模型服务" }];
+      return Promise.resolve((async function* () {
+        yield fallbackChunk;
+      })());
+    }
     const mergedOptions = {
       ...(options ?? {}),
       streamMode: options?.streamMode ?? "messages",
     } as StreamOptions | undefined;
 
+    // 限制输入上限为 96k tokens (粗略使用字符串长度估算)
+    const MAX_TOKENS = 96000;
+    let truncatedMessages = messages;
+    
+    // 计算总长度
+    let totalLength = 0;
+    for (const msg of messages) {
+      const content = messageContentToString(msg as BaseMessage);
+      totalLength += content.length;
+    }
+    
+    // 如果超出上限，从最后一条消息开始反向截取
+    if (totalLength > MAX_TOKENS) {
+      console.warn(`Input length ${totalLength} exceeds ${MAX_TOKENS} tokens, truncating from end...`);
+      truncatedMessages = [];
+      let currentLength = 0;
+      
+      // 从后往前遍历消息
+      for (let i = messages.length - 1; i >= 0; i--) {
+        const msg = messages[i];
+        const content = messageContentToString(msg as BaseMessage);
+        const msgLength = content.length;
+        
+        if (currentLength + msgLength <= MAX_TOKENS) {
+          truncatedMessages.unshift(msg);
+          currentLength += msgLength;
+        } else {
+          // 已经达到上限，停止添加
+          break;
+        }
+      }
+      
+      console.log(`Truncated messages from ${messages.length} to ${truncatedMessages.length} (${currentLength} tokens)`);
+    }
+    
     const baseStreamPromise = this.graph.stream(
-      { messages },
+      { messages: truncatedMessages },
       this.applyThreadConfig(mergedOptions) as StreamOptions
     );
 
@@ -154,6 +196,10 @@ export class ReactAgent {
    * returns the model's textual reply. Uses checkpointer to maintain conversation history.
    */
   async chat(userInput: string, options?: InvokeOptions): Promise<string> {
+    if (isAPIKeyEmpty) {
+      return "请先参考使用手册配置大模型，以使用语言模型服务。";
+    }
+
     // Get current conversation state to build upon existing messages
     const threadId = options?.configurable?.thread_id;
     let existingMessages: BaseMessageLike[] = [];
