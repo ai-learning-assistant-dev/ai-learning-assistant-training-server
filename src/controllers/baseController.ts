@@ -33,7 +33,7 @@ export class BaseController extends Controller {
   protected fail(error: string, details?: any,statusCode?: number) {
     this.setStatus(statusCode ?? 500);
     let detailObj = null;
-    if (details && typeof details === 'object') {
+    if (details && (typeof details === 'object' || typeof details === 'string')) {
       detailObj = details;
     }
     return {

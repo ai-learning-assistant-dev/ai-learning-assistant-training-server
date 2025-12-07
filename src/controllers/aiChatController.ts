@@ -98,7 +98,7 @@ export class AiChatController extends BaseController {
     } catch (error) {
       console.error('AI助手对话失败:', error);
       const errorMessage = error instanceof Error ? error.message : String(error);
-      throw this.fail(`AI助手对话失败`,errorMessage);
+      return this.fail(`AI助手对话失败`,errorMessage);
     }
   }
 
@@ -541,7 +541,7 @@ export class AiChatController extends BaseController {
     } catch (error) {
       console.error('创建新会话失败:', error);
       const errorMessage = error instanceof Error ? error.message : String(error);
-      throw this.fail("创建新会话失败",errorMessage) ;
+      return this.fail("创建新会话失败",errorMessage) ;
     }
   }
 

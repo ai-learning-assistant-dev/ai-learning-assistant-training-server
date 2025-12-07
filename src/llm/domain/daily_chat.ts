@@ -142,7 +142,8 @@ export class DailyChat {
           readable.push(null);
         } catch (fallbackErr) {
           const errorMessage = fallbackErr instanceof Error ? fallbackErr.message : String(fallbackErr);
-          readable.destroy(new Error(`流式对话处理失败: ${errorMessage}`));
+          readable.push(`对话处理失败: ${errorMessage}`);
+          readable.push(null);
         }
       }
     })();
