@@ -75,8 +75,8 @@ ENV NODE_ENV=production
 ENV POSTGRES_PASSWORD=KLNb923u4_odfh89
 
 # 健康检查
-HEALTHCHECK --interval=3s --timeout=1s --start-period=10s --retries=10 \
+HEALTHCHECK --interval=3s --timeout=1s --start-period=120s --retries=10 \
   CMD pg_isready -U postgres && curl -f http://127.0.0.1:3000/health || exit 1
 
 # 启动命令 - 同时启动PostgreSQL和应用
-CMD ["sh", "-c", "/app/container-script/restore.sh ; docker-entrypoint.sh postgres & sleep 10 && node dist/src/app.js"]
+CMD ["bash", "-c", "/app/container-script/restore.sh ; docker-entrypoint.sh postgres & until pg_isready -h 127.0.0.1;  do sleep 1; done; node dist/src/app.js"]
