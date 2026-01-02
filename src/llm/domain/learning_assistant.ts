@@ -299,7 +299,7 @@ export class LearningAssistant {
     //   return [];
     // } 
     const fewShotHistory = await this.getFewShotConversationHistory();
-    const systemPrompt = `你是一个学习助手，基于近期的对话内容，生成3个相关的额外问题，激发学生的深层思考。\n，请按照固定的JSON数组格式输出：["问题1"，"问题2","问题3"]。`;
+    const systemPrompt = `你是一个学习助手，基于近期的对话内容，生成3个相关的额外问题，激发学生的深层思考。\n，请按照固定的JSON数组格式输出：["问题1"，"问题2","问题3"]。你输出的内容必须能被json解析工具解析成数组，禁止携带其他内容。`;
     const messages = [
       new SystemMessage(systemPrompt),
       ...fewShotHistory,
@@ -316,9 +316,34 @@ export class LearningAssistant {
       // 如果解析成功但类型不匹配，也返回空数组
       return [];
     } catch (err) {
-      console.warn("额外问题生成结果解析失败，返回空数组:", err, "原始文本:", text);
+      console.warn("额外问题生成结果JSON解析失败，尝试粗略解析:", err, "原始文本:", text);
+      // 尝试粗略解析JSON数组
+      const roughJson = this.parseJsonArrayRoughly(text);
+      if (roughJson) {
+        try {
+          const questions = JSON.parse(roughJson);
+          if (Array.isArray(questions) && questions.every(q => typeof q === 'string')) {
+            return questions;
+          
+          }
+        } catch (err2) {
+          // 继续失败则忽略
+          console.warn("额外问题生成结果粗略解析失败，返回空数组:", err2, "原始文本:", text);
+          return [];  
+        }
+      }
       return [];
     }
+  }
+
+  parseJsonArrayRoughly(text: string): string | undefined {
+    const start = text.indexOf('[');
+    const end = text.lastIndexOf(']');
+    if (start !== -1 && end !== -1 && end > start) {
+      const jsonArrayStr = text.substring(start, end + 1);
+      return jsonArrayStr;
+    }
+    return undefined;
   }
 
   /**
