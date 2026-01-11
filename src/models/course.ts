@@ -19,6 +19,17 @@ export class Course {
   @Column({ type: 'text', nullable: true })
   description?: string;
 
+  // 课程分类：职业技能 / 文化基础 / 工具使用 / 人文素养
+  @Column({ type: 'varchar', length: 255, nullable: true })
+  category!: string;
+
+  @Column({ type: 'text', nullable: true })
+  contributors?: string;
+
+  // 课程学时（秒或分钟视项目约定，当前使用分钟，单位：int）
+  @Column({ type: 'int', nullable: true })
+  total_estimated_time?: number;
+
   @Column({ type: 'uuid', nullable: true })
   default_ai_persona_id?: string;
 
