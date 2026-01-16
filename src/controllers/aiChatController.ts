@@ -1,26 +1,21 @@
 import { Request, Response } from 'express';
-import { Route, Get, Post, Body, Path, Tags, Res, TsoaResponse, Query } from 'tsoa';
+import { Route, Get, Post, Body, Path, Tags, Query } from '@/tsoa';
 import { BaseController } from './baseController';
-import { 
-  createLearningAssistant, 
-  startNewLearningSession,
-  resumeLearningSession,
-  LearningAssistant 
-} from '../llm/domain/learning_assistant';
+import { createLearningAssistant, startNewLearningSession, resumeLearningSession, LearningAssistant } from '../llm/domain/learning_assistant';
 import { MainDataSource, UserDataSource } from '../config/database';
 import { AiInteraction } from '../models/aiInteraction';
 import { User } from '../models/user';
 import { AiPersona } from '../models/aiPersona';
 import { ApiResponse } from '../types/express';
-import { 
-  ChatRequest, 
-  StreamChatRequest, 
-  CreateSessionRequest, 
+import {
+  ChatRequest,
+  StreamChatRequest,
+  CreateSessionRequest,
   ChatResponse,
-  ChatStreamlyResponse, 
+  ChatStreamlyResponse,
   SessionInfo,
   UserSectionSessionsResponse,
-  LearningReviewRequest
+  LearningReviewRequest,
 } from '../types/AiChat';
 import { AnswerEvaluateRequest, AnswerEvaluateResponse } from '../types/AiChat';
 import AnswerEvaluator from '../llm/domain/answer_evaluator';
@@ -46,10 +41,9 @@ const normalizePersonaId = (id?: string): string | undefined => {
 /**
  * 集成LLM Agent的AI聊天控制器
  */
-@Tags("AI聊天")
+@Tags('AI聊天')
 @Route('ai-chat')
 export class AiChatController extends BaseController {
-
   /**
    * 与AI助手进行对话
    */
@@ -87,18 +81,17 @@ export class AiChatController extends BaseController {
         user_message: message,
         ai_response: aiResponse,
         query_time: new Date(),
-        persona_id_in_use: personaInUse
+        persona_id_in_use: personaInUse,
       };
 
       // 清理资源
       await assistant.cleanup();
 
       return this.ok(result);
-
     } catch (error) {
       console.error('AI助手对话失败:', error);
       const errorMessage = error instanceof Error ? error.message : String(error);
-      return this.fail(`AI助手对话失败`,errorMessage);
+      return this.fail(`AI助手对话失败`, errorMessage);
     }
   }
 
@@ -106,16 +99,14 @@ export class AiChatController extends BaseController {
    * DailyChat 流式对话接口（轻量一次性 agent）
    */
   @Post('/daily')
-  public async chatDaily(
-    @Body() request: StreamChatRequest
-  ): Promise<Readable> {
+  public async chatDaily(@Body() request: StreamChatRequest): Promise<Readable> {
     try {
       const { message, reasoning, modelName } = request;
 
       if (!message) {
         throw new Error('缺少必要参数： message');
       }
-      
+
       let requirements: string | undefined = undefined;
       if (request.useAudio && request.ttsOption) {
         const audioPrompts = await Promise.all(request.ttsOption.map(getAudioPromptByOption));
@@ -145,7 +136,7 @@ export class AiChatController extends BaseController {
         }
       });
 
-      readable.on('error', async (err) => {
+      readable.on('error', async err => {
         console.warn('DailyChat stream error:', err);
         try {
           await dc.cleanup();
@@ -155,7 +146,6 @@ export class AiChatController extends BaseController {
       });
 
       return readable;
-
     } catch (error) {
       console.error('Daily 流式AI对话失败:', error);
       const errorMessage = error instanceof Error ? error.message : String(error);
@@ -192,18 +182,18 @@ export class AiChatController extends BaseController {
   public async generateLearningReview(@Body() request: LearningReviewRequest): Promise<Readable> {
     try {
       const { userId, sectionId, sessionId, modelName } = request;
-      
+
       if (!userId || !sectionId || !sessionId) {
         throw new Error('缺少必要参数：userId, sectionId, sessionId');
       }
 
       const evaluator = new LearningReviewEvaluator({ modelName });
-      const reviewPrompt = "请针对课程学习情况进行总结";
+      const reviewPrompt = '请针对课程学习情况进行总结';
 
       const { stream, fullTextPromise } = await evaluator.evaluate(request);
 
       fullTextPromise
-        .then(async (reviewText) => {
+        .then(async reviewText => {
           try {
             if (!UserDataSource.isInitialized) {
               throw new Error('UserDataSource 未初始化');
@@ -215,7 +205,7 @@ export class AiChatController extends BaseController {
               session_id: sessionId,
               user_message: reviewPrompt,
               ai_response: reviewText,
-              query_time: new Date()
+              query_time: new Date(),
             });
             await aiInteractionRepo.save(aiInteraction);
             console.log(`💾 学习总结评语已保存到聊天记录: ${sessionId}`);
@@ -223,7 +213,7 @@ export class AiChatController extends BaseController {
             console.error('保存学习总结评语到聊天记录失败:', saveErr);
           }
         })
-        .catch((err) => {
+        .catch(err => {
           console.error('学习总结评语流式生成失败:', err);
         });
 
@@ -239,9 +229,7 @@ export class AiChatController extends BaseController {
    * 与AI助手进行流式对话
    */
   @Post('/chat/stream')
-  public async chatStream(
-    @Body() request: StreamChatRequest
-  ): Promise<Readable> {
+  public async chatStream(@Body() request: StreamChatRequest): Promise<Readable> {
     try {
       if (request.daily) {
         return this.chatDaily(request);
@@ -278,7 +266,7 @@ export class AiChatController extends BaseController {
 
         // 安全保障：在将流传递给框架之前，附加一个空的 'error' 监听器。
         // 这可以防止未处理的 'error' 事件升级为未捕获的异常，从而避免程序崩溃。
-        readableStream.on('error', (err) => {
+        readableStream.on('error', err => {
           console.error('Stream error caught in controller:', err.message);
           // 这个监听器是空的，它的唯一目的就是“接住”错误，防止它使程序崩溃。
           // Express/Node.js 框架会处理流的中断和向客户端发送错误。
@@ -291,11 +279,10 @@ export class AiChatController extends BaseController {
 
         return readableStream;
       } catch (streamError) {
-        console.error(streamError)
+        console.error(streamError);
         const errorMessage = streamError instanceof Error ? streamError.message : String(streamError);
         throw this.fail('流式处理错误', errorMessage);
       }
-
     } catch (error) {
       console.error('流式AI对话失败:', error);
       const errorMessage = error instanceof Error ? error.message : String(error);
@@ -307,37 +294,37 @@ export class AiChatController extends BaseController {
    * 通过用户ID和章节ID获取会话ID列表
    */
   @Get('/sessionID/by-user-section')
-  public async getSessionsByUserAndSection(
-    @Query() userId: string,
-    @Query() sectionId: string
-  ): Promise<ApiResponse<UserSectionSessionsResponse>> {
+  public async getSessionsByUserAndSection(@Query() userId: string, @Query() sectionId: string): Promise<ApiResponse<UserSectionSessionsResponse>> {
     try {
       if (!userId || !sectionId) {
         throw new Error('缺少必要参数：userId 和 sectionId');
       }
 
       // 通过 AiInteraction 表查询该用户在该章节的所有会话
-  const aiInteractionRepo = UserDataSource.getRepository(AiInteraction);
+      const aiInteractionRepo = UserDataSource.getRepository(AiInteraction);
       const interactions = await aiInteractionRepo.find({
-        where: { 
+        where: {
           user_id: userId,
-          section_id: sectionId 
+          section_id: sectionId,
         },
-        order: { query_time: 'ASC' }
+        order: { query_time: 'ASC' },
       });
 
       // 按 session_id 分组统计
-      const sessionMap = new Map<string, {
-        session_id: string;
-        interactions: AiInteraction[];
-      }>();
+      const sessionMap = new Map<
+        string,
+        {
+          session_id: string;
+          interactions: AiInteraction[];
+        }
+      >();
 
       interactions.forEach(interaction => {
         const sessionId = interaction.session_id;
         if (!sessionMap.has(sessionId)) {
           sessionMap.set(sessionId, {
             session_id: sessionId,
-            interactions: []
+            interactions: [],
           });
         }
         sessionMap.get(sessionId)!.interactions.push(interaction);
@@ -348,7 +335,7 @@ export class AiChatController extends BaseController {
         session_id: session.session_id,
         interaction_count: session.interactions.length,
         first_interaction: session.interactions[0].query_time!,
-        last_interaction: session.interactions[session.interactions.length - 1].query_time!
+        last_interaction: session.interactions[session.interactions.length - 1].query_time!,
       }));
 
       // 按最后交互时间倒序排列
@@ -358,13 +345,12 @@ export class AiChatController extends BaseController {
         user_id: userId,
         section_id: sectionId,
         session_count: sessions.length,
-        sessions: sessions
+        sessions: sessions,
       });
-
     } catch (error) {
       console.error('获取用户章节会话列表失败:', error);
       const errorMessage = error instanceof Error ? error.message : String(error);
-      throw this.fail("获取用户章节会话列表失败", errorMessage);
+      throw this.fail('获取用户章节会话列表失败', errorMessage);
     }
   }
 
@@ -396,8 +382,6 @@ export class AiChatController extends BaseController {
   //   }
   // }
 
-
-
   /**
    * 获取会话的对话历史
    */
@@ -405,21 +389,23 @@ export class AiChatController extends BaseController {
   public async getSessionHistory(
     @Path() sessionId: string,
     @Query() withoutInner?: boolean
-  ): Promise<ApiResponse<{
-    session_id: string;
-    message_count: number;
-    history: any[];
-  }>> {
+  ): Promise<
+    ApiResponse<{
+      session_id: string;
+      message_count: number;
+      history: any[];
+    }>
+  > {
     try {
       if (!sessionId) {
-          this.fail("缺少会话ID参数",null,404);
+        this.fail('缺少会话ID参数', null, 404);
       }
 
       // 查询交互列表（不使用 relations，跨库手动加载）
       const aiInteractionRepo = UserDataSource.getRepository(AiInteraction);
       const interactions = await aiInteractionRepo.find({
         where: { session_id: sessionId },
-        order: { query_time: 'ASC' }
+        order: { query_time: 'ASC' },
       });
 
       // 手动批量加载关联实体，避免 N+1：使用简单内存缓存
@@ -432,47 +418,49 @@ export class AiChatController extends BaseController {
       const personaCache = new Map<string, AiPersona>();
 
       // 转换为对话格式并填充名称
-      let history = await Promise.all(interactions.map(async (interaction) => {
-        // 用户（同库）
-        let userName: string | undefined;
-        if (interaction.user_id) {
-          if (!userCache.has(interaction.user_id)) {
-            const u = await userRepo.findOneBy({ user_id: interaction.user_id });
-            if (u) userCache.set(interaction.user_id, u);
+      let history = await Promise.all(
+        interactions.map(async interaction => {
+          // 用户（同库）
+          let userName: string | undefined;
+          if (interaction.user_id) {
+            if (!userCache.has(interaction.user_id)) {
+              const u = await userRepo.findOneBy({ user_id: interaction.user_id });
+              if (u) userCache.set(interaction.user_id, u);
+            }
+            userName = userCache.get(interaction.user_id)?.name;
           }
-          userName = userCache.get(interaction.user_id)?.name;
-        }
 
-        // 章节（主库）
-        let sectionTitle: string | undefined;
-        if (interaction.section_id) {
-          if (!sectionCache.has(interaction.section_id)) {
-            const s = await sectionRepo.findOneBy({ section_id: interaction.section_id });
-            if (s) sectionCache.set(interaction.section_id, s);
+          // 章节（主库）
+          let sectionTitle: string | undefined;
+          if (interaction.section_id) {
+            if (!sectionCache.has(interaction.section_id)) {
+              const s = await sectionRepo.findOneBy({ section_id: interaction.section_id });
+              if (s) sectionCache.set(interaction.section_id, s);
+            }
+            sectionTitle = sectionCache.get(interaction.section_id)?.title;
           }
-          sectionTitle = sectionCache.get(interaction.section_id)?.title;
-        }
 
-        // 人设（主库）
-        let personaName: string | undefined;
-        if (interaction.persona_id_in_use) {
-          if (!personaCache.has(interaction.persona_id_in_use)) {
-            const p = await personaRepo.findOneBy({ persona_id: interaction.persona_id_in_use });
-            if (p) personaCache.set(interaction.persona_id_in_use, p);
+          // 人设（主库）
+          let personaName: string | undefined;
+          if (interaction.persona_id_in_use) {
+            if (!personaCache.has(interaction.persona_id_in_use)) {
+              const p = await personaRepo.findOneBy({ persona_id: interaction.persona_id_in_use });
+              if (p) personaCache.set(interaction.persona_id_in_use, p);
+            }
+            personaName = personaCache.get(interaction.persona_id_in_use)?.name;
           }
-          personaName = personaCache.get(interaction.persona_id_in_use)?.name;
-        }
 
-        return {
-          interaction_id: interaction.interaction_id,
-          user_message: interaction.user_message,
-          ai_response: interaction.ai_response,
-          query_time: interaction.query_time,
-          user_name: userName,
-          section_title: sectionTitle,
-          persona_name: personaName
-        };
-      }));
+          return {
+            interaction_id: interaction.interaction_id,
+            user_message: interaction.user_message,
+            ai_response: interaction.ai_response,
+            query_time: interaction.query_time,
+            user_name: userName,
+            section_title: sectionTitle,
+            persona_name: personaName,
+          };
+        })
+      );
 
       // 如果请求中要求去除以 [inner] 开头的用户提问，则过滤掉这些记录
       if (withoutInner) {
@@ -486,13 +474,12 @@ export class AiChatController extends BaseController {
       return this.ok({
         session_id: sessionId,
         message_count: history.length,
-        history: history
+        history: history,
       });
-
     } catch (error) {
       console.error('获取会话历史失败:', error);
       const errorMessage = error instanceof Error ? error.message : String(error);
-      throw this.fail(`获取会话历史失败`,errorMessage);
+      throw this.fail(`获取会话历史失败`, errorMessage);
     }
   }
 
@@ -509,20 +496,20 @@ export class AiChatController extends BaseController {
         throw new Error('缺少必要参数：userId');
       }
 
-      if (sectionId == "") {
+      if (sectionId == '') {
         // 进入daily模式
         return this.ok({
-          session_id: "12345672",
+          session_id: '12345672',
           user_id: userId,
           section_id: sectionId,
           persona_id: normalizedPersonaId,
-          created_at: new Date()
-        })
+          created_at: new Date(),
+        });
       }
 
       const assistant = await startNewLearningSession(userId, sectionId, normalizedPersonaId);
       const sessionId = assistant.getSessionId();
-  const personaInUse = assistant.getPersonaId();
+      const personaInUse = assistant.getPersonaId();
       await assistant.cleanup();
 
       console.log('创建新会话ID:', sessionId);
@@ -535,13 +522,12 @@ export class AiChatController extends BaseController {
         user_id: userId,
         section_id: sectionId,
         persona_id: personaInUse,
-        created_at: new Date()
+        created_at: new Date(),
       });
-
     } catch (error) {
       console.error('创建新会话失败:', error);
       const errorMessage = error instanceof Error ? error.message : String(error);
-      return this.fail("创建新会话失败",errorMessage) ;
+      return this.fail('创建新会话失败', errorMessage);
     }
   }
 
@@ -570,11 +556,10 @@ export class AiChatController extends BaseController {
       await assistant.cleanup();
 
       return this.ok(analytics);
-
     } catch (error) {
       console.error('获取会话分析失败:', error);
       const errorMessage = error instanceof Error ? error.message : String(error);
-      throw this.fail("获取会话分析失败",errorMessage);
+      throw this.fail('获取会话分析失败', errorMessage);
     }
   }
 
@@ -582,16 +567,14 @@ export class AiChatController extends BaseController {
    * 获取当前课程所有人设列表
    */
   @Get('/personas')
-  public async getPersonas(
-    @Query() courseId?: string
-  ): Promise<ApiResponse<any[]>> {
+  public async getPersonas(@Query() courseId?: string): Promise<ApiResponse<any[]>> {
     try {
       const personaRepo = MainDataSource.getRepository(AiPersona);
-      
+
       // 如果指定了 courseId，可以根据课程筛选（目前返回所有）
       const personas = await personaRepo.find({
         select: ['persona_id', 'name', 'prompt', 'is_default_template'],
-        order: { is_default_template: 'DESC' }
+        order: { is_default_template: 'DESC' },
       });
 
       return this.ok(personas);
@@ -606,9 +589,7 @@ export class AiChatController extends BaseController {
    * 切换当前会话的人设
    */
   @Post('/switch-persona')
-  public async switchPersona(
-    @Body() request: { sessionId: string; personaId: string }
-  ): Promise<ApiResponse<{ success: boolean; message: string }>> {
+  public async switchPersona(@Body() request: { sessionId: string; personaId: string }): Promise<ApiResponse<{ success: boolean; message: string }>> {
     try {
       const { sessionId, personaId } = request;
 
@@ -632,9 +613,8 @@ export class AiChatController extends BaseController {
 
       return this.ok({
         success: true,
-        message: `已成功切换到人设: ${personaId}`
+        message: `已成功切换到人设: ${personaId}`,
       });
-
     } catch (error) {
       console.error('切换人设失败:', error);
       const errorMessage = error instanceof Error ? error.message : String(error);
@@ -642,11 +622,11 @@ export class AiChatController extends BaseController {
     }
   }
 
-    /**
+  /**
    * 获取可用的大模型列表
    */
   @Get('/models')
-  public async getAvailableModels(): Promise<ApiResponse<{ all: Array<{id: string, name: string, displayName: string}>, default?: string }>> {
+  public async getAvailableModels(): Promise<ApiResponse<{ all: Array<{ id: string; name: string; displayName: string }>; default?: string }>> {
     try {
       // 获取所有非嵌入模型
       const models = modelConfigManager.getNonEmbeddingModels();
@@ -658,7 +638,7 @@ export class AiChatController extends BaseController {
       const modelList = models.map(model => ({
         id: model.id,
         name: model.name,
-        displayName: model.displayName || model.name
+        displayName: model.displayName || model.name,
       }));
 
       const defaultModel = modelConfigManager.getDefaultModel();
@@ -672,7 +652,7 @@ export class AiChatController extends BaseController {
     } catch (error) {
       console.error('获取模型列表失败:', error);
       const errorMessage = error instanceof Error ? error.message : String(error);
-      throw this.fail("获取模型列表失败", errorMessage);
+      throw this.fail('获取模型列表失败', errorMessage);
     }
   }
 }

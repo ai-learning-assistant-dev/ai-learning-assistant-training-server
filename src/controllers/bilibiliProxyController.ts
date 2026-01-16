@@ -1,4 +1,4 @@
-import { Get, Route, Request, Tags } from 'tsoa';
+import { Get, Route, Request, Tags } from '@/tsoa';
 import type { Request as ExpressRequest, Response as ExpressResponse } from 'express';
 import { Readable } from 'stream';
 import { ApiResponse } from '../types/express';
@@ -12,10 +12,10 @@ const pipelineAsync = promisify(pipeline);
 function extractHostFromUrl(urlString: string) {
   try {
     const urlObj = new URL(urlString);
-    return urlObj.host;   // 直接返回 host（包含端口）
+    return urlObj.host; // 直接返回 host（包含端口）
   } catch (e) {
-    console.error(" 无效的 URL:", e);
-    return "";
+    console.error(' 无效的 URL:', e);
+    return '';
   }
 }
 
@@ -26,9 +26,7 @@ export class BilibiliProxyController extends BaseController {
    * 代理转发B站视频流
    */
   @Get('stream')
-  public async proxyBilibiliStream(
-    @Request() req: ExpressRequest
-  ): Promise<ApiResponse | void> {
+  public async proxyBilibiliStream(@Request() req: ExpressRequest): Promise<ApiResponse | void> {
     try {
       const url = req.query.url as string;
       const bvid = req.query.bvid as string | undefined;
@@ -38,26 +36,25 @@ export class BilibiliProxyController extends BaseController {
 
       if (!url) {
         return this.fail('URL 参数不能为空', null, 400);
-      };
-      let newUrl = "";
+      }
+      let newUrl = '';
       if (platform && sign) {
-        newUrl = `${url}&sign=${sign}&platform=${platform}&traceid=${traceid}`
+        newUrl = `${url}&sign=${sign}&platform=${platform}&traceid=${traceid}`;
       }
 
       const decodedUrl = decodeURIComponent(newUrl ? newUrl : url);
-      
-      let hostHeader = ""
-      if (decodedUrl.includes('mcdn.bilivideo')) {
-        hostHeader = extractHostFromUrl(decodedUrl)
 
+      let hostHeader = '';
+      if (decodedUrl.includes('mcdn.bilivideo')) {
+        hostHeader = extractHostFromUrl(decodedUrl);
       }
 
       const clientHeaders = req.headers;
       const headers: Record<string, string | string[]> = {
-        'Accept': clientHeaders.accept || '*/*',
+        Accept: clientHeaders.accept || '*/*',
         'Accept-Language': clientHeaders['accept-language'] || 'zh-CN,zh;q=0.9,en;q=0.8',
-        'Origin': clientHeaders.origin || 'https://www.bilibili.com',
-        'Referer': bvid ? `https://www.bilibili.com/video/${bvid}/` : (clientHeaders.referer || 'https://www.bilibili.com/'),
+        Origin: clientHeaders.origin || 'https://www.bilibili.com',
+        Referer: bvid ? `https://www.bilibili.com/video/${bvid}/` : clientHeaders.referer || 'https://www.bilibili.com/',
         'User-Agent': clientHeaders['user-agent'] || 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/142.0.0.0 Safari/537.36',
         'sec-ch-ua': clientHeaders['sec-ch-ua'] || '"Chromium";v="142", "Google Chrome";v="142", "Not_A Brand";v="99"',
         'sec-ch-ua-mobile': clientHeaders['sec-ch-ua-mobile'] || '?0',
@@ -65,9 +62,8 @@ export class BilibiliProxyController extends BaseController {
         'Sec-Fetch-Dest': clientHeaders['sec-fetch-dest'] || 'empty',
         'Sec-Fetch-Mode': clientHeaders['sec-fetch-mode'] || 'cors',
         'Sec-Fetch-Site': clientHeaders['sec-fetch-site'] || 'cross-site',
-        'Priority': clientHeaders.priority || 'u=1, i',
-        'Connection': 'keep-alive',
-
+        Priority: clientHeaders.priority || 'u=1, i',
+        Connection: 'keep-alive',
       };
       if (hostHeader) {
         headers['Host'] = hostHeader;

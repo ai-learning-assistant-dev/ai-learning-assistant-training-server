@@ -3,16 +3,14 @@ import { Section } from '../models/section';
 import { Chapter } from '../models/chapter';
 import { ApiResponse } from '../types/express';
 import { SectionResponse, CreateSectionRequest, UpdateSectionRequest } from '../types/section';
-import { Route, Get, Post, Body, Path, Tags } from 'tsoa';
+import { Route, Get, Post, Body, Path, Tags } from '@/tsoa';
 import { BaseController } from './baseController';
 
-@Tags("节表")
+@Tags('节表')
 @Route('sections')
 export class SectionController extends BaseController {
   @Post('/search')
-  public async searchSections(
-    @Body() body: { page?: number; limit?: number }
-  ): Promise<ApiResponse<SectionResponse[]>> {
+  public async searchSections(@Body() body: { page?: number; limit?: number }): Promise<ApiResponse<SectionResponse[]>> {
     try {
       const pageNum = body.page || 1;
       const limitNum = body.limit || 10;
@@ -21,56 +19,50 @@ export class SectionController extends BaseController {
       const [items, count] = await repo.findAndCount({
         skip: offset,
         take: limitNum,
-        order: { section_id: 'ASC' }
+        order: { section_id: 'ASC' },
       });
       return this.paginate(items, count, pageNum, limitNum);
     } catch (error) {
-      return this.fail('获取节列表失败', error );
+      return this.fail('获取节列表失败', error);
     }
   }
 
   @Post('/getById')
-    public async getSectionById(
-      @Body() body: { section_id: string }
-    ): Promise<ApiResponse<SectionResponse>> {
+  public async getSectionById(@Body() body: { section_id: string }): Promise<ApiResponse<SectionResponse>> {
     try {
       const repo = MainDataSource.getRepository(Section);
-          const item = await repo.findOneBy({ section_id: body.section_id });
+      const item = await repo.findOneBy({ section_id: body.section_id });
       if (!item) {
         return this.fail('节不存在');
       }
       return this.ok(item);
     } catch (error) {
-      return this.fail('获取节失败', error );
+      return this.fail('获取节失败', error);
     }
   }
 
-@Post('/add')
-public async addSection(
-  @Body() requestBody: CreateSectionRequest
-): Promise<ApiResponse<any>> {
-  try {
-    if (!requestBody.title || !requestBody.chapter_id || requestBody.section_order === undefined) {
-      return this.fail('标题、章节ID和节顺序必填', null, 400);
-    }
-    
+  @Post('/add')
+  public async addSection(@Body() requestBody: CreateSectionRequest): Promise<ApiResponse<any>> {
+    try {
+      if (!requestBody.title || !requestBody.chapter_id || requestBody.section_order === undefined) {
+        return this.fail('标题、章节ID和节顺序必填', null, 400);
+      }
+
       const sectionRepo = MainDataSource.getRepository(Section);
-    
-    // 只做节的基本创建
-    const item = sectionRepo.create({
-      ...requestBody
-    });
-    const saved = await sectionRepo.save(item);
-    return this.ok(saved, '节创建成功');
-  } catch (error: any) {
-    return this.fail('创建节失败', error.message);
+
+      // 只做节的基本创建
+      const item = sectionRepo.create({
+        ...requestBody,
+      });
+      const saved = await sectionRepo.save(item);
+      return this.ok(saved, '节创建成功');
+    } catch (error: any) {
+      return this.fail('创建节失败', error.message);
+    }
   }
-}
 
   @Post('/update')
-  public async updateSection(
-    @Body() requestBody: UpdateSectionRequest
-  ): Promise<ApiResponse<any>> {
+  public async updateSection(@Body() requestBody: UpdateSectionRequest): Promise<ApiResponse<any>> {
     try {
       if (!requestBody.section_id) {
         return this.fail('section_id 必填', null, 400);
@@ -84,14 +76,12 @@ public async addSection(
       const saved = await repo.save(item);
       return this.ok(saved, '节更新成功');
     } catch (error) {
-      return this.fail('更新节失败', error );
+      return this.fail('更新节失败', error);
     }
   }
 
   @Post('/delete')
-  public async deleteSection(
-    @Body() body: { section_id: string }
-  ): Promise<ApiResponse<any>> {
+  public async deleteSection(@Body() body: { section_id: string }): Promise<ApiResponse<any>> {
     try {
       const repo = MainDataSource.getRepository(Section);
       const item = await repo.findOneBy({ section_id: body.section_id });
@@ -101,7 +91,7 @@ public async addSection(
       await repo.remove(item);
       return this.ok({}, '节删除成功');
     } catch (error) {
-      return this.fail('删除节失败', error );
+      return this.fail('删除节失败', error);
     }
   }
 }

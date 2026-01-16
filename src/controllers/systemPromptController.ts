@@ -1,12 +1,7 @@
-import { Route, Tags, Post, Put, Body, Get, Path } from 'tsoa';
+import { Route, Tags, Post, Put, Body, Get, Path } from '@/tsoa';
 import { BaseController } from './baseController';
 import { SystemPrompt } from '../models/systemPrompt';
-import {
-  updateSystemPrompt,
-  getAllSystemPrompts,
-  getSystemPromptByTitle,
-  getAllSystemPromptKeys,
-} from '../services/systemPromptService';
+import { updateSystemPrompt, getAllSystemPrompts, getSystemPromptByTitle, getAllSystemPromptKeys } from '../services/systemPromptService';
 import { ApiResponse } from '../types/express';
 
 interface UpdateSystemPromptRequest {
@@ -16,7 +11,6 @@ interface UpdateSystemPromptRequest {
 @Tags('System Prompts')
 @Route('system-prompts')
 export class SystemPromptController extends BaseController {
-
   /** Update an existing system prompt by title (title is primary key) */
   @Put('{title}')
   public async update(@Path() title: string, @Body() req: UpdateSystemPromptRequest): Promise<ApiResponse<SystemPrompt>> {

@@ -5,21 +5,19 @@ import { Section } from '../models/section';
 import { Exercise } from '../models/exercise';
 import { ApiResponse } from '../types/express';
 import { CourseResponse, CreateCourseRequest, UpdateCourseRequest } from '../types/course';
-import { Route, Get, Post, Body, Path, Tags } from 'tsoa';
+import { Route, Get, Post, Body, Path, Tags } from '@/tsoa';
 import { In } from 'typeorm';
 import { UserSectionUnlock } from '../models/userSectionUnlock';
 import { BaseController } from './baseController';
 
-@Tags("课程表")
+@Tags('课程表')
 @Route('courses')
 export class CourseController extends BaseController {
   /**
    * 通过课程ID查询其下所有章节及节
    */
   @Post('/getCourseChaptersSections')
-  public async getCourseChaptersSections(
-    @Body() body: { course_id: string, user_id: string }
-  ): Promise<ApiResponse<any>> {
+  public async getCourseChaptersSections(@Body() body: { course_id: string; user_id: string }): Promise<ApiResponse<any>> {
     try {
       if (!body.course_id || !body.user_id) {
         return this.fail('course_id 和 user_id 必填', null, 400);
@@ -54,7 +52,7 @@ export class CourseController extends BaseController {
 
       // 2. 获取用户在该课程所有相关章节的解锁记录
       const userUnlocks = await unlockRepo.find({
-        where: { user_id: body.user_id, chapter_id: In(chapterIds) }
+        where: { user_id: body.user_id, chapter_id: In(chapterIds) },
       });
       const unlockMap = new Map(userUnlocks.map(u => [u.section_id, u.unlocked]));
 
@@ -64,14 +62,14 @@ export class CourseController extends BaseController {
           .filter(sec => sec.chapter_id === ch.chapter_id)
           .map(sec => ({
             ...sec,
-            unlocked: process.env.UNLOCK_ALL_SECTION == 'true' ? 2 : (unlockMap.get(sec.section_id) || 0),
-            has_exercise: hasExerciseMap.get(sec.section_id) || false
+            unlocked: process.env.UNLOCK_ALL_SECTION == 'true' ? 2 : unlockMap.get(sec.section_id) || 0,
+            has_exercise: hasExerciseMap.get(sec.section_id) || false,
           }));
 
         return {
           ...ch,
           unlocked: 0, // 默认锁定，稍后计算
-          sections: chapterSections
+          sections: chapterSections,
         } as any;
       });
 
@@ -116,7 +114,7 @@ export class CourseController extends BaseController {
               }
               lastSectionPassed = true;
               nextSectionUnlocked = false;
-              chapterInProgress = chapterInProgress || (section.unlocked > 0);
+              chapterInProgress = chapterInProgress || section.unlocked > 0;
               continue;
             }
             if (process.env.UNLOCK_ALL_SECTION == 'true') {
@@ -125,7 +123,7 @@ export class CourseController extends BaseController {
               }
               lastSectionPassed = true;
               nextSectionUnlocked = false;
-              chapterInProgress = chapterInProgress || (section.unlocked > 0);
+              chapterInProgress = chapterInProgress || section.unlocked > 0;
               continue;
             }
 
@@ -135,7 +133,7 @@ export class CourseController extends BaseController {
               }
               lastSectionPassed = true;
               nextSectionUnlocked = false; // 重置，为下一个通过的section做准备
-              chapterInProgress = chapterInProgress || (section.unlocked > 0);
+              chapterInProgress = chapterInProgress || section.unlocked > 0;
               continue; // 继续，允许下一节被解锁
             }
 
@@ -204,56 +202,49 @@ export class CourseController extends BaseController {
       return this.ok({
         course_id: course.course_id,
         course_name: (course as any).name || (course as any).course_name || undefined,
-        chapters: chapterList
+        chapters: chapterList,
       });
     } catch (error) {
       return this.fail('查询课程章节/节失败', error);
     }
   }
- 
 
   @Post('/search')
-  public async searchCourses(
-    @Body() body: { page?: number; limit?: number }
-  ): Promise<ApiResponse<CourseResponse[]>> {
+  public async searchCourses(@Body() body: { page?: number; limit?: number }): Promise<ApiResponse<CourseResponse[]>> {
     try {
       const pageNum = body.page || 1;
       const limitNum = body.limit || 10;
       const offset = (pageNum - 1) * limitNum;
-  const repo = MainDataSource.getRepository(Course);
+      const repo = MainDataSource.getRepository(Course);
       const [items, count] = await repo.findAndCount({
         skip: offset,
         take: limitNum,
-        order: { course_id: 'ASC' }
+        order: { course_id: 'ASC' },
       });
       return this.paginate(items, count, pageNum, limitNum);
     } catch (error) {
-      return this.fail('获取课程列表失败', error );
+      return this.fail('获取课程列表失败', error);
     }
   }
 
   @Post('/getById')
-  public async getCourseById(
-    @Body() body:{ course_id: string}
-  ): Promise<ApiResponse<CourseResponse>> {
+  public async getCourseById(@Body() body: { course_id: string }): Promise<ApiResponse<CourseResponse>> {
     try {
-  const repo = MainDataSource.getRepository(Course);
-      const item = await repo.findOneBy({course_id: body.course_id });
+      const repo = MainDataSource.getRepository(Course);
+      const item = await repo.findOneBy({ course_id: body.course_id });
       if (!item) {
         return this.fail('课程不存在');
       }
       return this.ok(item);
-      } catch (error) {
-      return this.fail('获取课程失败', error );
+    } catch (error) {
+      return this.fail('获取课程失败', error);
     }
-    }
+  }
 
   @Post('/add')
-  public async addCourse(
-    @Body() requestBody: CreateCourseRequest
-  ): Promise<ApiResponse<any>> {
+  public async addCourse(@Body() requestBody: CreateCourseRequest): Promise<ApiResponse<any>> {
     try {
-  const repo = MainDataSource.getRepository(Course);
+      const repo = MainDataSource.getRepository(Course);
       const item = repo.create(requestBody);
       const saved = await repo.save(item);
       return this.ok(saved, '课程创建成功');
@@ -263,14 +254,12 @@ export class CourseController extends BaseController {
   }
 
   @Post('/update')
-  public async updateCourse(
-    @Body() requestBody: UpdateCourseRequest
-  ): Promise<ApiResponse<any>> {
+  public async updateCourse(@Body() requestBody: UpdateCourseRequest): Promise<ApiResponse<any>> {
     try {
       if (!requestBody.course_id) {
         return this.fail('course_id 必填', null, 400);
       }
-  const repo = MainDataSource.getRepository(Course);
+      const repo = MainDataSource.getRepository(Course);
       const item = await repo.findOneBy({ course_id: requestBody.course_id });
       if (!item) {
         return this.fail('课程不存在');
@@ -279,16 +268,14 @@ export class CourseController extends BaseController {
       const saved = await repo.save(item);
       return this.ok(saved, '课程更新成功');
     } catch (error) {
-      return this.fail('更新课程失败', error );
+      return this.fail('更新课程失败', error);
     }
   }
 
   @Post('/delete')
-  public async deleteCourse(
-    @Body() body: { course_id: string }
-  ): Promise<ApiResponse<any>> {
+  public async deleteCourse(@Body() body: { course_id: string }): Promise<ApiResponse<any>> {
     try {
-  const repo = MainDataSource.getRepository(Course);
+      const repo = MainDataSource.getRepository(Course);
       const item = await repo.findOneBy({ course_id: body.course_id });
       if (!item) {
         return this.fail('课程不存在');
@@ -296,7 +283,7 @@ export class CourseController extends BaseController {
       await repo.remove(item);
       return this.ok({}, '课程删除成功');
     } catch (error) {
-      return this.fail('删除课程失败', error );
+      return this.fail('删除课程失败', error);
     }
   }
 }

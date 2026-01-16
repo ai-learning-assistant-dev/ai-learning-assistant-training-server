@@ -2,57 +2,51 @@ import { UserDataSource } from '../config/database';
 import { TestResult } from '../models/testResult';
 import { ApiResponse } from '../types/express';
 import { TestResultResponse, CreateTestResultRequest, UpdateTestResultRequest } from '../types/testResult';
-import { Route, Get, Post, Body, Path, Tags } from 'tsoa';
+import { Route, Get, Post, Body, Path, Tags } from '@/tsoa';
 import { BaseController } from './baseController';
 
-@Tags("测试结果表")
+@Tags('测试结果表')
 @Route('test-results')
 export class TestResultController extends BaseController {
   @Post('/search')
-  public async searchTestResults(
-    @Body() body: { page?: number; limit?: number }
-  ): Promise<ApiResponse<TestResultResponse[]>> {
+  public async searchTestResults(@Body() body: { page?: number; limit?: number }): Promise<ApiResponse<TestResultResponse[]>> {
     try {
       const pageNum = body.page || 1;
       const limitNum = body.limit || 10;
       const offset = (pageNum - 1) * limitNum;
-  const repo = UserDataSource.getRepository(TestResult);
+      const repo = UserDataSource.getRepository(TestResult);
       const [items, count] = await repo.findAndCount({
         skip: offset,
         take: limitNum,
-        order: { result_id: 'ASC' }
+        order: { result_id: 'ASC' },
       });
       return this.paginate(items, count, pageNum, limitNum);
     } catch (error) {
-      return this.fail('获取测试结果列表失败', error );
+      return this.fail('获取测试结果列表失败', error);
     }
   }
 
   @Post('/getById')
-  public async getTestResultById(
-    @Body() body: { result_id: string }
-  ): Promise<ApiResponse<TestResultResponse>> {
+  public async getTestResultById(@Body() body: { result_id: string }): Promise<ApiResponse<TestResultResponse>> {
     try {
-  const repo = UserDataSource.getRepository(TestResult);
+      const repo = UserDataSource.getRepository(TestResult);
       const result = await repo.findOneBy({ result_id: body.result_id });
       if (!result) {
         return this.fail('测试结果不存在');
       }
       return this.ok(result);
     } catch (error) {
-      return this.fail('获取测试结果失败', error );
+      return this.fail('获取测试结果失败', error);
     }
   }
 
   @Post('/add')
-  public async addTestResult(
-    @Body() requestBody: CreateTestResultRequest
-  ): Promise<ApiResponse<any>> {
+  public async addTestResult(@Body() requestBody: CreateTestResultRequest): Promise<ApiResponse<any>> {
     try {
       if (!requestBody.user_id || !requestBody.test_id || !requestBody.start_date) {
         return this.fail('user_id、test_id、start_date 必填', null, 400);
       }
-  const repo = UserDataSource.getRepository(TestResult);
+      const repo = UserDataSource.getRepository(TestResult);
       const item = repo.create(requestBody);
       const saved = await repo.save(item);
       return this.ok(saved, '测试结果创建成功');
@@ -62,14 +56,12 @@ export class TestResultController extends BaseController {
   }
 
   @Post('/update')
-  public async updateTestResult(
-    @Body() requestBody: UpdateTestResultRequest
-  ): Promise<ApiResponse<any>> {
+  public async updateTestResult(@Body() requestBody: UpdateTestResultRequest): Promise<ApiResponse<any>> {
     try {
       if (!requestBody.result_id) {
         return this.fail('result_id 必填', null, 400);
       }
-  const repo = UserDataSource.getRepository(TestResult);
+      const repo = UserDataSource.getRepository(TestResult);
       const item = await repo.findOneBy({ result_id: requestBody.result_id });
       if (!item) {
         return this.fail('测试结果不存在');
@@ -78,16 +70,14 @@ export class TestResultController extends BaseController {
       const saved = await repo.save(item);
       return this.ok(saved, '测试结果更新成功');
     } catch (error) {
-      return this.fail('更新测试结果失败', error );
+      return this.fail('更新测试结果失败', error);
     }
   }
 
   @Post('/delete')
-  public async deleteTestResult(
-    @Body() body: { result_id: string }
-  ): Promise<ApiResponse<any>> {
+  public async deleteTestResult(@Body() body: { result_id: string }): Promise<ApiResponse<any>> {
     try {
-  const repo = UserDataSource.getRepository(TestResult);
+      const repo = UserDataSource.getRepository(TestResult);
       const item = await repo.findOneBy({ result_id: body.result_id });
       if (!item) {
         return this.fail('测试结果不存在');
@@ -95,7 +85,7 @@ export class TestResultController extends BaseController {
       await repo.remove(item);
       return this.ok({}, '测试结果删除成功');
     } catch (error) {
-      return this.fail('删除测试结果失败', error );
+      return this.fail('删除测试结果失败', error);
     }
   }
 }

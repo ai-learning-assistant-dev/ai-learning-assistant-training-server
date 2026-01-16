@@ -33,18 +33,9 @@
       "@llm/*": ["src/llm/*"]
     },
     "experimentalDecorators": true,
-    "emitDecoratorMetadata": true
+    "emitDecoratorMetadata": true,
+    "allowSyntheticDefaultImports": true
   },
-  "include": [
-    "src/**/*",
-    "scripts/**/*",
-    "src/app.ts",
-    "build/**/*"
-  ],
-  "exclude": [
-    "node_modules",
-    "dist",
-    "**/*.test.ts",
-    "src/llm/debug/**/*"
-  ]
+  "include": ["src/**/*", "scripts/**/*", "src/app.ts", "build/**/*"],
+  "exclude": ["node_modules", "dist", "**/*.test.ts", "src/llm/debug/**/*"]
 }
