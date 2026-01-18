@@ -303,6 +303,32 @@ export class AiChatController extends BaseController {
     }
   }
 
+  @Post('/chat/extra-questions')
+  public async generateExtraQuestions(
+    @Body() request: ChatRequest
+  ): Promise<ApiResponse<{ questions: string[] }>> {
+    try {
+      const { userId, sectionId, message, personaId, sessionId, modelName, reasoning } = request;
+
+      let assistant: LearningAssistant;
+
+      if (sessionId) {
+        // 恢复现有会话
+        assistant = await resumeLearningSession(userId, sessionId, "", modelName, reasoning);
+      } else {
+        // 创建新会话
+        assistant = await createLearningAssistant(userId, sectionId, "", undefined, undefined, "", modelName, reasoning);
+      }
+      const questions = await assistant.generateExtraQuestions(message);
+      await assistant.cleanup();
+      return this.ok({ questions });
+    } catch (error) {
+      console.error('生成额外问题失败:', error);
+      const errorMessage = error instanceof Error ? error.message : String(error);
+      throw this.fail('生成额外问题失败', errorMessage);
+    }
+  }
+
   /**
    * 通过用户ID和章节ID获取会话ID列表
    */
