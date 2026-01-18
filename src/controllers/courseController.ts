@@ -4,11 +4,33 @@ import { Chapter } from '../models/chapter';
 import { Section } from '../models/section';
 import { Exercise } from '../models/exercise';
 import { ApiResponse } from '../types/express';
-import { CourseResponse, CreateCourseRequest, UpdateCourseRequest } from '../types/course';
+import { CourseResponse, CreateCourseRequest, UpdateCourseRequest, CourseCategory } from '../types/course';
 import { Route, Get, Post, Body, Path, Tags } from 'tsoa';
 import { In } from 'typeorm';
 import { UserSectionUnlock } from '../models/userSectionUnlock';
 import { BaseController } from './baseController';
+
+const COURSE_CATEGORIES: CourseCategory[] = ['职业技能', '文化基础', '工具使用', '人文素养'];
+
+function isValidCategory(category?: string): category is CourseCategory {
+  return !!category && COURSE_CATEGORIES.includes(category as CourseCategory);
+}
+
+function mapCourseToResponse(course: Course): CourseResponse {
+  const category = isValidCategory((course as any).category)
+    ? ((course as any).category as CourseCategory)
+    : undefined;
+  return {
+    course_id: course.course_id,
+    name: (course as any).name,
+    icon_url: (course as any).icon_url,
+    description: (course as any).description,
+    default_ai_persona_id: (course as any).default_ai_persona_id,
+    category,
+    contributors: (course as any).contributors,
+    total_estimated_time: (course as any).total_estimated_time
+  };
+}
 
 @Tags("课程表")
 @Route('courses')
@@ -226,7 +248,8 @@ export class CourseController extends BaseController {
         take: limitNum,
         order: { course_id: 'ASC' }
       });
-      return this.paginate(items, count, pageNum, limitNum);
+      const mapped = items.map(mapCourseToResponse);
+      return this.paginate(mapped, count, pageNum, limitNum);
     } catch (error) {
       return this.fail('获取课程列表失败', error );
     }
@@ -242,7 +265,7 @@ export class CourseController extends BaseController {
       if (!item) {
         return this.fail('课程不存在');
       }
-      return this.ok(item);
+      return this.ok(mapCourseToResponse(item));
       } catch (error) {
       return this.fail('获取课程失败', error );
     }
@@ -253,6 +276,9 @@ export class CourseController extends BaseController {
     @Body() requestBody: CreateCourseRequest
   ): Promise<ApiResponse<any>> {
     try {
+      if (requestBody.category && !isValidCategory(requestBody.category)) {
+        return this.fail(`分类不合法，允许值：${COURSE_CATEGORIES.join(' / ')}`, null, 400);
+      }
   const repo = MainDataSource.getRepository(Course);
       const item = repo.create(requestBody);
       const saved = await repo.save(item);
@@ -269,6 +295,9 @@ export class CourseController extends BaseController {
     try {
       if (!requestBody.course_id) {
         return this.fail('course_id 必填', null, 400);
+      }
+      if (requestBody.category && !isValidCategory(requestBody.category)) {
+        return this.fail(`分类不合法，允许值：${COURSE_CATEGORIES.join(' / ')}`, null, 400);
       }
   const repo = MainDataSource.getRepository(Course);
       const item = await repo.findOneBy({ course_id: requestBody.course_id });
