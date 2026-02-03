@@ -1,7 +1,7 @@
 import { backupDatabase, MainDataSource, UserDataSource } from '../config/database';
 import { User } from '../models/user';
 import { ApiResponse } from '../types/express';
-import { UserResponse, CreateUserRequest, UpdateUserRequest, UserQueryParams } from '../types/user';
+import type { UserResponse, CreateUserRequest, UpdateUserRequest, UserQueryParams } from '../types/user';
 import { Like, In } from 'typeorm';
 import { Route, Get, Post, Put, Delete, Body, Query, Path, SuccessResponse, Tags } from '@/tsoa';
 import { BaseController } from './baseController';

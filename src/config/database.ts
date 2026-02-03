@@ -2,7 +2,6 @@ import 'reflect-metadata';
 import { DataSource } from 'typeorm';
 import * as dotenv from 'dotenv';
 import { Client } from 'pg';
-
 // --- 导入所有实体 ---
 import { User } from '../models/user';
 import { Course } from '../models/course';
@@ -26,22 +25,14 @@ import { SystemPrompt } from '../models/systemPrompt';
 import { ExerciseResult } from '../models/exerciseResult';
 import { TestResult } from '../models/testResult';
 import { exec } from 'child_process';
+import path from 'path';
+import { paths } from '@/utils/paths';
+import { getAvailablePort } from '@/utils/port';
 
 dotenv.config();
 
 // --- 实体分组 ---
-const mainEntities = [
-  Course,
-  Chapter,
-  Section,
-  Exercise,
-  ExerciseOption,
-  Test,
-  TestExercise,
-  LeadingQuestion,
-  AiPersona,
-  SystemPrompt
-];
+const mainEntities = [Course, Chapter, Section, Exercise, ExerciseOption, Test, TestExercise, LeadingQuestion, AiPersona, SystemPrompt];
 
 const userEntities = [
   User,
@@ -57,40 +48,84 @@ const userEntities = [
   TestResult,
 ];
 
+const mainPort = await getAvailablePort();
+const userPort = await getAvailablePort();
+const workerPath = process.env.NODE_ENV === 'production' ? path.resolve(__dirname, '../utils/pgLiteWorker.js') : path.resolve(__dirname, './utils/pgLiteWorker.mjs');
+console.log(`ℹ️ 使用的 pgLiteWorker 路径: ${workerPath}`);
+const mainPgLite = new Worker(workerPath);
+const userPgLite = new Worker(workerPath);
+mainPgLite.postMessage({ action: 'start', params: { name: 'ai_learning_assistant', port: mainPort, backupFile: path.resolve('./back_f.sql') } });
+userPgLite.postMessage({ action: 'start', params: { name: 'ai_learning_assistant_users', port: userPort } });
+await new Promise<void>(resolve => {
+  let mainStarted = false;
+  let userStarted = false;
+  mainPgLite.onmessage = event => {
+    if (event.data.event === 'started') {
+      console.log('✅ 主数据库 PGlite 已启动');
+      mainStarted = true;
+      if (mainStarted && userStarted) {
+        resolve();
+      }
+    }
+  };
+  userPgLite.onmessage = event => {
+    if (event.data.event === 'started') {
+      console.log('✅ 用户数据库 PGlite 已启动');
+      userStarted = true;
+      if (mainStarted && userStarted) {
+        resolve();
+      }
+    }
+  };
+});
+
 // --- 主数据库连接 ---
 export const MainDataSource = new DataSource({
   type: 'postgres',
-  host: process.env.DB_HOST || 'localhost',
-  port: parseInt(process.env.DB_PORT || '5432', 10),
-  username: process.env.DB_USERNAME || 'postgres',
-  password: process.env.DB_PASSWORD || 'password',
+  host: 'localhost',
+  port: mainPort,
+  // username: process.env.DB_USERNAME || 'postgres',
+  // password: process.env.DB_PASSWORD || 'password',
   database: process.env.DB_DATABASE || 'ai_learning_assistant',
+  uuidExtension: 'pgcrypto',
+  ssl: false,
   // 是否由 TypeORM 自动同步结构（仅开发使用）。生产建议关闭并改用 migration。
   synchronize: (process.env.TYPEORM_SYNC ?? 'true') === 'true',
   logging: false,
   entities: mainEntities,
   migrations: [],
   subscribers: [],
+
+  // PGlite 只支持单连接，必须限制连接池大小为 1
+  extra: {
+    max: 1, // 连接池最大连接数
+  },
 });
 
 // --- 用户数据库连接 ---
 export const UserDataSource = new DataSource({
   type: 'postgres',
-  host: process.env.USER_DB_HOST || 'localhost',
-  port: parseInt(process.env.USER_DB_PORT || '5432', 10),
-  username: process.env.USER_DB_USERNAME || 'postgres',
-  password: process.env.USER_DB_PASSWORD || 'password',
+  host: 'localhost',
+  port: userPort,
+  // username: process.env.USER_DB_USERNAME || 'postgres',
+  // password: process.env.USER_DB_PASSWORD || 'password',
   database: process.env.USER_DB_DATABASE || 'ai_learning_assistant_users',
+  uuidExtension: 'pgcrypto',
+  ssl: false,
   synchronize: (process.env.TYPEORM_SYNC ?? 'true') === 'true',
   logging: false,
   entities: userEntities,
   migrations: [],
   subscribers: [],
+  // PGlite 只支持单连接，必须限制连接池大小为 1
+  extra: {
+    max: 1, // 连接池最大连接数
+  },
 });
 
 // --- 数据库存在性检查与创建 ---
 async function ensureDatabase(host: string, port: number, username: string, password: string, dbName: string) {
-  const client = new Client({ host, port, user: username, password, database: 'postgres' });
+  const client = new Client({ host, port, user: username, password, database: dbName });
   try {
     await client.connect();
     const res = await client.query('SELECT 1 FROM pg_database WHERE datname = $1', [dbName]);
@@ -111,20 +146,8 @@ async function ensureAllDatabases() {
     console.log('ℹ️ AUTO_CREATE_DB=false 跳过数据库存在性自动创建');
     return;
   }
-  await ensureDatabase(
-    process.env.DB_HOST || 'localhost',
-    parseInt(process.env.DB_PORT || '5432', 10),
-    process.env.DB_USERNAME || 'postgres',
-    process.env.DB_PASSWORD || 'password',
-    process.env.DB_DATABASE || 'ai_learning_assistant'
-  );
-  await ensureDatabase(
-    process.env.USER_DB_HOST || process.env.DB_HOST || 'localhost',
-    parseInt(process.env.USER_DB_PORT || process.env.DB_PORT || '5432', 10),
-    process.env.USER_DB_USERNAME || process.env.DB_USERNAME || 'postgres',
-    process.env.USER_DB_PASSWORD || process.env.DB_PASSWORD || 'password',
-    process.env.USER_DB_DATABASE || 'ai_learning_assistant_users'
-  );
+  await ensureDatabase('localhost', mainPort, 'postgres', 'password', 'ai_learning_assistant');
+  await ensureDatabase('localhost', userPort, 'postgres', 'password', 'ai_learning_assistant_users');
 }
 
 // --- 初始化函数（带数据库自动创建与可选迁移逻辑） ---
