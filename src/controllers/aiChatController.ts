@@ -272,6 +272,7 @@ export class AiChatController extends BaseController {
           assistant = await createLearningAssistant(userId, sectionId, normalizedPersonaId, undefined, undefined, requirements, modelName, reasoning);
         }
 
+        console.log(`user Input: ${message}`);
         // const realMessage = message.replace("[inner]", "");
         // 获取Readable流
         const readableStream = assistant.chatStream(message);
