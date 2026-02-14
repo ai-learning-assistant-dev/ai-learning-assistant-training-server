@@ -15,8 +15,6 @@ import { SRTItem } from "../tool/types";
 import { getPromptWithArgs } from "../prompt/manager";
 import { KEY_LEARNING_ASSISTANT, KEY_LEARNING_ASSISTANT_FALLBACK } from "../prompt/default";
 import { ModelConfig, modelConfigManager } from "../utils/modelConfigManager";
-import { c } from "ofetch/dist/shared/ofetch.d0b3d489";
-import { ca } from "zod/v4/locales";
 
 /**
  * 学习助手配置选项
