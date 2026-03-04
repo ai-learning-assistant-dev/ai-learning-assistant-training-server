@@ -1,5 +1,5 @@
 // utils/ofetch.ts
-import { ofetch } from 'ofetch';
+import { FetchOptions, ofetch } from 'ofetch';
 
 /**
  * 自定义 ofetch 请求选项（只列出本项目用到的字段）
@@ -35,7 +35,7 @@ export async function ofetchJson<T = unknown>(
   const optsForOfetch = {
     ...opts,
     responseType: 'json',
-  } as const;
+  } as FetchOptions<"json", any>;
 
   const res = await ofetch<T>(url, optsForOfetch);
   return res;
