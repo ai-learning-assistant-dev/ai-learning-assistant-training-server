@@ -21,6 +21,7 @@
     "lint": "eslint src/**/*.ts",
     "lint:fix": "eslint src/**/*.ts --fix",
     "dev:bun": "bun tsdown && bun ./dist/app.mjs",
+    "start:bun": "bun tsoa spec-and-routes && bun tsdown && bun ./dist/app.mjs",
     "build:bun": "bun tsdown && bun build dist/app.mjs dist/utils/pgLiteWorker.mjs --compile --outfile backend",
     "version:check": "bun run version-manager.ts check",
     "version:check-remote": "bun run version-manager.ts check --remote",
