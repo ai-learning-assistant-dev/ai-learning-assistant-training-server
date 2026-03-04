@@ -5,6 +5,7 @@ import { ApiResponse } from '../types/express';
 import { SectionResponse, CreateSectionRequest, UpdateSectionRequest } from '../types/section';
 import { Route, Get, Post, Body, Path, Tags } from '@/tsoa';
 import { BaseController } from './baseController';
+import { CourseService } from '../services/courseService';
 
 @Tags('节表')
 @Route('sections')
@@ -41,25 +42,38 @@ export class SectionController extends BaseController {
     }
   }
 
-  @Post('/add')
-  public async addSection(@Body() requestBody: CreateSectionRequest): Promise<ApiResponse<any>> {
-    try {
-      if (!requestBody.title || !requestBody.chapter_id || requestBody.section_order === undefined) {
-        return this.fail('标题、章节ID和节顺序必填', null, 400);
-      }
-
-      const sectionRepo = MainDataSource.getRepository(Section);
-
-      // 只做节的基本创建
-      const item = sectionRepo.create({
-        ...requestBody,
-      });
-      const saved = await sectionRepo.save(item);
-      return this.ok(saved, '节创建成功');
-    } catch (error: any) {
-      return this.fail('创建节失败', error.message);
+@Post('/add')
+public async addSection(
+  @Body() requestBody: CreateSectionRequest
+): Promise<ApiResponse<any>> {
+  try {
+    if (!requestBody.title || !requestBody.chapter_id || requestBody.section_order === undefined) {
+      return this.fail('标题、章节ID和节顺序必填', null, 400);
     }
+    
+    const sectionRepo = MainDataSource.getRepository(Section);
+    const chapterRepo = MainDataSource.getRepository(Chapter);
+    
+    // 获取章节以找到 course_id
+    const chapter = await chapterRepo.findOneBy({ chapter_id: requestBody.chapter_id });
+    if (!chapter) {
+      return this.fail('章节不存在', null, 400);
+    }
+    
+    // 创建节
+    const item = sectionRepo.create({
+      ...requestBody
+    });
+    const saved = await sectionRepo.save(item);
+    
+    // 更新课程总学时
+    await CourseService.updateCourseTotalTime(chapter.course_id);
+    
+    return this.ok(saved, '节创建成功');
+  } catch (error: any) {
+    return this.fail('创建节失败', error.message);
   }
+}
 
   @Post('/update')
   public async updateSection(@Body() requestBody: UpdateSectionRequest): Promise<ApiResponse<any>> {
@@ -74,6 +88,14 @@ export class SectionController extends BaseController {
       }
       Object.assign(item, requestBody);
       const saved = await repo.save(item);
+      
+      // 更新课程总学时
+      const chapterRepo = MainDataSource.getRepository(Chapter);
+      const chapter = await chapterRepo.findOneBy({ chapter_id: item.chapter_id });
+      if (chapter) {
+        await CourseService.updateCourseTotalTime(chapter.course_id);
+      }
+      
       return this.ok(saved, '节更新成功');
     } catch (error) {
       return this.fail('更新节失败', error);
@@ -88,7 +110,19 @@ export class SectionController extends BaseController {
       if (!item) {
         return this.fail('节不存在');
       }
+      
+      // 先获取章节信息以找到 course_id
+      const chapterRepo = MainDataSource.getRepository(Chapter);
+      const chapter = await chapterRepo.findOneBy({ chapter_id: item.chapter_id });
+      const courseId = chapter?.course_id;
+      
       await repo.remove(item);
+      
+      // 更新课程总学时
+      if (courseId) {
+        await CourseService.updateCourseTotalTime(courseId);
+      }
+      
       return this.ok({}, '节删除成功');
     } catch (error) {
       return this.fail('删除节失败', error);
