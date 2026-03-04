@@ -5,7 +5,7 @@ import { Section } from '../models/section';
 import { Exercise } from '../models/exercise';
 import { ApiResponse } from '../types/express';
 import { CourseResponse, CreateCourseRequest, UpdateCourseRequest, CourseCategory } from '../types/course';
-import { Route, Get, Post, Body, Path, Tags } from 'tsoa';
+import { Route, Get, Post, Body, Path, Tags } from '@/tsoa';
 import { In } from 'typeorm';
 import { UserSectionUnlock } from '../models/userSectionUnlock';
 import { BaseController } from './baseController';
