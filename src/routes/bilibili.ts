@@ -1,4 +1,5 @@
 import { Hono } from 'hono';
+import { describeRoute } from 'hono-openapi';
 import { Readable } from 'node:stream';
 import md5 from 'md5';
 import { create } from 'xmlbuilder2';
@@ -277,209 +278,244 @@ const app = new Hono();
 // ── GET /stream — 代理视频流 ────────────────────────
 
 /** 代理 B 站视频/音频流请求，处理 Range 分段下载和 CDN 域名转发 */
-app.get('/stream', async c => {
-  const url = c.req.query('url');
-  const bvid = c.req.query('bvid') ?? '';
-  const sign = c.req.query('sign');
-  const platform = c.req.query('platform');
-  const traceid = c.req.query('traceid');
+app.get(
+  '/stream',
+  describeRoute({
+    tags: ['B站代理'],
+    summary: '代理 B 站视频/音频流请求，处理 Range 分段下载和 CDN 域名转发',
+  }),
+  async c => {
+    const url = c.req.query('url');
+    const bvid = c.req.query('bvid') ?? '';
+    const sign = c.req.query('sign');
+    const platform = c.req.query('platform');
+    const traceid = c.req.query('traceid');
 
-  if (!url) return c.json(fail('URL 参数不能为空'), 400);
+    if (!url) return c.json(fail('URL 参数不能为空'), 400);
 
-  let finalUrl = platform && sign ? `${url}&sign=${sign}&platform=${platform}&traceid=${traceid}` : url;
-  const decodedUrl = decodeURIComponent(finalUrl);
+    let finalUrl = platform && sign ? `${url}&sign=${sign}&platform=${platform}&traceid=${traceid}` : url;
+    const decodedUrl = decodeURIComponent(finalUrl);
 
-  let hostHeader = '';
-  if (decodedUrl.includes('mcdn.bilivideo')) hostHeader = extractHostFromUrl(decodedUrl);
+    let hostHeader = '';
+    if (decodedUrl.includes('mcdn.bilivideo')) hostHeader = extractHostFromUrl(decodedUrl);
 
-  const headers: Record<string, string> = {
-    Accept: c.req.header('accept') || '*/*',
-    'Accept-Language': c.req.header('accept-language') || 'zh-CN,zh;q=0.9',
-    Origin: c.req.header('origin') || 'https://www.bilibili.com',
-    Referer: bvid ? `https://www.bilibili.com/video/${bvid}/` : c.req.header('referer') || 'https://www.bilibili.com/',
-    'User-Agent': c.req.header('user-agent') || 'Mozilla/5.0',
-    Connection: 'keep-alive',
-  };
-  if (hostHeader) headers['Host'] = hostHeader;
-  if (c.req.header('if-range')) headers['If-Range'] = c.req.header('if-range')!;
+    const headers: Record<string, string> = {
+      Accept: c.req.header('accept') || '*/*',
+      'Accept-Language': c.req.header('accept-language') || 'zh-CN,zh;q=0.9',
+      Origin: c.req.header('origin') || 'https://www.bilibili.com',
+      Referer: bvid ? `https://www.bilibili.com/video/${bvid}/` : c.req.header('referer') || 'https://www.bilibili.com/',
+      'User-Agent': c.req.header('user-agent') || 'Mozilla/5.0',
+      Connection: 'keep-alive',
+    };
+    if (hostHeader) headers['Host'] = hostHeader;
+    if (c.req.header('if-range')) headers['If-Range'] = c.req.header('if-range')!;
 
-  const rangeHeader = c.req.header('range');
-  let rangeStart: number | undefined;
-  let rangeEnd: number | undefined;
-  if (rangeHeader) {
-    const m = rangeHeader.match(/^bytes=(\d+)-(\d*)$/);
-    if (!m) return c.json(fail('Range 请求头格式无效'), 400);
-    rangeStart = parseInt(m[1]!, 10);
-    rangeEnd = m[2] ? parseInt(m[2], 10) : undefined;
-    headers['Range'] = rangeHeader;
-  }
-
-  const response = await ofetchRawStream(decodedUrl, { method: 'GET', headers, responseType: 'stream', timeout: 15000 });
-  if (response.status === 204) return c.json(fail('B 站返回 204 错误'), 502);
-
-  // 构建响应头
-  const respHeaders = new Headers();
-  respHeaders.set('Accept-Ranges', 'bytes');
-  for (const [key, value] of response.headers.entries()) {
-    const lower = key.toLowerCase();
-    if (lower !== 'content-length' && lower !== 'content-range') {
-      respHeaders.set(key, value);
+    const rangeHeader = c.req.header('range');
+    let rangeStart: number | undefined;
+    let rangeEnd: number | undefined;
+    if (rangeHeader) {
+      const m = rangeHeader.match(/^bytes=(\d+)-(\d*)$/);
+      if (!m) return c.json(fail('Range 请求头格式无效'), 400);
+      rangeStart = parseInt(m[1]!, 10);
+      rangeEnd = m[2] ? parseInt(m[2], 10) : undefined;
+      headers['Range'] = rangeHeader;
     }
-  }
 
-  const contentLength = response.headers.get('content-length');
-  const totalSize = contentLength ? parseInt(contentLength, 10) : undefined;
-  let statusCode = response.status;
+    const response = await ofetchRawStream(decodedUrl, { method: 'GET', headers, responseType: 'stream', timeout: 15000 });
+    if (response.status === 204) return c.json(fail('B 站返回 204 错误'), 502);
 
-  if (rangeHeader && totalSize && rangeStart !== undefined) {
-    const end = rangeEnd !== undefined && rangeEnd < totalSize ? rangeEnd : totalSize - 1;
-    respHeaders.set('Content-Range', `bytes ${rangeStart}-${end}/${totalSize}`);
-    respHeaders.set('Content-Length', String(end - rangeStart + 1));
-    statusCode = 206;
-  } else if (totalSize) {
-    respHeaders.set('Content-Length', String(totalSize));
-  }
+    // 构建响应头
+    const respHeaders = new Headers();
+    respHeaders.set('Accept-Ranges', 'bytes');
+    for (const [key, value] of response.headers.entries()) {
+      const lower = key.toLowerCase();
+      if (lower !== 'content-length' && lower !== 'content-range') {
+        respHeaders.set(key, value);
+      }
+    }
 
-  return new Response(response.body, { status: statusCode, headers: respHeaders });
-});
+    const contentLength = response.headers.get('content-length');
+    const totalSize = contentLength ? parseInt(contentLength, 10) : undefined;
+    let statusCode = response.status;
+
+    if (rangeHeader && totalSize && rangeStart !== undefined) {
+      const end = rangeEnd !== undefined && rangeEnd < totalSize ? rangeEnd : totalSize - 1;
+      respHeaders.set('Content-Range', `bytes ${rangeStart}-${end}/${totalSize}`);
+      respHeaders.set('Content-Length', String(end - rangeStart + 1));
+      statusCode = 206;
+    } else if (totalSize) {
+      respHeaders.set('Content-Length', String(totalSize));
+    }
+
+    return new Response(response.body, { status: statusCode, headers: respHeaders });
+  },
+);
 
 // ── GET /captcha — 获取验证码 ───────────────────────
 
 /** 代理请求 B 站登录验证码接口 */
-app.get('/captcha', async c => {
-  try {
-    const res = await ofetch('https://passport.bilibili.com/x/passport-login/captcha?source=main_web');
-    return c.json(ok(res, '获取验证码成功'));
-  } catch {
-    return c.json(fail('获取验证码失败'));
-  }
-});
+app.get(
+  '/captcha',
+  describeRoute({
+    tags: ['B站代理'],
+    summary: '代理请求 B 站登录验证码接口',
+  }),
+  async c => {
+    try {
+      const res = await ofetch('https://passport.bilibili.com/x/passport-login/captcha?source=main_web');
+      return c.json(ok(res, '获取验证码成功'));
+    } catch {
+      return c.json(fail('获取验证码失败'));
+    }
+  },
+);
 
 // ── POST /sms — 发送短信验证码 ──────────────────────
 
 /** 代理请求 B 站短信验证码发送接口，需携带人机验证参数 */
-app.post('/sms', async c => {
-  const params = await c.req.json();
-  const userAgent = c.req.header('user-agent') || '';
-  const body = new URLSearchParams();
-  body.append('source', params.source);
-  body.append('tel', params.tel);
-  body.append('cid', String(params.cid));
-  body.append('validate', params.validate);
-  body.append('token', params.token);
-  body.append('seccode', params.seccode);
-  body.append('challenge', params.challenge);
+app.post(
+  '/sms',
+  describeRoute({
+    tags: ['B站代理'],
+    summary: '代理请求 B 站短信验证码发送接口，需携带人机验证参数',
+  }),
+  async c => {
+    const params = await c.req.json();
+    const userAgent = c.req.header('user-agent') || '';
+    const body = new URLSearchParams();
+    body.append('source', params.source);
+    body.append('tel', params.tel);
+    body.append('cid', String(params.cid));
+    body.append('validate', params.validate);
+    body.append('token', params.token);
+    body.append('seccode', params.seccode);
+    body.append('challenge', params.challenge);
 
-  try {
-    const res = await ofetch('https://passport.bilibili.com/x/passport-login/web/sms/send', {
-      method: 'POST',
-      headers: {
-        accept: '*/*',
-        'accept-language': 'zh-CN,zh;q=0.9,en;q=0.8',
-        'Accept-Encoding': 'gzip, deflate, br',
-        Connection: 'keep-alive',
-        'content-type': 'application/x-www-form-urlencoded',
-        origin: 'https://www.bilibili.com',
-        Host: 'passport.bilibili.com',
-        priority: 'u=1, i',
-        referer: 'https://www.bilibili.com/',
-        'sec-ch-ua': '"Chromium";v="142", "Google Chrome";v="142", "Not_A Brand";v="99"',
-        'sec-ch-ua-mobile': '?0',
-        'sec-ch-ua-platform': '"Windows"',
-        'sec-fetch-dest': 'empty',
-        'sec-fetch-mode': 'cors',
-        'sec-fetch-site': 'same-site',
-        'user-agent': userAgent,
-      },
-      body,
-    } as any);
-    return c.json(ok(res, '短信发送成功'));
-  } catch (error) {
-    return c.json(fail('短信发送失败'));
-  }
-});
+    try {
+      const res = await ofetch('https://passport.bilibili.com/x/passport-login/web/sms/send', {
+        method: 'POST',
+        headers: {
+          accept: '*/*',
+          'accept-language': 'zh-CN,zh;q=0.9,en;q=0.8',
+          'Accept-Encoding': 'gzip, deflate, br',
+          Connection: 'keep-alive',
+          'content-type': 'application/x-www-form-urlencoded',
+          origin: 'https://www.bilibili.com',
+          Host: 'passport.bilibili.com',
+          priority: 'u=1, i',
+          referer: 'https://www.bilibili.com/',
+          'sec-ch-ua': '"Chromium";v="142", "Google Chrome";v="142", "Not_A Brand";v="99"',
+          'sec-ch-ua-mobile': '?0',
+          'sec-ch-ua-platform': '"Windows"',
+          'sec-fetch-dest': 'empty',
+          'sec-fetch-mode': 'cors',
+          'sec-fetch-site': 'same-site',
+          'user-agent': userAgent,
+        },
+        body,
+      } as any);
+      return c.json(ok(res, '短信发送成功'));
+    } catch (error) {
+      return c.json(fail('短信发送失败'));
+    }
+  },
+);
 
 // ── POST /login — 短信登录 ──────────────────────────
 
 /** 代理 B 站短信登录接口，登录成功后提取并转发 SESSDATA Cookie */
-app.post('/login', async c => {
-  const params = await c.req.json();
-  const body = new URLSearchParams();
-  body.append('source', params.source);
-  body.append('tel', params.tel);
-  body.append('code', params.code);
-  body.append('keep', params.keep ? 'true' : 'false');
-  body.append('go_url', params.go_url);
-  body.append('cid', String(params.cid));
-  body.append('captcha_key', params.captcha_key);
+app.post(
+  '/login',
+  describeRoute({
+    tags: ['B站代理'],
+    summary: '代理 B 站短信登录接口，登录成功后提取并转发 SESSDATA Cookie',
+  }),
+  async c => {
+    const params = await c.req.json();
+    const body = new URLSearchParams();
+    body.append('source', params.source);
+    body.append('tel', params.tel);
+    body.append('code', params.code);
+    body.append('keep', params.keep ? 'true' : 'false');
+    body.append('go_url', params.go_url);
+    body.append('cid', String(params.cid));
+    body.append('captcha_key', params.captcha_key);
 
-  try {
-    const resRaw = await ofetch.raw('https://passport.bilibili.com/x/passport-login/web/login/sms', {
-      method: 'POST',
-      headers: {
-        accept: '*/*',
-        'accept-language': 'zh-CN,zh;q=0.9,en;q=0.8',
-        'content-type': 'application/x-www-form-urlencoded',
-        origin: 'https://www.bilibili.com',
-        priority: 'u=1, i',
-        referer: 'https://www.bilibili.com/',
-        'sec-ch-ua': '"Google Chrome";v="141", "Not?A_Brand";v="8", "Chromium";v="141"',
-        'sec-ch-ua-mobile': '?0',
-        'sec-ch-ua-platform': '"Windows"',
-        'sec-fetch-dest': 'empty',
-        'sec-fetch-mode': 'cors',
-        'sec-fetch-site': 'same-site',
-        'user-agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/141.0.0.0 Safari/537.36',
-      },
-      body,
-    } as any);
+    try {
+      const resRaw = await ofetch.raw('https://passport.bilibili.com/x/passport-login/web/login/sms', {
+        method: 'POST',
+        headers: {
+          accept: '*/*',
+          'accept-language': 'zh-CN,zh;q=0.9,en;q=0.8',
+          'content-type': 'application/x-www-form-urlencoded',
+          origin: 'https://www.bilibili.com',
+          priority: 'u=1, i',
+          referer: 'https://www.bilibili.com/',
+          'sec-ch-ua': '"Google Chrome";v="141", "Not?A_Brand";v="8", "Chromium";v="141"',
+          'sec-ch-ua-mobile': '?0',
+          'sec-ch-ua-platform': '"Windows"',
+          'sec-fetch-dest': 'empty',
+          'sec-fetch-mode': 'cors',
+          'sec-fetch-site': 'same-site',
+          'user-agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/141.0.0.0 Safari/537.36',
+        },
+        body,
+      } as any);
 
-    const setCookies = (resRaw as any)?.headers?.get?.('set-cookie');
-    if (setCookies) {
-      const arr = Array.isArray(setCookies) ? setCookies : [setCookies];
-      for (const cookie of arr) {
-        const processed = handleCookie(cookie);
-        if (processed) c.header('set-cookie', processed);
+      const setCookies = (resRaw as any)?.headers?.get?.('set-cookie');
+      if (setCookies) {
+        const arr = Array.isArray(setCookies) ? setCookies : [setCookies];
+        for (const cookie of arr) {
+          const processed = handleCookie(cookie);
+          if (processed) c.header('set-cookie', processed);
+        }
       }
-    }
 
-    return c.json(ok((resRaw as any)._data, '登录成功'));
-  } catch (error) {
-    return c.json(fail('登录失败'));
-  }
-});
+      return c.json(ok((resRaw as any)._data, '登录成功'));
+    } catch (error) {
+      return c.json(fail('登录失败'));
+    }
+  },
+);
 
 // ── GET /video-manifest — 生成 DASH 清单 ────────────
 
 /** 根据 bvid 获取视频 DASH 信息，生成 MPD 清单 XML、格式列表和统一 MPD */
-app.get('/video-manifest', async c => {
-  const bvid = c.req.query('bvid');
-  const cidParam = c.req.query('cid');
-  const pParam = c.req.query('p');
+app.get(
+  '/video-manifest',
+  describeRoute({
+    tags: ['B站代理'],
+    summary: '根据 bvid 获取视频 DASH 信息，生成 MPD 清单 XML、格式列表和统一 MPD',
+  }),
+  async c => {
+    const bvid = c.req.query('bvid');
+    const cidParam = c.req.query('cid');
+    const pParam = c.req.query('p');
 
-  if (!bvid?.trim()) return c.json(fail('bvid parameter is required'), 400);
+    if (!bvid?.trim()) return c.json(fail('bvid parameter is required'), 400);
 
-  const host = c.req.header('host') || process.env.HOST || 'localhost:3000';
-  const proto = c.req.header('x-forwarded-proto') || 'http';
-  let baseUrl = `${proto}://${host}`;
-  if (proto === 'http' && host.includes(':443')) baseUrl = `https://${host.split(':')[0]}`;
+    const host = c.req.header('host') || process.env.HOST || 'localhost:3000';
+    const proto = c.req.header('x-forwarded-proto') || 'http';
+    let baseUrl = `${proto}://${host}`;
+    if (proto === 'http' && host.includes(':443')) baseUrl = `https://${host.split(':')[0]}`;
 
-  const cookie = c.req.header('cookie') || '';
-  const sessdata = getCookieValue(cookie, 'SESSDATA');
-  const cid = cidParam ? parseInt(cidParam, 10) : undefined;
+    const cookie = c.req.header('cookie') || '';
+    const sessdata = getCookieValue(cookie, 'SESSDATA');
+    const cid = cidParam ? parseInt(cidParam, 10) : undefined;
 
-  let dashInfo = await getDashInfo(bvid, sessdata, cid);
-  if (pParam && dashInfo.pages) {
-    const p = parseInt(pParam, 10);
-    const pageCid = dashInfo.pages[p - 1]?.cid;
-    if (pageCid) dashInfo = await getDashInfo(bvid, sessdata, pageCid);
-  }
+    let dashInfo = await getDashInfo(bvid, sessdata, cid);
+    if (pParam && dashInfo.pages) {
+      const p = parseInt(pParam, 10);
+      const pageCid = dashInfo.pages[p - 1]?.cid;
+      if (pageCid) dashInfo = await getDashInfo(bvid, sessdata, pageCid);
+    }
 
-  const xmlResult = generateMPD(dashInfo.dash, baseUrl + '/api', bvid);
-  const formatList = generateFormatList(dashInfo.dash);
-  const unifiedMpd = generateUnifiedMPD(dashInfo.dash, baseUrl + '/api', bvid);
+    const xmlResult = generateMPD(dashInfo.dash, baseUrl + '/api', bvid);
+    const formatList = generateFormatList(dashInfo.dash);
+    const unifiedMpd = generateUnifiedMPD(dashInfo.dash, baseUrl + '/api', bvid);
 
-  return c.json(ok({ xml: xmlResult, formatList, unifiedMpd, pages: dashInfo.pages }));
-});
+    return c.json(ok({ xml: xmlResult, formatList, unifiedMpd, pages: dashInfo.pages }));
+  },
+);
 
 export default app;

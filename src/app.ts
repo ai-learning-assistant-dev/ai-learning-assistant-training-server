@@ -3,6 +3,7 @@ import { Hono } from 'hono';
 
 import { cors } from 'hono/cors';
 import { secureHeaders } from 'hono/secure-headers';
+import { trimTrailingSlash } from 'hono/trailing-slash';
 import { onError, onNotFound } from './middleware/errorHandler';
 import logger from './utils/logger';
 import api from './routes';
@@ -21,6 +22,7 @@ app.use(
   }),
 );
 app.use('*', secureHeaders());
+app.use(trimTrailingSlash());
 
 // ── 错误响应日志中间件 ────────────────────────────────
 // 记录所有 4xx/5xx 响应到日志（不含 Zod 校验错误，已在 errorHandler 中处理）

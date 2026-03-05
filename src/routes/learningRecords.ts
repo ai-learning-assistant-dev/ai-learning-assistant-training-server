@@ -15,6 +15,8 @@ app.route(
     idField: 'task_id',
     createSchema: createLearningRecordSchema,
     updateSchema: updateLearningRecordSchema,
+    tag: '用户与学习',
+    entityName: '学习记录',
   }),
 );
 

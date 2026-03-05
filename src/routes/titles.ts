@@ -15,6 +15,8 @@ app.route(
     idField: 'title_id',
     createSchema: createTitleSchema,
     updateSchema: updateTitleSchema,
+    tag: '用户与学习',
+    entityName: '称号',
   }),
 );
 

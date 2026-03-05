@@ -15,6 +15,8 @@ app.route(
     idField: 'section_id',
     createSchema: createSectionSchema,
     updateSchema: updateSectionSchema,
+    tag: '课程管理',
+    entityName: '小节',
   }),
 );
 

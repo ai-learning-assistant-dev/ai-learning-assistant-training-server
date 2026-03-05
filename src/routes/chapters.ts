@@ -15,6 +15,8 @@ app.route(
     idField: 'chapter_id',
     createSchema: createChapterSchema,
     updateSchema: updateChapterSchema,
+    tag: '课程管理',
+    entityName: '章节',
   }),
 );
 

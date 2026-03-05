@@ -15,6 +15,8 @@ app.route(
     idField: 'result_id',
     createSchema: createTestResultSchema,
     updateSchema: updateTestResultSchema,
+    tag: '练习与测试',
+    entityName: '测试结果',
   }),
 );
 

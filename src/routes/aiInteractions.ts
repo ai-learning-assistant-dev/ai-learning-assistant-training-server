@@ -15,6 +15,8 @@ app.route(
     idField: 'interaction_id',
     createSchema: createAiInteractionSchema,
     updateSchema: updateAiInteractionSchema,
+    tag: 'AI 管理',
+    entityName: 'AI 交互记录',
   }),
 );
 

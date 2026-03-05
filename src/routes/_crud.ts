@@ -12,7 +12,9 @@ import { Hono } from 'hono';
 import { eq, sql } from 'drizzle-orm';
 import type { PgTable } from 'drizzle-orm/pg-core';
 import type { z } from 'zod';
+import { describeRoute } from 'hono-openapi';
 import { searchSchema, ok, fail, paginate } from '@schemas/common';
+import { jsonBody, jsonResponse, standardResponses, paginatedResponses, apiErrorSchema } from '@schemas/openapi';
 
 export interface CrudConfig {
   /** Drizzle 数据库实例的 getter（延迟获取，避免模块加载时未初始化） */
@@ -27,76 +29,128 @@ export interface CrudConfig {
   createSchema: z.ZodType;
   /** 更新时的 Zod 验证 schema */
   updateSchema: z.ZodType;
+  /** OpenAPI 标签名，如 '课程管理' */
+  tag?: string;
+  /** 实体中文名，如 '课程'，用于自动生成描述 */
+  entityName?: string;
 }
 
 /**
  * 创建标准 CRUD 路由
  */
 export function createCrudRoutes(config: CrudConfig): Hono {
-  const { db: getDb, table, idColumn, idField, createSchema, updateSchema } = config;
+  const { db: getDb, table, idColumn, idField, createSchema, updateSchema, tag, entityName = '记录' } = config;
+  const tags = tag ? [tag] : undefined;
   const app = new Hono();
 
   // POST /search — 分页查询
-  app.post('/search', async c => {
-    const db = getDb();
-    const { page, limit } = searchSchema.parse(await c.req.json());
-    const offset = (page - 1) * limit;
+  app.post(
+    '/search',
+    describeRoute({
+      tags,
+      summary: `分页查询${entityName}`,
+      requestBody: jsonBody(searchSchema) as any,
+      responses: paginatedResponses(entityName),
+    }),
+    async c => {
+      const db = getDb();
+      const { page, limit } = searchSchema.parse(await c.req.json());
+      const offset = (page - 1) * limit;
 
-    const [rows, totalResult] = await Promise.all([db.select().from(table).limit(limit).offset(offset), db.select({ count: sql<number>`count(*)::int` }).from(table)]);
-    const total = Number(totalResult[0]?.count ?? 0);
+      const [rows, totalResult] = await Promise.all([db.select().from(table).limit(limit).offset(offset), db.select({ count: sql<number>`count(*)::int` }).from(table)]);
+      const total = Number(totalResult[0]?.count ?? 0);
 
-    return c.json(paginate(rows, total, page, limit));
-  });
+      return c.json(paginate(rows, total, page, limit));
+    },
+  );
 
   // POST /getById — 按 ID 查询
-  app.post('/getById', async c => {
-    const db = getDb();
-    const body = await c.req.json();
-    const id = body[idField];
-    if (!id) return c.json(fail(`缺少 ${idField}`), 400);
+  app.post(
+    '/getById',
+    describeRoute({
+      tags,
+      summary: `按 ID 查询${entityName}`,
+      responses: standardResponses(`查询${entityName}成功`),
+    }),
+    async c => {
+      const db = getDb();
+      const body = await c.req.json();
+      const id = body[idField];
+      if (!id) return c.json(fail(`缺少 ${idField}`), 400);
 
-    const rows = await db.select().from(table).where(eq(idColumn, id)).limit(1);
-    if (!rows[0]) return c.json(fail('未找到记录'), 404);
+      const rows = await db.select().from(table).where(eq(idColumn, id)).limit(1);
+      if (!rows[0]) return c.json(fail('未找到记录'), 404);
 
-    return c.json(ok(rows[0]));
-  });
+      return c.json(ok(rows[0]));
+    },
+  );
 
   // POST /add — 创建
-  app.post('/add', async c => {
-    const db = getDb();
-    const body = createSchema.parse(await c.req.json());
-    const result = await db.insert(table).values(body).returning();
-    return c.json(ok(result[0], '创建成功'));
-  });
+  app.post(
+    '/add',
+    describeRoute({
+      tags,
+      summary: `创建${entityName}`,
+      requestBody: jsonBody(createSchema) as any,
+      responses: standardResponses(`${entityName}创建成功`),
+    }),
+    async c => {
+      const db = getDb();
+      const body = createSchema.parse(await c.req.json());
+      const result = await db.insert(table).values(body).returning();
+      return c.json(ok(result[0], '创建成功'));
+    },
+  );
 
   // POST /update — 更新
-  app.post('/update', async c => {
-    const db = getDb();
-    const body = updateSchema.parse(await c.req.json());
-    const id = (body as Record<string, unknown>)[idField];
-    if (!id) return c.json(fail(`缺少 ${idField}`), 400);
+  app.post(
+    '/update',
+    describeRoute({
+      tags,
+      summary: `更新${entityName}`,
+      requestBody: jsonBody(updateSchema) as any,
+      responses: standardResponses(`${entityName}更新成功`),
+    }),
+    async c => {
+      const db = getDb();
+      const body = updateSchema.parse(await c.req.json());
+      const id = (body as Record<string, unknown>)[idField];
+      if (!id) return c.json(fail(`缺少 ${idField}`), 400);
 
-    const existing = await db.select().from(table).where(eq(idColumn, id)).limit(1);
-    if (!existing[0]) return c.json(fail('未找到记录'), 404);
+      const existing = await db.select().from(table).where(eq(idColumn, id)).limit(1);
+      if (!existing[0]) return c.json(fail('未找到记录'), 404);
 
-    const { [idField]: _, ...data } = body as Record<string, unknown>;
-    const result = await db.update(table).set(data).where(eq(idColumn, id)).returning();
-    return c.json(ok(result[0], '更新成功'));
-  });
+      const { [idField]: _, ...data } = body as Record<string, unknown>;
+      const result = await db.update(table).set(data).where(eq(idColumn, id)).returning();
+      return c.json(ok(result[0], '更新成功'));
+    },
+  );
 
   // POST /delete — 删除
-  app.post('/delete', async c => {
-    const db = getDb();
-    const body = await c.req.json();
-    const id = body[idField];
-    if (!id) return c.json(fail(`缺少 ${idField}`), 400);
+  app.post(
+    '/delete',
+    describeRoute({
+      tags,
+      summary: `删除${entityName}`,
+      responses: {
+        200: jsonResponse(`${entityName}删除成功`),
+        400: jsonResponse('缺少 ID', apiErrorSchema),
+        404: jsonResponse('未找到记录', apiErrorSchema),
+      },
+    }),
+    async c => {
+      const db = getDb();
+      const body = await c.req.json();
+      const id = body[idField];
+      if (!id) return c.json(fail(`缺少 ${idField}`), 400);
 
-    const existing = await db.select().from(table).where(eq(idColumn, id)).limit(1);
-    if (!existing[0]) return c.json(fail('未找到记录'), 404);
+      const existing = await db.select().from(table).where(eq(idColumn, id)).limit(1);
+      if (!existing[0]) return c.json(fail('未找到记录'), 404);
 
-    await db.delete(table).where(eq(idColumn, id));
-    return c.json(ok(null, '删除成功'));
-  });
+      await db.delete(table).where(eq(idColumn, id));
+      return c.json(ok(null, '删除成功'));
+    },
+  );
 
   return app;
 }

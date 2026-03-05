@@ -15,6 +15,8 @@ app.route(
     idField: 'option_id',
     createSchema: createExerciseOptionSchema,
     updateSchema: updateExerciseOptionSchema,
+    tag: '练习与测试',
+    entityName: '练习选项',
   }),
 );
 

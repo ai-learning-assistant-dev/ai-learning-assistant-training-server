@@ -18,6 +18,8 @@ app.route(
     idField: 'question_id',
     createSchema: createLeadingQuestionSchema,
     updateSchema: updateLeadingQuestionSchema,
+    tag: '课程管理',
+    entityName: '引导问题',
   }),
 );
 

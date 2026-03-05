@@ -15,6 +15,8 @@ app.route(
     idField: 'plan_id',
     createSchema: createCourseScheduleSchema,
     updateSchema: updateCourseScheduleSchema,
+    tag: '用户与学习',
+    entityName: '课程安排',
   }),
 );
 

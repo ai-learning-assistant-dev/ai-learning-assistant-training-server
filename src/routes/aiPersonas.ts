@@ -15,6 +15,8 @@ app.route(
     idField: 'persona_id',
     createSchema: createAiPersonaSchema,
     updateSchema: updateAiPersonaSchema,
+    tag: 'AI 管理',
+    entityName: 'AI 人设',
   }),
 );
 

@@ -10,6 +10,8 @@ const app = createCrudRoutes({
   idField: 'summary_id',
   createSchema: createDailySummarySchema,
   updateSchema: updateDailySummarySchema,
+  tag: '用户与学习',
+  entityName: '每日总结',
 });
 
 export default app;
