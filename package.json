@@ -11,6 +11,7 @@
     "build:bun": "bun tsdown && bun build dist/app.mjs --compile --outfile backend",
     "clean": "rimraf dist build",
     "db:init": "bun src/scripts/initDB.ts",
+    "db:init:fullinit": "NODE_ENV=fullinit bun src/scripts/initDB.ts",
     "db:import": "bun src/scripts/importSQL.ts",
     "db:seed": "bun src/scripts/seedFromAI.ts",
     "db:generate:main": "DB_TARGET=main drizzle-kit generate",
