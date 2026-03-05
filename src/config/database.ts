@@ -48,23 +48,27 @@ const userEntities = [
   TestResult,
 ];
 
-const mainPort = await getAvailablePort();
-const userPort = await getAvailablePort();
+export const mainPort = await getAvailablePort();
+export const userPort = await getAvailablePort();
+export const llmPort = await getAvailablePort();
 const workerPath = process.env.NODE_ENV === 'production' ? path.resolve(__dirname, '../utils/pgLiteWorker.js') : path.resolve(__dirname, './utils/pgLiteWorker.mjs');
 console.log(`ℹ️ 使用的 pgLiteWorker 路径: ${workerPath}`);
 const mainPgLite = new Worker(workerPath);
 const userPgLite = new Worker(workerPath);
+const llmPgLite = new Worker(workerPath);
 const courseFile = process.env.ALA_COURSE_PATH ? process.env.ALA_COURSE_PATH : path.resolve('./back_f.sql');
 mainPgLite.postMessage({ action: 'start', params: { name: 'ai_learning_assistant', port: mainPort, backupFile: courseFile } });
 userPgLite.postMessage({ action: 'start', params: { name: 'ai_learning_assistant_users', port: userPort } });
+llmPgLite.postMessage({ action: 'start', params: { name: 'ai_learning_assistant_llm', port: llmPort } });
 await new Promise<void>(resolve => {
   let mainStarted = false;
   let userStarted = false;
+  let llmStarted = false;
   mainPgLite.onmessage = event => {
     if (event.data.event === 'started') {
       console.log('✅ 主数据库 PGlite 已启动');
       mainStarted = true;
-      if (mainStarted && userStarted) {
+      if (mainStarted && userStarted && llmStarted) {
         resolve();
       }
     }
@@ -73,7 +77,16 @@ await new Promise<void>(resolve => {
     if (event.data.event === 'started') {
       console.log('✅ 用户数据库 PGlite 已启动');
       userStarted = true;
-      if (mainStarted && userStarted) {
+      if (mainStarted && userStarted && llmStarted) {
+        resolve();
+      }
+    }
+  };
+  llmPgLite.onmessage = event => {
+    if (event.data.event === 'started') {
+      console.log('✅ LLM数据库 PGlite 已启动');
+      llmStarted = true;
+      if (mainStarted && userStarted && llmStarted) {
         resolve();
       }
     }
@@ -149,6 +162,7 @@ async function ensureAllDatabases() {
   }
   await ensureDatabase('localhost', mainPort, 'postgres', 'password', 'ai_learning_assistant');
   await ensureDatabase('localhost', userPort, 'postgres', 'password', 'ai_learning_assistant_users');
+  await ensureDatabase('localhost', llmPort, 'postgres', 'password', 'ai_learning_assistant_llm');
 }
 
 // --- 初始化函数（带数据库自动创建与可选迁移逻辑） ---

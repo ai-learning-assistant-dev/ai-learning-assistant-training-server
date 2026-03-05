@@ -1,20 +1,8 @@
 import { PostgresSaver } from "@langchain/langgraph-checkpoint-postgres";
-import { Pool } from "pg";
-import { MainDataSource, UserDataSource } from "../../config/database";
+import { Pool, PoolConfig } from "pg";
+import { llmPort, MainDataSource, UserDataSource } from "../../config/database";
 import { AiInteraction } from "../../models/aiInteraction";
 // 其余实体（User/Section/AiPersona）暂未在此类中直接使用，后续若需要跨库查询可引用 MainDataSource/UserDataSource 获取。
-
-/**
- * PostgreSQL 数据库配置接口
- */
-export interface PostgreSQLConfig {
-  host: string;
-  port: number;
-  database: string;
-  user: string;
-  password: string;
-  ssl?: boolean;
-}
 
 /**
  * 会话映射信息接口
@@ -42,6 +30,24 @@ export interface ConversationAnalytics {
   sessionDurationMinutes: number;
 }
 
+let iPSS: IntegratedPostgreSQLStorage | null = null;
+
+export function getSingleIPSS(){
+  if(iPSS){
+    return iPSS;
+  }else{
+    iPSS = new IntegratedPostgreSQLStorage({
+      host: 'localhost',
+      port: llmPort,
+      database: 'ai_learning_assistant_llm',
+      max: 1,
+      min: 1,
+      keepAlive: true,
+    });
+    return iPSS;
+  }
+  
+}
 /**
  * 集成现有数据模型的 PostgreSQL 持久化存储管理器
  */
@@ -50,18 +56,8 @@ export class IntegratedPostgreSQLStorage {
   private saver: PostgresSaver | null = null;
   private connected = false;
 
-  constructor(private config: PostgreSQLConfig) {
-    this.pool = new Pool({
-      host: config.host,
-      port: config.port,
-      database: config.database,
-      user: config.user,
-      password: config.password,
-      ssl: config.ssl ? { rejectUnauthorized: false } : false,
-      max: 10,
-      idleTimeoutMillis: 30000,
-      connectionTimeoutMillis: 2000,
-    });
+  constructor(private config: PoolConfig) {
+    this.pool = new Pool(config);
   }
 
   /**
@@ -79,7 +75,9 @@ export class IntegratedPostgreSQLStorage {
       testClient.release();
       
       // 创建 PostgresSaver 实例
+
       this.saver = new PostgresSaver(this.pool);
+      // this.saver = PostgresSaver.fromConnString(`postgresql://localhost:${llmPort}/ai_learning_assistant_llm`);
       
       // 让 PostgresSaver 设置其需要的表
       await this.saver.setup();
@@ -103,6 +101,7 @@ export class IntegratedPostgreSQLStorage {
 
     try {
       await this.pool.end();
+      // this.saver?.end();
       this.connected = false;
       this.saver = null;
       console.log("📦 已断开 LLM PostgreSQL 连接");
@@ -306,14 +305,14 @@ export class IntegratedPostgreSQLStorage {
 /**
  * 创建基于现有数据库配置的集成存储配置
  */
-export function createIntegratedPostgreSQLConfig(): PostgreSQLConfig {
+export function createIntegratedPostgreSQLConfig(): PoolConfig {
   return {
-    host: process.env.DB_HOST || "localhost",
-    port: parseInt(process.env.DB_PORT || "5432"),
-    database: process.env.DB_DATABASE || process.env.DB_NAME || "ai_learning_assistant",
+    host: "localhost",
+    port: llmPort,
+    database: "ai_learning_assistant_llm",
     user: process.env.DB_USERNAME || process.env.DB_USER || "postgres",
     password: process.env.DB_PASSWORD || "password",
-    ssl: process.env.DB_SSL === "true",
+    ssl: false,
   };
 }
 
@@ -325,10 +324,10 @@ let globalIntegratedStorage: IntegratedPostgreSQLStorage | null = null;
 /**
  * 获取或创建全局集成存储实例
  */
-export function getIntegratedStorage(config?: PostgreSQLConfig): IntegratedPostgreSQLStorage {
+export function getIntegratedStorage(config?: PoolConfig): IntegratedPostgreSQLStorage {
   if (!globalIntegratedStorage) {
     const finalConfig = config || createIntegratedPostgreSQLConfig();
-    globalIntegratedStorage = new IntegratedPostgreSQLStorage(finalConfig);
+    globalIntegratedStorage = getSingleIPSS();
   }
   return globalIntegratedStorage;
 }

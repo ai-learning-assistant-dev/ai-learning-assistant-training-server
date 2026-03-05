@@ -8,15 +8,13 @@ import { AiPersona } from "../../models/aiPersona";
 import { Course } from "../../models/course";
 import { Chapter } from "../../models/chapter";
 import { ReactAgent } from "../agent/react_agent_base";
-import { IntegratedPostgreSQLStorage } from "../storage/integrated_storage";
+import { getSingleIPSS, IntegratedPostgreSQLStorage } from "../storage/integrated_storage";
 import { createLLM } from "../utils/create_llm";
 import { createSrtTools } from "../tool/srt_tools";
 import { SRTItem } from "../tool/types";
 import { getPromptWithArgs } from "../prompt/manager";
 import { KEY_LEARNING_ASSISTANT, KEY_LEARNING_ASSISTANT_FALLBACK } from "../prompt/default";
 import { ModelConfig, modelConfigManager } from "../utils/modelConfigManager";
-import { c } from "ofetch/dist/shared/ofetch.d0b3d489";
-import { ca } from "zod/v4/locales";
 
 /**
  * 学习助手配置选项
@@ -88,13 +86,7 @@ export class LearningAssistant {
     }
 
     // 使用集成存储
-    this.storage = options.storage || new IntegratedPostgreSQLStorage({
-      host: process.env.DB_HOST || "localhost",
-      port: parseInt(process.env.DB_PORT || "5432"),
-      database: process.env.DB_DATABASE || process.env.DB_NAME || "ai_learning_assistant",
-      user: process.env.DB_USERNAME || process.env.DB_USER || "postgres",
-      password: process.env.DB_PASSWORD || "password",
-    });
+    this.storage = options.storage || getSingleIPSS();
 
     // ReactAgent 将在 initialize() 方法中创建
     this.agent = null as any; // 临时设置，将在 initialize 中正确创建
