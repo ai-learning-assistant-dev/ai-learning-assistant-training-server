@@ -1,4 +1,4 @@
-import { BaseMessage, HumanMessage, AIMessage } from "@langchain/core/messages";
+import { BaseMessage, HumanMessage, AIMessage, SystemMessage } from "@langchain/core/messages";
 import { Readable } from "stream";
 import { MainDataSource, UserDataSource, initializeDataSources } from "../../config/database";
 import { AiInteraction } from "../../models/aiInteraction";
@@ -8,7 +8,7 @@ import { AiPersona } from "../../models/aiPersona";
 import { Course } from "../../models/course";
 import { Chapter } from "../../models/chapter";
 import { ReactAgent } from "../agent/react_agent_base";
-import { IntegratedPostgreSQLStorage } from "../storage/integrated_storage";
+import { getSingleIPSS, IntegratedPostgreSQLStorage } from "../storage/integrated_storage";
 import { createLLM } from "../utils/create_llm";
 import { createSrtTools } from "../tool/srt_tools";
 import { SRTItem } from "../tool/types";
@@ -38,6 +38,8 @@ export interface LearningAssistantOptions {
   modelName?: string
   /** 是否启用推理模式（可选） */
   reasoning?: boolean;
+  /** 是否生成额外问题（可选） */
+  enableExtraQuestions?: boolean;
 }
 
 const normalizePersonaId = (id?: string): string | undefined => {
@@ -66,6 +68,7 @@ export class LearningAssistant {
   private personaId?: string;
   private requirements?: string;
   private selectedModelConfig?: ModelConfig;
+  // private enableExtraQuestions: boolean = false;
 
   constructor(options: LearningAssistantOptions) {
     this.userId = options.userId;
@@ -83,16 +86,11 @@ export class LearningAssistant {
     }
 
     // 使用集成存储
-    this.storage = options.storage || new IntegratedPostgreSQLStorage({
-      host: process.env.DB_HOST || "localhost",
-      port: parseInt(process.env.DB_PORT || "5432"),
-      database: process.env.DB_DATABASE || process.env.DB_NAME || "ai_learning_assistant",
-      user: process.env.DB_USERNAME || process.env.DB_USER || "postgres",
-      password: process.env.DB_PASSWORD || "password",
-    });
+    this.storage = options.storage || getSingleIPSS();
 
     // ReactAgent 将在 initialize() 方法中创建
     this.agent = null as any; // 临时设置，将在 initialize 中正确创建
+    //this.enableExtraQuestions = options.enableExtraQuestions || false;
   }
 
   /**
@@ -279,6 +277,65 @@ export class LearningAssistant {
    */
   async getConversationHistory(): Promise<BaseMessage[]> {
     return this.agent.getConversationHistory(this.sessionId);
+  }
+
+  async getFewShotConversationHistory(): Promise<BaseMessage[]> {
+    const limit = 2;
+    const history = await this.getConversationHistory();
+    return history.slice(-limit);
+  }
+
+  /** 生成额外问题 */
+  async generateExtraQuestions(userMessage: string): Promise<string[]> {
+    // if (!this.enableExtraQuestions) {
+    //   return [];
+    // } 
+    const fewShotHistory = await this.getFewShotConversationHistory();
+    const systemPrompt = `你是一个学习助手，基于近期的对话内容，生成3个相关的额外问题，激发学生的深层思考。\n，请按照固定的JSON数组格式输出：["问题1"，"问题2","问题3"]。你输出的内容必须能被json解析工具解析成数组，禁止携带其他内容。`;
+    const messages = [
+      new SystemMessage(systemPrompt),
+      ...fewShotHistory,
+      new HumanMessage(userMessage)
+    ]
+    const llm = createLLM(this.selectedModelConfig ? this.selectedModelConfig : modelConfigManager.getDefaultModel());
+    const result = llm.invoke(messages)
+    const text = (await result).content as string;
+    try {
+      const questions = JSON.parse(text);
+      if (Array.isArray(questions) && questions.every(q => typeof q === 'string')) {
+        return questions;
+      }
+      // 如果解析成功但类型不匹配，也返回空数组
+      return [];
+    } catch (err) {
+      console.warn("额外问题生成结果JSON解析失败，尝试粗略解析:", err, "原始文本:", text);
+      // 尝试粗略解析JSON数组
+      const roughJson = this.parseJsonArrayRoughly(text);
+      if (roughJson) {
+        try {
+          const questions = JSON.parse(roughJson);
+          if (Array.isArray(questions) && questions.every(q => typeof q === 'string')) {
+            return questions;
+          
+          }
+        } catch (err2) {
+          // 继续失败则忽略
+          console.warn("额外问题生成结果粗略解析失败，返回空数组:", err2, "原始文本:", text);
+          return [];  
+        }
+      }
+      return [];
+    }
+  }
+
+  parseJsonArrayRoughly(text: string): string | undefined {
+    const start = text.indexOf('[');
+    const end = text.lastIndexOf(']');
+    if (start !== -1 && end !== -1 && end > start) {
+      const jsonArrayStr = text.substring(start, end + 1);
+      return jsonArrayStr;
+    }
+    return undefined;
   }
 
   /**

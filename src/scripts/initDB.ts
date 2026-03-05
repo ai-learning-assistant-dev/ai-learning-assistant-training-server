@@ -1,6 +1,20 @@
 import { Client } from 'pg';
+import { execSync } from 'child_process';
+import path from 'path';
 import dotenv from 'dotenv';
-dotenv.config();
+
+// The parameter .env located in the project root directory
+const envFile = '.env';
+dotenv.config({ path: envFile });
+
+/* 
+  当以全量初始化时，也同时初始化前创建.env中配置的用户和数据库
+*/
+if (process.env.NODE_ENV == "fullinit"){
+  console.log("starting fullinit")
+  const script = path.resolve(__dirname, 'setup_postgres.sh');
+  execSync(`sudo bash "${script}"`, { stdio: 'inherit' });
+}
 
 // 统一命名 (主库 + 用户库)，保留旧变量回退
 const {
