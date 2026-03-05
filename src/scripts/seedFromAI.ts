@@ -1,31 +1,27 @@
+/**
+ * AI 生成种子数据导入脚本
+ *
+ * 读取 AI使用/ 目录下的 JSON 文件，导入课程、章节、小节、练习题等数据。
+ *
+ * 用法: bun src/scripts/seedFromAI.ts [--force|-f]
+ */
 import path from 'path';
 import fs from 'fs/promises';
-import dotenv from 'dotenv';
-dotenv.config();
-
-import { initializeDataSources, MainDataSource, UserDataSource } from '../config/database';
-import { Course } from '../models/course';
-import { Chapter } from '../models/chapter';
-import { Section } from '../models/section';
-import { LeadingQuestion } from '../models/leadingQuestion';
-import { Exercise } from '../models/exercise';
-import { ExerciseOption } from '../models/exerciseOption';
-import { ExerciseResult } from '../models/exerciseResult';
-import { Title } from '../models/title';
-import { Test } from '../models/test';
-import { CourseSchedule } from '../models/courseSchedule';
+import { eq, inArray } from 'drizzle-orm';
+import { initializeDatabase, closeDatabase, mainDb, userDb } from '../db/index';
+import { courses, chapters, sections, leadingQuestions, exercises, exerciseOptions, tests } from '../db/main/schema';
+import { titles, exerciseResults, courseSchedules } from '../db/user/schema';
+import logger from '../utils/logger';
 
 type FileMap = Record<string, string[]>;
 
-function truncateString(input: any, max = 255) {
+function truncateString(input: unknown, max = 255): string | undefined {
   if (input === undefined || input === null) return undefined;
   const s = String(input);
-  if (s.length <= max) return s;
-  return s.slice(0, max);
+  return s.length <= max ? s : s.slice(0, max);
 }
 
-function baseFromFilename(name: string) {
-  // prefer prefix before first '_', otherwise filename without extension
+function baseFromFilename(name: string): string {
   const idx = name.indexOf('_');
   if (idx > 0) return name.substring(0, idx);
   return name.replace(/\.[^.]+$/, '');
@@ -35,7 +31,7 @@ async function readJsonSafe(filePath: string) {
   try {
     const raw = await fs.readFile(filePath, 'utf8');
     return JSON.parse(raw);
-  } catch (err) {
+  } catch {
     return null;
   }
 }
@@ -44,13 +40,11 @@ async function buildFileMap(dir: string): Promise<FileMap> {
   const files = await fs.readdir(dir);
   const map: FileMap = {};
   for (const f of files) {
-    // skip markdown folder for now (we'll read it separately)
     if (f === 'markdown') continue;
     const base = baseFromFilename(f);
     map[base] = map[base] || [];
     map[base].push(path.join(dir, f));
   }
-  // also read markdown folder
   const mdDir = path.join(dir, 'markdown');
   try {
     const mdfiles = await fs.readdir(mdDir);
@@ -59,7 +53,7 @@ async function buildFileMap(dir: string): Promise<FileMap> {
       map[name] = map[name] || [];
       map[name].push(path.join(mdDir, mf));
     }
-  } catch (err) {
+  } catch {
     // ignore if no markdown folder
   }
   return map;
@@ -68,221 +62,205 @@ async function buildFileMap(dir: string): Promise<FileMap> {
 async function parseQuestions(obj: any) {
   if (!obj) return [];
   if (Array.isArray(obj.questions) && obj.questions.length > 0) return obj.questions;
-  // sometimes questions are nested in raw_response as JSON string
   if (obj.raw_response && typeof obj.raw_response === 'string') {
     try {
       const parsed = JSON.parse(obj.raw_response);
       if (Array.isArray(parsed.questions)) return parsed.questions;
-    } catch (e) {
+    } catch {
       // ignore
     }
   }
   return [];
 }
 
-async function main() {
-  // 初始化双数据源（主库 + 用户库）
-  if (!MainDataSource.isInitialized || !UserDataSource.isInitialized) {
-    await initializeDataSources();
+function extractVideoLink(vinfo: any): string | undefined {
+  if (!vinfo) return undefined;
+  if (vinfo.weblink?.trim()) return vinfo.weblink.trim();
+  if (vinfo.video_url?.trim()) return vinfo.video_url.trim();
+  if (Array.isArray(vinfo.pages) && vinfo.pages.length > 0) {
+    const p = vinfo.pages[0];
+    if (p.weblink?.trim()) return p.weblink.trim();
+    if (p.vid?.trim()) return p.vid.trim();
   }
+  if (vinfo.bvid?.trim()) return `https://www.bilibili.com/video/${vinfo.bvid.trim()}`;
+  if (vinfo.aid) return `https://www.bilibili.com/video/av${vinfo.aid}`;
+  return undefined;
+}
+
+async function main() {
+  await initializeDatabase();
 
   const args = process.argv.slice(2);
   const force = args.includes('--force') || args.includes('-f');
 
-  const baseDir = path.resolve(__dirname, '../../AI使用');
-  console.log('Reading AI data from', baseDir);
+  const baseDir = path.resolve(import.meta.dirname ?? __dirname, '../../AI使用');
+  logger.info('Reading AI data from', baseDir);
   const filesMap = await buildFileMap(baseDir);
-
-  // 主库（课程结构、练习题、测试等）
-  const courseRepo = MainDataSource.getRepository(Course);
-  const chapterRepo = MainDataSource.getRepository(Chapter);
-  const sectionRepo = MainDataSource.getRepository(Section);
-  const lqRepo = MainDataSource.getRepository(LeadingQuestion);
-  const exRepo = MainDataSource.getRepository(Exercise);
-  const optRepo = MainDataSource.getRepository(ExerciseOption);
-  const titleRepo = MainDataSource.getRepository(Title);
-  const testRepo = MainDataSource.getRepository(Test);
-
-  // 用户库（用户相关的结果、进度、课表等）
-  const exerciseResultRepo = UserDataSource.getRepository(ExerciseResult);
-  const courseScheduleRepo = UserDataSource.getRepository(CourseSchedule);
 
   for (const [base, paths] of Object.entries(filesMap)) {
     try {
-      // skip unrelated files
-      // determine primary info files
       const videoInfoPath = paths.find(p => p.endsWith('_video_info.json')) || paths.find(p => p.includes('video_info'));
       const exercisesPath = paths.find(p => p.endsWith('_exercises.json')) || paths.find(p => p.includes('exercises'));
       const questionsPath = paths.find(p => p.endsWith('_questions.json')) || paths.find(p => p.includes('questions'));
       const summaryPath = paths.find(p => p.endsWith('_summary.json')) || paths.find(p => p.includes('summary'));
       const mdPath = paths.find(p => p.endsWith('.md'));
 
-      // skip if no meaningful files
       if (!videoInfoPath && !exercisesPath && !questionsPath && !mdPath) continue;
 
-      // check existing course by name
-      const exists = await courseRepo.findOneBy({ name: base });
-      if (exists) {
+      // 检查是否已存在
+      const [existing] = await mainDb.select().from(courses).where(eq(courses.name, base));
+
+      if (existing) {
         if (!force) {
-          console.log(`Course '${base}' already exists, skipping.`);
+          logger.info(`Course '${base}' already exists, skipping.`);
           continue;
         }
-        console.log(`--force set: will clear existing course '${base}' before re-seeding.`);
-        // clear existing data for this course
+        logger.info(`--force set: will clear existing course '${base}' before re-seeding.`);
+
+        // 清理依赖数据
         try {
-          // delete related data: chapters -> sections -> exercises/options/leading questions
-          const chapters = await chapterRepo.find({ where: { course_id: exists.course_id } });
-          for (const ch of chapters) {
-            const sections = await sectionRepo.find({ where: { chapter_id: ch.chapter_id } });
-            for (const sec of sections) {
-              await lqRepo.delete({ section_id: sec.section_id });
-              const exercises = await exRepo.find({ where: { section_id: sec.section_id } });
-              const exIds = exercises.map(e => e.exercise_id);
-                  if (exIds.length > 0) {
-                    // 先删用户库中的练习结果，再删主库中的选项与题目
-                    await exerciseResultRepo.createQueryBuilder().delete().where('exercise_id IN (:...ids)', { ids: exIds }).execute();
-                    await optRepo.createQueryBuilder().delete().where('exercise_id IN (:...ids)', { ids: exIds }).execute();
-                    await exRepo.createQueryBuilder().delete().where('exercise_id IN (:...ids)', { ids: exIds }).execute();
-                  }
-              await sectionRepo.delete({ section_id: sec.section_id });
+          const chapterList = await mainDb.select().from(chapters).where(eq(chapters.course_id, existing.course_id));
+
+          for (const ch of chapterList) {
+            const sectionList = await mainDb.select().from(sections).where(eq(sections.chapter_id, ch.chapter_id));
+
+            for (const sec of sectionList) {
+              await mainDb.delete(leadingQuestions).where(eq(leadingQuestions.section_id, sec.section_id));
+
+              const exList = await mainDb.select({ id: exercises.exercise_id }).from(exercises).where(eq(exercises.section_id, sec.section_id));
+              const exIds = exList.map(e => e.id);
+
+              if (exIds.length > 0) {
+                await userDb.delete(exerciseResults).where(inArray(exerciseResults.exercise_id, exIds));
+                await mainDb.delete(exerciseOptions).where(inArray(exerciseOptions.exercise_id, exIds));
+                await mainDb.delete(exercises).where(inArray(exercises.exercise_id, exIds));
+              }
+
+              await mainDb.delete(sections).where(eq(sections.section_id, sec.section_id));
             }
-            await chapterRepo.delete({ chapter_id: ch.chapter_id });
+            await mainDb.delete(chapters).where(eq(chapters.chapter_id, ch.chapter_id));
           }
-          // 删除与课程关联的主库数据（Title、Test）和用户库数据（CourseSchedule）
-          await titleRepo.createQueryBuilder().delete().where('course_id = :id', { id: exists.course_id }).execute();
-          await testRepo.createQueryBuilder().delete().where('course_id = :id', { id: exists.course_id }).execute();
-          await courseScheduleRepo.createQueryBuilder().delete().where('course_id = :id', { id: exists.course_id }).execute();
-          // finally delete the course itself
-          await courseRepo.delete({ course_id: exists.course_id });
-          console.log(`Cleared course '${base}' and related data.`);
+
+          await userDb.delete(titles).where(eq(titles.course_id, existing.course_id));
+          await mainDb.delete(tests).where(eq(tests.course_id, existing.course_id));
+          await userDb.delete(courseSchedules).where(eq(courseSchedules.course_id, existing.course_id));
+          await mainDb.delete(courses).where(eq(courses.course_id, existing.course_id));
+          logger.info(`Cleared course '${base}' and related data.`);
         } catch (err) {
-          console.error('Failed to clear existing course data for', base, err);
-          continue; // skip seeding this one to avoid partial state
+          logger.error('Failed to clear existing course data for', base, err);
+          continue;
         }
       }
 
-      // parse files
+      // 解析文件数据
       const videoInfo = videoInfoPath ? await readJsonSafe(videoInfoPath) : null;
-      const exercises = exercisesPath ? await readJsonSafe(exercisesPath) : null;
-      const questions = questionsPath ? await readJsonSafe(questionsPath) : null;
+      const exerciseData = exercisesPath ? await readJsonSafe(exercisesPath) : null;
+      const questionData = questionsPath ? await readJsonSafe(questionsPath) : null;
       const summary = summaryPath ? await readJsonSafe(summaryPath) : null;
       const md = mdPath ? await fs.readFile(mdPath, 'utf8') : undefined;
-  // find a .srt file for this resource, if any
-  const srtPath = paths.find(p => p.toLowerCase().endsWith('.srt'));
+      const srtPath = paths.find(p => p.toLowerCase().endsWith('.srt'));
 
-      const course = courseRepo.create({
-        name: truncateString(base, 255) || base,
-        description: md || (videoInfo?.desc || summary?.summary || ''),
-        icon_url: truncateString(videoInfo?.pic, 255) || undefined,
-      });
-      await courseRepo.save(course);
-      console.log('Created course', course.name);
+      // 创建课程
+      const [course] = await mainDb
+        .insert(courses)
+        .values({
+          name: truncateString(base, 255) || base,
+          description: md || videoInfo?.desc || summary?.summary || '',
+          icon_url: truncateString(videoInfo?.pic, 255),
+        })
+        .returning();
+      logger.info('Created course', course!.name);
 
-      const chapter = chapterRepo.create({
-        course_id: course.course_id,
-        title: '默认章节',
-        chapter_order: 1,
-      });
-      await chapterRepo.save(chapter);
+      // 创建章节
+      const [chapter] = await mainDb
+        .insert(chapters)
+        .values({
+          course_id: course!.course_id,
+          title: '默认章节',
+          chapter_order: 1,
+        })
+        .returning();
 
+      // 创建小节
       const sectionTitle = videoInfo?.title || base;
-      const duration = videoInfo?.duration || (videoInfo?.pages?.[0]?.duration) || 0;
+      const duration = videoInfo?.duration || videoInfo?.pages?.[0]?.duration || 0;
       const estimatedTime = duration ? Math.max(1, Math.ceil(duration / 60)) : undefined;
-
-      // derive a best-effort video link from videoInfo
-      function extractVideoLink(vinfo: any): string | undefined {
-        if (!vinfo) return undefined;
-        // common direct fields
-        if (vinfo.weblink && typeof vinfo.weblink === 'string' && vinfo.weblink.trim()) return vinfo.weblink.trim();
-        if (vinfo.video_url && typeof vinfo.video_url === 'string' && vinfo.video_url.trim()) return vinfo.video_url.trim();
-        // pages may contain weblink or vid
-        if (Array.isArray(vinfo.pages) && vinfo.pages.length > 0) {
-          const p = vinfo.pages[0];
-          if (p.weblink && typeof p.weblink === 'string' && p.weblink.trim()) return p.weblink.trim();
-          if (p.vid && typeof p.vid === 'string' && p.vid.trim()) return p.vid.trim();
-        }
-        // bilibili bvid
-        if (vinfo.bvid && typeof vinfo.bvid === 'string' && vinfo.bvid.trim()) return `https://www.bilibili.com/video/${vinfo.bvid.trim()}`;
-        // fallback to aid if present
-        if (vinfo.aid) return `https://www.bilibili.com/video/av${vinfo.aid}`;
-        return undefined;
-      }
-
       const videoLink = extractVideoLink(videoInfo);
 
-      const section = sectionRepo.create({
-        title: truncateString(sectionTitle, 255) || sectionTitle,
-        chapter_id: chapter.chapter_id,
-        video_url: truncateString(videoLink, 255),
-        knowledge_content: truncateString(summary?.summary || summary?.raw_text || undefined, 255),
-        video_subtitles: truncateString(videoInfo?.subtitle ? JSON.stringify(videoInfo.subtitle) : undefined, 255),
-        // store absolute path to srt file if present
-        srt_path: srtPath ? truncateString(path.resolve(srtPath), 512) : undefined,
-        estimated_time: estimatedTime,
-        section_order: 1,
-      });
-      await sectionRepo.save(section);
+      const [section] = await mainDb
+        .insert(sections)
+        .values({
+          title: truncateString(sectionTitle, 255) || sectionTitle,
+          chapter_id: chapter!.chapter_id,
+          video_url: truncateString(videoLink, 255),
+          knowledge_content: truncateString(summary?.summary || summary?.raw_text || undefined, 255),
+          video_subtitles: truncateString(videoInfo?.subtitle ? JSON.stringify(videoInfo.subtitle) : undefined, 255),
+          srt_path: srtPath ? truncateString(path.resolve(srtPath), 512) : undefined,
+          estimated_time: estimatedTime,
+          section_order: 1,
+        })
+        .returning();
 
-      // leading questions
-      const parsedQs = await parseQuestions(questions);
+      // 引导问题
+      const parsedQs = await parseQuestions(questionData);
       for (const q of parsedQs) {
-        if (!q || !q.question) continue;
-        const lq = lqRepo.create({
-          section_id: section.section_id,
+        if (!q?.question) continue;
+        await mainDb.insert(leadingQuestions).values({
+          section_id: section!.section_id,
           question: q.question,
         });
-        await lqRepo.save(lq);
       }
 
-      // exercises: multiple_choice and short_answer
-      if (exercises) {
-        const mc = exercises.multiple_choice || [];
+      // 练习题
+      if (exerciseData) {
+        const mc = exerciseData.multiple_choice || [];
         for (const item of mc) {
-          const ex = exRepo.create({
-            section_id: section.section_id,
-            question: item.question,
-            type_status: '0', // 单选
-            answer: item.correct_answer || null,
-            score: 1,
-          });
-          await exRepo.save(ex);
-          // options
+          const [ex] = await mainDb
+            .insert(exercises)
+            .values({
+              section_id: section!.section_id,
+              question: item.question,
+              type_status: '0',
+              answer: item.correct_answer || null,
+              score: 1,
+            })
+            .returning();
+
           const opts = item.options || {};
           for (const [key, text] of Object.entries(opts)) {
             const isCorrect = String(item.correct_answer).toUpperCase() === String(key).toUpperCase();
-            const opt = optRepo.create({
-              exercise_id: ex.exercise_id,
+            await mainDb.insert(exerciseOptions).values({
+              exercise_id: ex!.exercise_id,
               option_text: `${key}. ${text}`,
-              is_correct: !!isCorrect,
+              is_correct: isCorrect,
             });
-            await optRepo.save(opt);
           }
         }
 
-        const sa = exercises.short_answer || [];
+        const sa = exerciseData.short_answer || [];
         for (const item of sa) {
-          const ex = exRepo.create({
-            section_id: section.section_id,
+          await mainDb.insert(exercises).values({
+            section_id: section!.section_id,
             question: item.question,
-            type_status: '2', // 简答
-            answer: (item.reference_answer || (item.answer_points ? item.answer_points.join('\n') : '')) || null,
+            type_status: '2',
+            answer: item.reference_answer || (item.answer_points ? item.answer_points.join('\n') : '') || null,
             score: 1,
           });
-          await exRepo.save(ex);
         }
       }
 
-      console.log(`Seeded course '${base}' -> section '${section.title}'`);
+      logger.info(`Seeded course '${base}' -> section '${section!.title}'`);
     } catch (err) {
-      console.error('Error seeding', base, err);
+      logger.error('Error seeding', base, err);
     }
   }
 
-  console.log('Seeding finished.');
+  logger.info('Seeding finished.');
+  await closeDatabase();
   process.exit(0);
 }
 
 main().catch(err => {
-  console.error('Seed script failed:', err);
+  logger.error('Seed script failed:', err);
   process.exit(1);
 });

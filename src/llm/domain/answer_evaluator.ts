@@ -1,5 +1,6 @@
+import logger from '../../utils/logger';
 import SingleChat from '../agent/single_chat';
-import type { AnswerEvaluateRequest, AnswerEvaluateResponse } from '../../types/AiChat';
+import type { AnswerEvaluateRequest, AnswerEvaluateResponse } from '../../schemas/aiChat';
 import { getPromptWithArgs } from '../prompt/manager';
 import { KEY_ANSWER_EVALUATOR } from '../prompt/default';
 
@@ -23,10 +24,10 @@ export class AnswerEvaluator {
   async evaluate(req: AnswerEvaluateRequest): Promise<AnswerEvaluateResponse> {
     // Print the full request object so nested fields are visible in logs
     try {
-      console.log('正在评估学生答案:', JSON.stringify(req, null, 2));
+      logger.debug('正在评估学生答案:', JSON.stringify(req, null, 2));
     } catch (e) {
       // Fallback in case of circular references
-      console.log('正在评估学生答案 (非序列化):', req);
+      logger.debug('正在评估学生答案 (非序列化):', req);
     }
     // 使用默认模型
     const sc = new SingleChat(this.chatOptions);
@@ -43,7 +44,7 @@ export class AnswerEvaluator {
             promptKey: req.prompt ?? '请自行评分',
           });
         } catch (err) {
-          console.warn('Failed to instantiate prompt template from DB, falling back to inline instruction:', err);
+          logger.warn('Failed to instantiate prompt template from DB, falling back to inline instruction:', err);
           instruction = `你是一个简答题评分专家。请根据题目、参考答案与先验知识，对学生回答进行评价。\n要求：\n1) 输出严格的 JSON 对象，形如 {"reply": "评语文本", "score": 0-100 的整数}，不要输出其他多余文本或解释。\n2) 分数范围 0 到 100，整数。\n\n下面是评估内容：\n题目: ${req.question}\n参考答案: ${req.standardAnswer}\n先验知识说明: ${req.priorKnowledge || '无'}\n评分提示: ${req.prompt || '请自行评分'}\n学生答案: ${req.studentAnswer}\n\n请基于参考答案的要点与先验知识衡量学生答案的正确性、完整性与表达，给出简洁评语和分数。`;
         }
       } else {
@@ -58,7 +59,7 @@ export class AnswerEvaluator {
       if (json) {
         const score = Number(json.score ?? json.sc ?? json.points ?? 0) || 0;
         const text = String(json.reply ?? json.comment ?? json.feedback ?? json.text ?? reply);
-        console.log(`评估结果解析为JSON: reply=${text}, score=${score}`);
+        logger.debug(`评估结果解析为JSON: reply=${text}, score=${score}`);
         return { reply: text, score: Math.max(0, Math.min(100, Math.round(score))) };
       }
 
@@ -66,12 +67,11 @@ export class AnswerEvaluator {
       const numMatch = reply.match(/(\d{1,3})\s*(?:分|points|score)?/i);
       let score = 0;
       if (numMatch) {
-        score = Math.max(0, Math.min(100, parseInt(numMatch[1], 10)));
+        score = Math.max(0, Math.min(100, parseInt(numMatch[1]!, 10)));
       }
       const text = reply.trim();
-      console.log(`评估结果未能解析为JSON，采用文本解析结果: reply=${text}, score=${score}`);
+      logger.debug(`评估结果未能解析为JSON，采用文本解析结果: reply=${text}, score=${score}`);
       return { reply: text, score };
-
     } finally {
       await sc.cleanup();
     }

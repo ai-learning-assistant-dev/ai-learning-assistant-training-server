@@ -1,3 +1,4 @@
+import logger from "../../utils/logger"
 import { tool } from "@langchain/core/tools";
 import type { JSONSchema } from "@langchain/core/utils/json_schema";
 
@@ -62,14 +63,14 @@ export function createGetLinesAtTimestampTool(source: string | SRTItem[]) {
 	return tool(
 		async (input) => {
 			const { timestamp } = input as GetLineNumberAtTimestampArgs;
-			console.log(
+			logger.debug(
 				"[tool:get_lines_at_timestamp]",
 				JSON.stringify({ timestamp })
 			);
 			var result = jsonStringify(
 				getLinesAtTimestamp(items, timestamp)
 			);
-			console.log("[tool:get_lines_at_timestamp] result", result);
+			logger.debug("[tool:get_lines_at_timestamp] result", result);
 			return result;
 		},
 		{
@@ -86,12 +87,12 @@ export function createReadPreviousLinesTool(source: string | SRTItem[]) {
 	return tool(
 		async (input) => {
 			const { seq } = input as ReadSeqArgs;
-			console.log(
+			logger.debug(
 				"[tool:read_previous_srt_lines]",
 				JSON.stringify({ seq })
 			);
 			var result = jsonStringify(readPreviousLines(items, seq));
-			console.log("[tool:read_previous_srt_lines] result", result);
+			logger.debug("[tool:read_previous_srt_lines] result", result);
 			return result;
 		},
 		{
@@ -108,12 +109,12 @@ export function createReadNextLinesTool(source: string | SRTItem[]) {
 	return tool(
 		async (input) => {
 			const { seq } = input as ReadSeqArgs;
-			console.log(
+			logger.debug(
 				"[tool:read_next_srt_lines]",
 				JSON.stringify({ seq })
 			);
 			var result = jsonStringify(readNextLines(items, seq));
-			console.log("[tool:read_next_srt_lines] result", result);
+			logger.debug("[tool:read_next_srt_lines] result", result);
 			return result;
 		},
 		{

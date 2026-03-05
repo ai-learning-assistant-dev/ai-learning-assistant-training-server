@@ -1,3 +1,4 @@
+import logger from "../../utils/logger"
 import { LLM } from '@langchain/core/language_models/llms';
 import * as fs from 'fs';
 import * as path from 'path';
@@ -20,7 +21,7 @@ export class ModelConfigManager {
   constructor() {
     // 使用项目中的配置文件
     this.configPath = path.join(process.cwd(), '/src/config/llm-config.json');
-    console.log('Config path:', this.configPath);
+    logger.debug('Config path:', this.configPath);
     this.loadConfigs();
   }
 
@@ -31,10 +32,10 @@ export class ModelConfigManager {
         const configData = JSON.parse(configFile);
         this.configs = configData.models || [];
       } else {
-        console.warn(`Config file not found at ${this.configPath}`);
+        logger.warn(`Config file not found at ${this.configPath}`);
       }
     } catch (error) {
-      console.error('Failed to load model configs:', error);
+      logger.error('Failed to load model configs:', error);
     }
   }
 

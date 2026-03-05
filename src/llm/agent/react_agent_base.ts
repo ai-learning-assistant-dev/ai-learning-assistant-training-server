@@ -1,10 +1,11 @@
-import { HumanMessage } from "@langchain/core/messages";
-import type { BaseMessage, BaseMessageLike } from "@langchain/core/messages";
-import type { LanguageModelLike } from "@langchain/core/language_models/base";
-import { MemorySaver } from "@langchain/langgraph";
-import { createReactAgent, type CreateReactAgentParams } from "@langchain/langgraph/prebuilt";
-import { PostgreSQLPersistentStorage } from "../storage/persistent_storage";
-import { isAPIKeyEmpty } from "../utils/modelConfigManager";
+import logger from '../../utils/logger';
+import { HumanMessage } from '@langchain/core/messages';
+import type { BaseMessage, BaseMessageLike } from '@langchain/core/messages';
+import type { LanguageModelLike } from '@langchain/core/language_models/base';
+import { MemorySaver } from '@langchain/langgraph';
+import { createReactAgent, type CreateReactAgentParams } from '@langchain/langgraph/prebuilt';
+import { PersistentStorage } from '../storage/persistent_storage';
+import { isAPIKeyEmpty } from '../utils/modelConfigManager';
 
 /**
  * Configuration required to instantiate a LangGraph React agent without tools.
@@ -17,23 +18,23 @@ export type ReactAgentOptions = {
   /**
    * Optional system prompt or runnable used to prime the agent before it plans.
    */
-  prompt?: CreateReactAgentParams["prompt"];
+  prompt?: CreateReactAgentParams['prompt'];
   /**
    * Optional set of tools to expose. Defaults to none.
    */
-  tools?: CreateReactAgentParams["tools"];
+  tools?: CreateReactAgentParams['tools'];
   /**
    * Checkpoint saver instance controlling how long-term memory is stored. Defaults to {@link MemorySaver}.
    */
-  checkpointSaver?: CreateReactAgentParams["checkpointSaver"];
+  checkpointSaver?: CreateReactAgentParams['checkpointSaver'];
   /**
    * Optional alias for {@link checkpointSaver}. If omitted, falls back to the resolved checkpoint saver.
    */
-  checkpointer?: CreateReactAgentParams["checkpointer"];
+  checkpointer?: CreateReactAgentParams['checkpointer'];
   /**
    * Optional shared store used when persisting memory across threads or processes.
    */
-  store?: CreateReactAgentParams["store"];
+  store?: CreateReactAgentParams['store'];
   /**
    * Default thread identifier applied to invocations when one is not provided explicitly.
    */
@@ -41,13 +42,13 @@ export type ReactAgentOptions = {
   /**
    * Optional PostgreSQL persistent storage instance for advanced features.
    */
-  postgresStorage?: PostgreSQLPersistentStorage;
+  persistentStorage?: PersistentStorage;
 };
 
 type ReactAgentGraph = ReturnType<typeof createReactAgent>;
-type InvokeOptions = Parameters<ReactAgentGraph["invoke"]>[1];
-type StreamOptions = Parameters<ReactAgentGraph["stream"]>[1];
-type InvokeReturn = Awaited<ReturnType<ReactAgentGraph["invoke"]>>;
+type InvokeOptions = Parameters<ReactAgentGraph['invoke']>[1];
+type StreamOptions = Parameters<ReactAgentGraph['stream']>[1];
+type InvokeReturn = Awaited<ReturnType<ReactAgentGraph['invoke']>>;
 
 /**
  * Alias for the state shape produced by LangGraph's prebuilt React agent.
@@ -60,19 +61,10 @@ export type ReactAgentState = InvokeReturn;
 export class ReactAgent {
   private readonly graph: ReactAgentGraph;
   private readonly defaultThreadId?: string;
-  private readonly postgresStorage?: PostgreSQLPersistentStorage;
+  private readonly persistentStorage?: PersistentStorage;
 
   constructor(options: ReactAgentOptions) {
-    const {
-      llm,
-      prompt,
-      tools,
-      checkpointSaver,
-      checkpointer,
-      store,
-      defaultThreadId,
-      postgresStorage,
-    } = options;
+    const { llm, prompt, tools, checkpointSaver, checkpointer, store, defaultThreadId, persistentStorage } = options;
 
     // 优先使用 checkpointSaver/checkpointer，否则默认 MemorySaver
     let resolvedSaver = checkpointSaver ?? checkpointer;
@@ -89,20 +81,14 @@ export class ReactAgent {
     });
 
     this.defaultThreadId = defaultThreadId;
-    this.postgresStorage = postgresStorage;
+    this.persistentStorage = persistentStorage;
   }
 
   /**
    * Executes the agent end-to-end and returns the final LangGraph state.
    */
-  async invoke(
-    messages: BaseMessageLike[],
-    options?: InvokeOptions
-  ): Promise<ReactAgentState> {
-    return this.graph.invoke(
-      { messages },
-      this.applyThreadConfig(options) as InvokeOptions
-    );
+  async invoke(messages: BaseMessageLike[], options?: InvokeOptions): Promise<ReactAgentState> {
+    return this.graph.invoke({ messages }, this.applyThreadConfig(options as Record<string, unknown> | undefined) as InvokeOptions | undefined);
   }
 
   /**
@@ -110,39 +96,41 @@ export class ReactAgent {
    */
   stream(messages: BaseMessageLike[], options?: StreamOptions) {
     if (isAPIKeyEmpty) {
-      const fallbackChunk = [{ content: "请先参考使用手册配置大模型，以使用语言模型服务" }];
-      return Promise.resolve((async function* () {
-        yield fallbackChunk;
-      })());
+      const fallbackChunk = [{ content: '请先参考使用手册配置大模型，以使用语言模型服务' }];
+      return Promise.resolve(
+        (async function* () {
+          yield fallbackChunk;
+        })(),
+      );
     }
     const mergedOptions = {
       ...(options ?? {}),
-      streamMode: options?.streamMode ?? "messages",
+      streamMode: (options as Record<string, unknown> | undefined)?.streamMode ?? 'messages',
     } as StreamOptions | undefined;
 
     // 限制输入上限为 96k tokens (粗略使用字符串长度估算)
     const MAX_TOKENS = 96000;
     let truncatedMessages = messages;
-    
+
     // 计算总长度
     let totalLength = 0;
     for (const msg of messages) {
       const content = messageContentToString(msg as BaseMessage);
       totalLength += content.length;
     }
-    
+
     // 如果超出上限，从最后一条消息开始反向截取
     if (totalLength > MAX_TOKENS) {
-      console.warn(`Input length ${totalLength} exceeds ${MAX_TOKENS} tokens, truncating from end...`);
+      logger.warn(`Input length ${totalLength} exceeds ${MAX_TOKENS} tokens, truncating from end...`);
       truncatedMessages = [];
       let currentLength = 0;
-      
+
       // 从后往前遍历消息
       for (let i = messages.length - 1; i >= 0; i--) {
-        const msg = messages[i];
+        const msg = messages[i]!;
         const content = messageContentToString(msg as BaseMessage);
         const msgLength = content.length;
-        
+
         if (currentLength + msgLength <= MAX_TOKENS) {
           truncatedMessages.unshift(msg);
           currentLength += msgLength;
@@ -151,20 +139,20 @@ export class ReactAgent {
           break;
         }
       }
-      
-      console.log(`Truncated messages from ${messages.length} to ${truncatedMessages.length} (${currentLength} tokens)`);
+
+      logger.debug(`Truncated messages from ${messages.length} to ${truncatedMessages.length} (${currentLength} tokens)`);
     }
-    
+
     const baseStreamPromise = this.graph.stream(
       { messages: truncatedMessages },
-      this.applyThreadConfig(mergedOptions) as StreamOptions
+      this.applyThreadConfig(mergedOptions as Record<string, unknown> | undefined) as StreamOptions | undefined,
     );
 
-    return baseStreamPromise.then(async (rawStream) => {
+    return baseStreamPromise.then(async (rawStream: AsyncIterable<unknown>) => {
       async function* filteredStream() {
         for await (const chunk of rawStream as AsyncIterable<any>) {
           if (Array.isArray(chunk)) {
-            const filtered = chunk.filter((entry) => shouldEmitStreamEntry(entry));
+            const filtered = chunk.filter(entry => shouldEmitStreamEntry(entry));
             if (filtered.length === 0) {
               continue;
             }
@@ -182,13 +170,10 @@ export class ReactAgent {
   /**
    * Helper that runs the agent and extracts the last AI message as plain text.
    */
-  async runToText(
-    messages: BaseMessageLike[],
-    options?: InvokeOptions
-  ): Promise<string> {
+  async runToText(messages: BaseMessageLike[], options?: InvokeOptions): Promise<string> {
     const state = await this.invoke(messages, options);
     const last = state.messages[state.messages.length - 1];
-    return last ? messageContentToString(last) : "";
+    return last ? messageContentToString(last) : '';
   }
 
   /**
@@ -197,18 +182,18 @@ export class ReactAgent {
    */
   async chat(userInput: string, options?: InvokeOptions): Promise<string> {
     if (isAPIKeyEmpty) {
-      return "请先参考使用手册配置大模型，以使用语言模型服务。";
+      return '请先参考使用手册配置大模型，以使用语言模型服务。';
     }
 
     // Get current conversation state to build upon existing messages
-    const threadId = options?.configurable?.thread_id;
+    const threadId = (options as Record<string, any> | undefined)?.configurable?.thread_id;
     let existingMessages: BaseMessageLike[] = [];
-    
+
     if (threadId) {
       try {
         // Try to get existing state for this thread
         const currentState = await this.graph.getState({
-          configurable: { thread_id: threadId }
+          configurable: { thread_id: threadId },
         });
         existingMessages = currentState?.values?.messages ?? [];
       } catch (error) {
@@ -219,14 +204,14 @@ export class ReactAgent {
 
     // Add the new user message to existing conversation
     const allMessages = [...existingMessages, new HumanMessage(userInput)];
-    
+
     const responseState = await this.invoke(allMessages, options);
 
     const aiMessage = responseState.messages.at(-1);
-    const response = aiMessage ? messageContentToString(aiMessage) : "";
+    const response = aiMessage ? messageContentToString(aiMessage) : '';
 
-    // Update analytics if PostgreSQL storage is available
-    if (this.postgresStorage?.isConnected() && threadId) {
+    // Update analytics if persistent storage is available
+    if (this.persistentStorage && threadId) {
       await this.updateAnalytics(threadId, responseState.messages);
     }
 
@@ -247,13 +232,13 @@ export class ReactAgent {
   async getConversationHistory(threadId?: string): Promise<BaseMessage[]> {
     const resolvedThreadId = threadId ?? this.defaultThreadId;
     if (!resolvedThreadId) {
-      console.log(`[ReactAgent] No thread ID provided or defaulted; returning empty history.`);
+      logger.debug(`[ReactAgent] No thread ID provided or defaulted; returning empty history.`);
       return [];
     }
 
     try {
       const currentState = await this.graph.getState({
-        configurable: { thread_id: resolvedThreadId }
+        configurable: { thread_id: resolvedThreadId },
       });
       return currentState?.values?.messages ?? [];
     } catch (error) {
@@ -266,11 +251,11 @@ export class ReactAgent {
    */
   async mapUserToThread(userId: string, threadId?: string, metadata?: any): Promise<string> {
     const finalThreadId = threadId || this.createNewThread();
-    
-    if (this.postgresStorage?.isConnected()) {
-      await this.postgresStorage.mapUserToThread(userId, finalThreadId, metadata);
+
+    if (this.persistentStorage) {
+      await this.persistentStorage.mapUserToThread(userId, finalThreadId, metadata);
     }
-    
+
     return finalThreadId;
   }
 
@@ -278,79 +263,75 @@ export class ReactAgent {
    * Get all thread IDs for a specific user
    */
   async getUserThreads(userId: string): Promise<Array<{ threadId: string; createdAt: Date; updatedAt: Date; metadata?: any }>> {
-    if (!this.postgresStorage?.isConnected()) {
-      throw new Error("PostgreSQL storage not available");
+    if (!this.persistentStorage) {
+      throw new Error('Persistent storage not available');
     }
-    
-    return this.postgresStorage.getUserThreads(userId);
+
+    return this.persistentStorage.getUserThreads(userId);
   }
 
   /**
    * Get conversation analytics for a thread
    */
   async getThreadAnalytics(threadId: string): Promise<any> {
-    if (!this.postgresStorage?.isConnected()) {
-      throw new Error("PostgreSQL storage not available");
+    if (!this.persistentStorage) {
+      throw new Error('Persistent storage not available');
     }
-    // 这里 threadId 既是 sessionId，也是 userId，需根据业务传递正确 userId
-    // 这里假设 userId = threadId，实际应传入真实 userId
-    return this.postgresStorage.getConversationAnalytics(threadId, threadId);
+    return this.persistentStorage.getConversationAnalytics(threadId, threadId);
   }
 
   /**
    * Clean up expired sessions
    */
   async cleanupExpiredSessions(daysOld: number = 30): Promise<number> {
-    if (!this.postgresStorage?.isConnected()) {
-      throw new Error("PostgreSQL storage not available");
+    if (!this.persistentStorage) {
+      throw new Error('Persistent storage not available');
     }
-    
-    return this.postgresStorage.cleanupExpiredSessions(daysOld);
+
+    return this.persistentStorage.cleanupExpiredSessions(daysOld);
   }
 
   /**
    * Get the PostgreSQL storage instance
    */
-  getPostgreSQLStorage(): PostgreSQLPersistentStorage | undefined {
-    return this.postgresStorage;
+  getPersistentStorage(): PersistentStorage | undefined {
+    return this.persistentStorage;
   }
 
   /**
    * Update conversation analytics
    */
   private async updateAnalytics(threadId: string, messages: BaseMessage[]): Promise<void> {
-    if (!this.postgresStorage?.isConnected()) {
+    if (!this.persistentStorage) {
       return;
     }
 
-    const userMessages = messages.filter(msg => msg._getType() === "human").length;
-    const aiMessages = messages.filter(msg => msg._getType() === "ai").length;
+    const userMessages = messages.filter(msg => msg._getType() === 'human').length;
+    const aiMessages = messages.filter(msg => msg._getType() === 'ai').length;
     const totalMessages = messages.length;
-    // 这里假设 userId = threadId，conversationSummary/analyticsData 可自定义
     try {
-      await this.postgresStorage.updateConversationAnalytics(
+      await this.persistentStorage.updateConversationAnalytics(
         threadId, // sessionId
         threadId, // userId（实际应传真实 userId）
         '', // conversationSummary
-        { totalMessages, userMessages, aiMessages } // analyticsData
+        { totalMessages, userMessages, aiMessages }, // analyticsData
       );
     } catch (error) {
-      console.warn("Failed to update conversation analytics:", error);
+      logger.warn('Failed to update conversation analytics:', error);
     }
   }
 
-  private applyThreadConfig(options?: Record<string, any>) {
+  private applyThreadConfig(options?: Record<string, unknown>) {
     if (!this.defaultThreadId) {
       return options;
     }
 
-    const baseOptions = options ?? {};
+    const baseOptions = (options ?? {}) as Record<string, any>;
     const merged = {
       ...baseOptions,
       configurable: {
         ...(baseOptions.configurable ?? {}),
-        thread_id:
-          baseOptions.configurable?.thread_id ?? this.defaultThreadId,
+        thread_id: baseOptions.configurable?.thread_id ?? this.defaultThreadId,
       },
     };
 
@@ -360,35 +341,35 @@ export class ReactAgent {
 
 function messageContentToString(message: BaseMessage): string {
   const { content } = message;
-  if (typeof content === "string") {
+  if (typeof content === 'string') {
     return content;
   }
 
   if (Array.isArray(content)) {
     return content
-      .map((chunk) => {
-        if (typeof chunk === "string") {
+      .map(chunk => {
+        if (typeof chunk === 'string') {
           return chunk;
         }
-        if (chunk && typeof chunk === "object") {
-          if ("text" in chunk && typeof chunk.text === "string") {
+        if (chunk && typeof chunk === 'object') {
+          if ('text' in chunk && typeof chunk.text === 'string') {
             return chunk.text;
           }
-          if ("value" in chunk && typeof chunk.value === "string") {
+          if ('value' in chunk && typeof chunk.value === 'string') {
             return chunk.value;
           }
         }
-        return "";
+        return '';
       })
-      .join("")
+      .join('')
       .trim();
   }
 
-  return "";
+  return '';
 }
 
 function shouldEmitStreamEntry(entry: unknown): entry is BaseMessage {
-  if (!entry || typeof entry !== "object") {
+  if (!entry || typeof entry !== 'object') {
     return false;
   }
 
@@ -397,11 +378,9 @@ function shouldEmitStreamEntry(entry: unknown): entry is BaseMessage {
     _getType?: () => string;
   };
 
-  const messageType = typeof message._getType === "function"
-    ? message._getType()
-    : (message as unknown as { type?: string }).type;
+  const messageType = typeof message._getType === 'function' ? message._getType() : (message as unknown as { type?: string }).type;
 
-  if (messageType === "tool" || messageType === "function") {
+  if (messageType === 'tool' || messageType === 'function') {
     return false;
   }
 

@@ -1,12 +1,13 @@
-import { ChatOpenAI } from "@langchain/openai";
-import { ChatAnthropic } from "@langchain/anthropic";
-import { ChatGoogleGenerativeAI } from "@langchain/google-genai";
-import { ChatOllama } from "@langchain/ollama";
+import logger from '../../utils/logger';
+import { ChatOpenAI } from '@langchain/openai';
+import { ChatAnthropic } from '@langchain/anthropic';
+import { ChatGoogleGenerativeAI } from '@langchain/google-genai';
+import { ChatOllama } from '@langchain/ollama';
 import { ChatDeepSeek } from '@langchain/deepseek';
-import { ModelConfig } from "./modelConfigManager";
-import { BaseChatModel } from "@langchain/core/language_models/chat_models";
-import { clone } from "lodash";
-import { LLMSettingsError } from "../../middleware/llmSettingsError";
+import type { ModelConfig } from './modelConfigManager';
+import { BaseChatModel } from '@langchain/core/language_models/chat_models';
+import { clone } from 'lodash';
+import { LLMSettingsError } from '../../middleware/llmSettingsError';
 
 // export function createLLM(): ChatOpenAI {
 //     const apiKey = process.env.DEEPSEEK_API_KEY;
@@ -28,102 +29,103 @@ import { LLMSettingsError } from "../../middleware/llmSettingsError";
 export const HOST_DOMAIN = 'host.ala.internal';
 
 export function createLLM(modelConfig: ModelConfig): BaseChatModel {
-    try {
+  try {
     // 兼容容器内向容器外访问
     modelConfig = clone(modelConfig);
-    if(process.env.IN_ALA_DOCKER === 'true'){
-        modelConfig.baseUrl = modelConfig.baseUrl.replace('localhost', HOST_DOMAIN).replace('127.0.0.1', HOST_DOMAIN)
+    if (process.env.IN_ALA_DOCKER === 'true') {
+      modelConfig.baseUrl = modelConfig.baseUrl.replace('localhost', HOST_DOMAIN).replace('127.0.0.1', HOST_DOMAIN);
     }
 
-    console.log("[createLLM] modelConfig:", JSON.stringify(modelConfig));
+    logger.debug('[createLLM] modelConfig:', JSON.stringify(modelConfig));
     // 根据提供商创建相应的LLM实例
     switch (modelConfig.provider.toLowerCase()) {
-        case 'openai':
-        case 'azure openai':
-        case 'doubao':
-            return new ChatOpenAI({
-                apiKey: modelConfig.apiKey,
-                model: modelConfig.name,
-                configuration: {
-                    baseURL: modelConfig.baseUrl
-                },
-                reasoning: {
-                    effort: modelConfig.reasoning ? 'high' : 'minimal' // todo: adjust based on config when reasoning is true
-                }
-            });
+      case 'openai':
+      case 'azure openai':
+      case 'doubao':
+        return new ChatOpenAI({
+          apiKey: modelConfig.apiKey,
+          model: modelConfig.name,
+          configuration: {
+            baseURL: modelConfig.baseUrl,
+          },
+          reasoning: {
+            effort: modelConfig.reasoning ? 'high' : 'minimal', // todo: adjust based on config when reasoning is true
+          },
+        });
 
-        case 'anthropic':
-            return new ChatAnthropic({
-                anthropicApiKey: modelConfig.apiKey,
-                model: modelConfig.name,
-                anthropicApiUrl: modelConfig.baseUrl,
-                thinking: modelConfig.reasoning ? { type: 'enabled', budget_tokens: 10240 } : { type: 'disabled' } // todo: 设置思考上限
-            });
+      case 'anthropic':
+        return new ChatAnthropic({
+          anthropicApiKey: modelConfig.apiKey,
+          model: modelConfig.name,
+          anthropicApiUrl: modelConfig.baseUrl,
+          thinking: modelConfig.reasoning ? { type: 'enabled', budget_tokens: 10240 } : { type: 'disabled' }, // todo: 设置思考上限
+        });
 
-        case 'google':
-            var url = modelConfig.baseUrl
-            // todo: 没看到google的reasoning配置
-            return new ChatGoogleGenerativeAI({
-                apiKey: modelConfig.apiKey,
-                model: modelConfig.name,
-                baseUrl: url,
-            });
-        case 'dmx-google':
-            // 弱智第三方平台
-            url = modelConfig.baseUrl
-            if (modelConfig.baseUrl.endsWith("www.dmxapi.cn/v1")) {
-                url = "https://www.dmxapi.cn"
-            }
-            // todo: 没看到google的reasoning配置
-            return new ChatGoogleGenerativeAI({
-                apiKey: modelConfig.apiKey,
-                model: modelConfig.name,
-                baseUrl: url,
-            });
-
-        case 'ollama':
-            return new ChatOllama({
-                baseUrl: modelConfig.baseUrl,
-                model: modelConfig.name,
-                think: modelConfig.reasoning ? true : false
-            });
-
-        case 'deepseek':
-            return new ChatDeepSeek({
-                apiKey: modelConfig.apiKey,
-                model: modelConfig.name,
-                configuration: {
-                    baseURL: modelConfig.baseUrl
-                },
-                reasoning: {
-                    effort: modelConfig.reasoning ? 'high' : 'minimal' // todo: adjust based on config when reasoning is true
-                }
-            });
-
-        case 'lm-studio':
-        case '3rd party (openai-format)':
-        default:
-            // 对于其他提供商，尝试通用的 OpenAI 格式
-            return new ChatOpenAI({
-                model: modelConfig.name,
-                temperature: 0,
-                maxTokens: undefined,
-                timeout: undefined,
-                maxRetries: 2,
-                configuration: {
-                    apiKey: modelConfig.apiKey,
-                    baseURL: modelConfig.baseUrl
-                },
-                reasoning: {
-                    effort: modelConfig.reasoning ? 'high' : 'minimal' // todo: adjust based on config when reasoning is true
-                }
-            });
-    }} catch (error) {
-        console.error("Error creating LLM:", error);
-        var errMsg = "请先参考使用手册进行正确的AI配置";
-        if (error instanceof Error) {
-            errMsg += `，错误详情：${error.message}`;
+      case 'google':
+        var url = modelConfig.baseUrl;
+        // todo: 没看到google的reasoning配置
+        return new ChatGoogleGenerativeAI({
+          apiKey: modelConfig.apiKey,
+          model: modelConfig.name,
+          baseUrl: url,
+        });
+      case 'dmx-google':
+        // 弱智第三方平台
+        url = modelConfig.baseUrl;
+        if (modelConfig.baseUrl.endsWith('www.dmxapi.cn/v1')) {
+          url = 'https://www.dmxapi.cn';
         }
-        throw new LLMSettingsError(errMsg);
+        // todo: 没看到google的reasoning配置
+        return new ChatGoogleGenerativeAI({
+          apiKey: modelConfig.apiKey,
+          model: modelConfig.name,
+          baseUrl: url,
+        });
+
+      case 'ollama':
+        return new ChatOllama({
+          baseUrl: modelConfig.baseUrl,
+          model: modelConfig.name,
+          think: modelConfig.reasoning ? true : false,
+        });
+
+      case 'deepseek':
+        return new ChatDeepSeek({
+          apiKey: modelConfig.apiKey,
+          model: modelConfig.name,
+          configuration: {
+            baseURL: modelConfig.baseUrl,
+          },
+          reasoning: {
+            effort: modelConfig.reasoning ? 'high' : 'minimal', // todo: adjust based on config when reasoning is true
+          },
+        });
+
+      case 'lm-studio':
+      case '3rd party (openai-format)':
+      default:
+        // 对于其他提供商，尝试通用的 OpenAI 格式
+        return new ChatOpenAI({
+          model: modelConfig.name,
+          temperature: 0,
+          maxTokens: undefined,
+          timeout: undefined,
+          maxRetries: 2,
+          configuration: {
+            apiKey: modelConfig.apiKey,
+            baseURL: modelConfig.baseUrl,
+          },
+          reasoning: {
+            effort: modelConfig.reasoning ? 'high' : 'minimal', // todo: adjust based on config when reasoning is true
+          },
+        });
     }
+  } catch (error) {
+    logger.error('Error creating LLM:', error);
+    var errMsg = '请先参考使用手册进行正确的AI配置';
+    if (error instanceof Error) {
+      errMsg += `，错误详情：${error.message}`;
+    }
+    throw new LLMSettingsError(errMsg);
+  }
 }

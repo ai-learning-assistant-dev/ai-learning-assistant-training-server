@@ -1,8 +1,9 @@
+import logger from '../../utils/logger';
 import SingleChat from '../agent/single_chat';
 import { Readable } from 'stream';
 import { getPromptWithArgs } from '../prompt/manager';
 import { KEY_DAILY_CHAT } from '../prompt/default';
-import { ModelConfig, modelConfigManager } from '../utils/modelConfigManager';
+import { type ModelConfig, modelConfigManager } from '../utils/modelConfigManager';
 import { createLLM } from '../utils/create_llm';
 
 /**
@@ -20,13 +21,13 @@ export class DailyChat {
 
   private constructor(sc: SingleChat) {
     this.sc = sc;
-    console.log(`DailyChat created with sessionId=${DailyChat.sessionId}, persona=${DailyChat.FIXED_PERSONA_NAME}, memory enabled=${true}`);
+    logger.debug(`DailyChat created with sessionId=${DailyChat.sessionId}, persona=${DailyChat.FIXED_PERSONA_NAME}, memory enabled=${true}`);
   }
 
   static async create(options?: DailyChatOptions): Promise<DailyChat> {
     // simple system prompt can be passed via options.prompt or default
     const realRequirements = options?.requirements || '请简要回答';
-    const personaPrompt = `信心十足的教育家`
+    const personaPrompt = `信心十足的教育家`;
     const prompt = await getPromptWithArgs(KEY_DAILY_CHAT, { requirements: realRequirements, personaPrompt });
     const modelConfig = options?.modelName ? modelConfigManager.getModelConfig(options.modelName) : modelConfigManager.getDefaultModel();
     if (modelConfig && options?.reasoning !== undefined) {
@@ -50,12 +51,12 @@ export class DailyChat {
    */
   async chat(userInput: string): Promise<string> {
     try {
-      console.log(`DailyChat.chat [${DailyChat.sessionId}] request:`, userInput);
+      logger.debug(`DailyChat.chat [${DailyChat.sessionId}] request:`, userInput);
       const reply = await this.sc.chat(userInput);
-      console.log(`DailyChat.chat [${DailyChat.sessionId}] reply:`, reply);
+      logger.debug(`DailyChat.chat [${DailyChat.sessionId}] reply:`, reply);
       return reply;
     } catch (err) {
-      console.error('DailyChat.chat error:', err);
+      logger.error('DailyChat.chat error:', err);
       throw err;
     }
   }
@@ -65,12 +66,12 @@ export class DailyChat {
    * This mirrors the approach used in `learning_assistant.chatStream`.
    */
   stream(userInput: string, options?: Record<string, any>): Readable {
-    console.log(`DailyChat.stream [${DailyChat.sessionId}] request:`, userInput);
+    logger.debug(`DailyChat.stream [${DailyChat.sessionId}] request:`, userInput);
 
     const readable = new Readable({
       async read() {
         // no-op; we push data asynchronously
-      }
+      },
     });
 
     (async () => {
@@ -88,7 +89,7 @@ export class DailyChat {
 
             // Debug: log first few chunks
             if (chunkIndex <= 3) {
-              console.log(`[DailyChat] Chunk ${chunkIndex} structure:`, JSON.stringify(chunk).substring(0, 200));
+              logger.debug(`[DailyChat] Chunk ${chunkIndex} structure:`, JSON.stringify(chunk).substring(0, 200));
             }
 
             // Handle LangGraph stream format: [AIMessageChunk, metadata]
@@ -102,7 +103,7 @@ export class DailyChat {
               else if (typeof messageChunk?.content === 'string') {
                 content = messageChunk.content;
               }
-            } 
+            }
             // Handle string chunks
             else if (typeof chunk === 'string') {
               content = chunk;
@@ -115,17 +116,17 @@ export class DailyChat {
             if (content) {
               fullResponse += content;
               readable.push(content);
-              console.log(`[DailyChat] Pushed content (${content.length} chars)`);
+              logger.debug(`[DailyChat] Pushed content (${content.length} chars)`);
             }
           } catch (chunkErr) {
-            console.warn(`Chunk ${chunkIndex} 处理错误:`, chunkErr);
+            logger.warn(`Chunk ${chunkIndex} 处理错误:`, chunkErr);
             continue;
           }
         }
 
         // If the stream produced nothing, fallback to chat()
         if (!fullResponse) {
-          console.warn('流式处理未产生结果，回退到普通模式');
+          logger.warn('流式处理未产生结果，回退到普通模式');
           const response = await this.chat(userInput);
           readable.push(response);
         }
@@ -133,10 +134,10 @@ export class DailyChat {
         // mark end of stream
         readable.push(null);
       } catch (err) {
-        console.error('流式对话处理失败:', err);
+        logger.error('流式对话处理失败:', err);
         // fallback to chat
         try {
-          console.log('回退到普通聊天模式...');
+          logger.debug('回退到普通聊天模式...');
           const response = await this.chat(userInput);
           readable.push(response);
           readable.push(null);
@@ -157,9 +158,9 @@ export class DailyChat {
   async cleanup(): Promise<void> {
     try {
       await this.sc.cleanup();
-      console.log(`DailyChat cleaned up session=${DailyChat.sessionId}`);
+      logger.debug(`DailyChat cleaned up session=${DailyChat.sessionId}`);
     } catch (err) {
-      console.warn('DailyChat.cleanup error:', err);
+      logger.warn('DailyChat.cleanup error:', err);
     }
   }
 }
@@ -169,6 +170,6 @@ export class DailyChatOptions {
   requirements?: string;
   modelName?: string;
   reasoning?: boolean;
-} 
+}
 
 export default DailyChat;

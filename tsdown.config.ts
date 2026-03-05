@@ -12,7 +12,7 @@ const noExternal = Object.keys({
   .filter(pkg => !external.includes(pkg)); // 排除已经在 external 列表中的包
 
 export default defineConfig({
-  entry: ['./src/app.ts', './src/utils/pgLiteWorker.ts'],
+  entry: ['./src/app.ts'],
   format: {
     // cjs: { target: ['node20'] },
     esm: { target: ['esnext'] },

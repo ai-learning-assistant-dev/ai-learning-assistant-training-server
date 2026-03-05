@@ -1,3 +1,4 @@
+import logger from "../../utils/logger"
 import { readFileSync } from "node:fs";
 
 import { tool } from "@langchain/core/tools";
@@ -46,7 +47,7 @@ function readTextFilePayload(filePath: string) {
 export const readTextFileTool = tool(
 	async (input) => {
 		const { filePath } = input as ReadTextFileArgs;
-		console.log("[tool:read_text_file]", JSON.stringify({ filePath }));
+		logger.debug("[tool:read_text_file]", JSON.stringify({ filePath }));
 		return jsonStringify(readTextFilePayload(filePath));
 	},
 	{
@@ -60,7 +61,7 @@ export function createGetOutlineTool(filePath: string) {
 	return tool(
 		async (input: unknown) => {
 			void (input as NoArgs);
-			console.log(
+			logger.debug(
 				"[tool:get_course_outline]",
 				JSON.stringify({ filePath })
 			);

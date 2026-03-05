@@ -1,49 +1,30 @@
-import { Client } from 'pg';
-import dotenv from 'dotenv';
-dotenv.config();
+/**
+ * 数据库初始化脚本
+ *
+ * PGlite 进程内模式无需手动创建数据库，
+ * 只需初始化 Drizzle + 执行迁移 + 创建初始数据。
+ *
+ * 用法: bun src/scripts/initDB.ts
+ */
+import { initializeDatabase, createInitialData, closeDatabase } from '../db/index';
+import logger from '../utils/logger';
 
-// 统一命名 (主库 + 用户库)，保留旧变量回退
-const {
-  DB_HOST = 'localhost',
-  DB_PORT = '5432',
-  DB_DATABASE = process.env.DB_DATABASE || process.env.DB_NAME || 'ai_learning_assistant',
-  DB_USERNAME = process.env.DB_USERNAME || process.env.DB_USER || 'postgres',
-  DB_PASSWORD = process.env.DB_PASSWORD || 'password',
-  USER_DB_HOST = process.env.USER_DB_HOST || DB_HOST,
-  USER_DB_PORT = process.env.USER_DB_PORT || DB_PORT,
-  USER_DB_DATABASE = process.env.USER_DB_DATABASE || 'ai_learning_assistant_users',
-  USER_DB_USERNAME = process.env.USER_DB_USERNAME || DB_USERNAME,
-  USER_DB_PASSWORD = process.env.USER_DB_PASSWORD || DB_PASSWORD,
-} = process.env as any;
+async function main() {
+  logger.info('🚀 开始初始化数据库...');
 
-async function ensureDatabase(host: string, port: string, database: string, user: string, password: string) {
-  const client = new Client({
-    host,
-    port: parseInt(port, 10),
-    user,
-    password,
-    database: 'postgres',
-  });
-  try {
-    await client.connect();
-    const res = await client.query('SELECT 1 FROM pg_database WHERE datname = $1', [database]);
-    if (res.rowCount === 0) {
-      await client.query(`CREATE DATABASE "${database}"`);
-      console.log(`✅ 数据库 ${database} 创建成功 (${host}:${port})`);
-    } else {
-      console.log(`ℹ️ 数据库 ${database} 已存在 (${host}:${port})`);
-    }
-  } catch (err) {
-    console.error(`❌ 数据库 ${database} 检查/创建失败:`, err);
-    throw err;
-  } finally {
-    await client.end();
-  }
+  await initializeDatabase();
+  logger.info('✅ 数据库连接已建立');
+
+  await createInitialData();
+  logger.info('✅ 初始数据创建完成');
+
+  await closeDatabase();
+  logger.info('📦 数据库已关闭');
+
+  logger.info('🎉 数据库初始化完成！');
 }
 
-async function createDatabases() {
-  await ensureDatabase(DB_HOST, DB_PORT, DB_DATABASE, DB_USERNAME, DB_PASSWORD);
-  await ensureDatabase(USER_DB_HOST, USER_DB_PORT, USER_DB_DATABASE, USER_DB_USERNAME, USER_DB_PASSWORD);
-}
-
-createDatabases().catch(() => process.exit(1));
+main().catch(err => {
+  logger.error('❌ 数据库初始化失败:', err);
+  process.exit(1);
+});

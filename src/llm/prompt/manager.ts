@@ -1,3 +1,4 @@
+import logger from "../../utils/logger"
 import { getSystemPromptByTitle, getAudioPromptByOption } from '../../services/systemPromptService';
 import { ARGS_MAX_LENGTH } from './const';
 
@@ -37,7 +38,7 @@ export async function getPromptWithArgs(key: string, args: Record<string, any>):
         return String(val);
     });
 
-    console.log(`[getPromptWithArgs] key=${key}, 拼装后的提示词:\n${result}`);
+    logger.debug(`[getPromptWithArgs] key=${key}, 拼装后的提示词:\n${result}`);
 
     return result;
 }

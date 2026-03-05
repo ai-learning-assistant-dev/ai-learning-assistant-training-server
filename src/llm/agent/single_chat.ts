@@ -1,11 +1,11 @@
-import { HumanMessage } from "@langchain/core/messages";
-import type { BaseMessageLike } from "@langchain/core/messages";
-import ReactAgent, { ReactAgentOptions } from "./react_agent_base";
-import { createLLM } from "../utils/create_llm";
-import { MemorySaver } from "@langchain/langgraph";
-import e from "express";
-import { modelConfigManager } from "../utils/modelConfigManager";
-import { LanguageModelLike } from "@langchain/core/language_models/base";
+import logger from '../../utils/logger';
+import { HumanMessage } from '@langchain/core/messages';
+import type { BaseMessageLike } from '@langchain/core/messages';
+import ReactAgent, { type ReactAgentOptions } from './react_agent_base';
+import { createLLM } from '../utils/create_llm';
+import { MemorySaver } from '@langchain/langgraph';
+import { modelConfigManager } from '../utils/modelConfigManager';
+import type { LanguageModelLike } from '@langchain/core/language_models/base';
 
 export type SingleChatOptions = {
   llm?: LanguageModelLike;
@@ -60,9 +60,9 @@ export class SingleChat {
   async stream(userInput: string, options?: Record<string, any>) {
     // 获取当前对话历史
     const existingMessages = await this.agent.getConversationHistory(this.threadId);
-    console.log(`[thread ${this.threadId}] SingleChat.stream ${existingMessages.length} existingMessages`);
+    logger.debug(`[thread ${this.threadId}] SingleChat.stream ${existingMessages.length} existingMessages`);
     // 添加新的用户消息
-    const { HumanMessage } = await import("@langchain/core/messages");
+    const { HumanMessage } = await import('@langchain/core/messages');
     const allMessages = [...existingMessages, new HumanMessage(userInput)];
     return this.agent.stream(allMessages, options);
   }

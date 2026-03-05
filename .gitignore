@@ -2,10 +2,12 @@ node_modules/
 dist/
 .vscode/
 *.log
+log/
 build/
 AI使用/
 .idea/
 llm-config.json
 .env
 .env.example
-.
+.DS_Store
+.bun
