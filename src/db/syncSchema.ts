@@ -19,6 +19,9 @@ export async function syncMainSchema(pg: PGlite): Promise<void> {
       name VARCHAR(255) NOT NULL,
       icon_url TEXT,
       description TEXT,
+      category VARCHAR(255),
+      contributors TEXT,
+      total_estimated_time INTEGER,
       default_ai_persona_id UUID
     );
 

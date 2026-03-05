@@ -213,6 +213,44 @@ export class LearningAssistant {
     return this.agent.getConversationHistory(this.sessionId);
   }
 
+  /** 获取最近几轮对话历史（用于 few-shot） */
+  async getFewShotConversationHistory(limit = 2): Promise<BaseMessage[]> {
+    const history = await this.getConversationHistory();
+    return history.slice(-limit);
+  }
+
+  /** 基于近期对话生成额外引导问题 */
+  async generateExtraQuestions(userMessage: string): Promise<string[]> {
+    const fewShotHistory = await this.getFewShotConversationHistory();
+    const systemPrompt = `你是一个学习助手，基于近期的对话内容，生成3个相关的额外问题，激发学生的深层思考。\n请按照固定的JSON数组格式输出：["问题1","问题2","问题3"]。你输出的内容必须能被json解析工具解析成数组，禁止携带其他内容。`;
+    const messages: BaseMessage[] = [new SystemMessage(systemPrompt), ...fewShotHistory, new HumanMessage(userMessage)];
+    const llm = createLLM(this.selectedModelConfig ?? modelConfigManager.getDefaultModel());
+    const result = await llm.invoke(messages);
+    const text = result.content as string;
+    try {
+      const questions = JSON.parse(text);
+      if (Array.isArray(questions) && questions.every(q => typeof q === 'string')) {
+        return questions;
+      }
+      return [];
+    } catch {
+      // 尝试从文本中提取 JSON 数组
+      const start = text.indexOf('[');
+      const end = text.lastIndexOf(']');
+      if (start !== -1 && end > start) {
+        try {
+          const questions = JSON.parse(text.substring(start, end + 1));
+          if (Array.isArray(questions) && questions.every(q => typeof q === 'string')) {
+            return questions;
+          }
+        } catch {
+          logger.warn('额外问题生成结果解析失败，返回空数组');
+        }
+      }
+      return [];
+    }
+  }
+
   /** 获取用户在当前章节的所有会话 */
   async getUserSectionSessions() {
     const allSessions = await this.storage.getUserSessions(this.userId);

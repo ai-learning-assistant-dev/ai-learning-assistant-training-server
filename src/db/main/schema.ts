@@ -16,6 +16,9 @@ export const courses = pgTable('courses', {
   name: varchar('name', { length: 255 }).notNull(),
   icon_url: text('icon_url'),
   description: text('description'),
+  category: varchar('category', { length: 255 }),
+  contributors: text('contributors'),
+  total_estimated_time: integer('total_estimated_time'),
   default_ai_persona_id: uuid('default_ai_persona_id'),
 });
 

@@ -83,6 +83,33 @@ app.post(
   },
 );
 
+// ── POST /chat/extra-questions ──────────────────────
+/** 基于对话上下文生成额外引导问题，帮助激发学生深层思考 */
+app.post(
+  '/chat/extra-questions',
+  describeRoute({
+    tags: ['AI 聊天'],
+    summary: '基于对话上下文生成额外引导问题，帮助激发学生深层思考',
+  }),
+  async c => {
+    const request = chatRequestSchema.parse(await c.req.json());
+    const { userId, sectionId, message, sessionId, modelName, reasoning } = request;
+
+    let assistant: LearningAssistant;
+
+    if (sessionId) {
+      assistant = await resumeLearningSession(userId, sessionId, undefined, modelName, reasoning);
+    } else {
+      assistant = await createLearningAssistant(userId, sectionId, undefined, undefined, undefined, undefined, modelName, reasoning);
+    }
+
+    const questions = await assistant.generateExtraQuestions(message);
+    await assistant.cleanup();
+
+    return c.json(ok({ questions }));
+  },
+);
+
 // ── POST /daily ─────────────────────────────────────
 /**
  * DailyChat 轻量流式对话，使用固定「信心十足的教育家」人设，无需指定 sectionId

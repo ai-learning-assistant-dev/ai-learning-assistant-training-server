@@ -33,13 +33,19 @@ export interface CrudConfig {
   tag?: string;
   /** 实体中文名，如 '课程'，用于自动生成描述 */
   entityName?: string;
+  /** 创建成功后的钩子，参数为新创建的记录 */
+  afterCreate?: (record: Record<string, unknown>) => Promise<void>;
+  /** 更新成功后的钩子，参数为更新后的记录 */
+  afterUpdate?: (record: Record<string, unknown>) => Promise<void>;
+  /** 删除成功后的钩子，参数为删除前的记录 */
+  afterDelete?: (record: Record<string, unknown>) => Promise<void>;
 }
 
 /**
  * 创建标准 CRUD 路由
  */
 export function createCrudRoutes(config: CrudConfig): Hono {
-  const { db: getDb, table, idColumn, idField, createSchema, updateSchema, tag, entityName = '记录' } = config;
+  const { db: getDb, table, idColumn, idField, createSchema, updateSchema, tag, entityName = '记录', afterCreate, afterUpdate, afterDelete } = config;
   const tags = tag ? [tag] : undefined;
   const app = new Hono();
 
@@ -98,6 +104,7 @@ export function createCrudRoutes(config: CrudConfig): Hono {
       const db = getDb();
       const body = createSchema.parse(await c.req.json());
       const result = await db.insert(table).values(body).returning();
+      if (afterCreate && result[0]) await afterCreate(result[0] as Record<string, unknown>);
       return c.json(ok(result[0], '创建成功'));
     },
   );
@@ -122,6 +129,7 @@ export function createCrudRoutes(config: CrudConfig): Hono {
 
       const { [idField]: _, ...data } = body as Record<string, unknown>;
       const result = await db.update(table).set(data).where(eq(idColumn, id)).returning();
+      if (afterUpdate && result[0]) await afterUpdate(result[0] as Record<string, unknown>);
       return c.json(ok(result[0], '更新成功'));
     },
   );
@@ -148,6 +156,7 @@ export function createCrudRoutes(config: CrudConfig): Hono {
       if (!existing[0]) return c.json(fail('未找到记录'), 404);
 
       await db.delete(table).where(eq(idColumn, id));
+      if (afterDelete) await afterDelete(existing[0] as Record<string, unknown>);
       return c.json(ok(null, '删除成功'));
     },
   );
