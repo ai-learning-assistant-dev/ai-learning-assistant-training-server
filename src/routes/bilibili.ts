@@ -10,6 +10,7 @@ import type { BaseResponse, NavData, VideoViewData, PlayVideoData, WbiKeysRespon
 
 // ── WBI 签名工具 ────────────────────────────────────
 
+/** WBI 签名用的混淆索引表，用于从原始 key 中按特定顺序提取字符生成混淆 key */
 const mixinKeyEncTab: number[] = [
   46, 47, 18, 2, 53, 8, 23, 32, 15, 50, 10, 31, 58, 3, 45, 35, 27, 43, 5, 49, 33, 9, 42, 19, 29, 28, 14, 39, 12, 38, 41, 13, 37, 48, 7, 16, 24, 55, 40, 61, 26, 17, 0, 1, 60, 51,
   30, 4, 22, 25, 54, 21, 56, 59, 6, 63, 57, 62, 11, 36, 20, 34, 44, 52,
@@ -21,6 +22,7 @@ const getMixinKey = (orig: string): string =>
     .join('')
     .slice(0, 32);
 
+/** 对请求参数进行 WBI 签名，生成 wts 时间戳和 w_rid 签名值 */
 function encWbi(params: EncWbiParams, img_key: string, sub_key: string): EncWbiResult {
   const mixin_key = getMixinKey(img_key + sub_key);
   const curr_time = Math.floor(Date.now() / 1000);
@@ -33,6 +35,7 @@ function encWbi(params: EncWbiParams, img_key: string, sub_key: string): EncWbiR
   return { wts: curr_time, w_rid: md5(query + mixin_key) };
 }
 
+/** 从 B 站导航接口获取 WBI 签名所需的 img_key 和 sub_key */
 async function getWbiKeys(sessdata?: string): Promise<WbiKeysResponse> {
   const headers: Record<string, string> = {
     'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36',
@@ -77,6 +80,7 @@ function replaceProxyUrl(url: string, baseUrl: string, bvid: string): string {
 const sanitizeCodec = (val?: string) => (val ? val.replace(/["'\\]/g, '').trim() || undefined : undefined);
 const sanitizeMime = (val?: string) => (val ? val.replace(/["'\\]/g, '').trim() || undefined : undefined);
 
+/** 根据 DASH 数据生成 MPEG-DASH MPD 清单 XML，支持通过 videoIndex 指定视频流 */
 function generateMPD(dashData: DashData, baseUrl: string, bvid: string, videoIndex?: number): string {
   const duration = dashData.duration || Math.floor((dashData.timelength || 0) / 1000);
   const root = create({ version: '1.0', encoding: 'UTF-8' }).ele('MPD', {
@@ -105,6 +109,7 @@ function generateMPD(dashData: DashData, baseUrl: string, bvid: string, videoInd
   return root.end({ prettyPrint: true });
 }
 
+/** 生成统一的 MPD 清单，仅包含 AVC(H.264) 编码的视频流 */
 function generateUnifiedMPD(dashData: DashData, baseUrl: string, bvid: string): string {
   const duration = dashData.duration || Math.floor((dashData.timelength || 0) / 1000);
   const root = create({ version: '1.0', encoding: 'UTF-8' }).ele('MPD', {
@@ -128,6 +133,7 @@ function generateUnifiedMPD(dashData: DashData, baseUrl: string, bvid: string): 
   return root.end({ prettyPrint: true });
 }
 
+/** 向 MPD 的 AdaptationSet 中添加一个视频 Representation 节点 */
 function addRepresentation(parent: any, stream: DashStream, baseUrl: string, bvid: string) {
   const attrs: Record<string, string> = { id: String(stream.id) };
   const mime = sanitizeMime(stream.mime_type);
@@ -147,6 +153,7 @@ function addRepresentation(parent: any, stream: DashStream, baseUrl: string, bvi
   rep.ele('SegmentBase', { indexRange: stream.segment_base.index_range }).ele('Initialization', { range: stream.segment_base.initialization });
 }
 
+/** 向 MPD 的 AdaptationSet 中添加一个音频 Representation 节点 */
 function addAudioRepresentation(parent: any, stream: DashStream, baseUrl: string, bvid: string) {
   const attrs: Record<string, string> = { id: String(stream.id) };
   const mime = sanitizeMime(stream.mime_type);
@@ -164,6 +171,7 @@ function addAudioRepresentation(parent: any, stream: DashStream, baseUrl: string
   rep.ele('SegmentBase', { indexRange: stream.segment_base.index_range }).ele('Initialization', { range: stream.segment_base.initialization });
 }
 
+/** 从 DASH 数据中提取可用的视频格式列表（清晰度、编码等信息） */
 function generateFormatList(dashData: DashData): FormatListItem[] {
   const list: FormatListItem[] = dashData.supportFormats.map(v => ({
     id: v.quality,
@@ -181,6 +189,10 @@ function generateFormatList(dashData: DashData): FormatListItem[] {
   return list;
 }
 
+/**
+ * 通过 B 站接口获取视频的 DASH 流信息，包含视频/音频流地址及元数据
+ * 先查询视频 cid，再使用 WBI 签名请求播放地址
+ */
 async function getDashInfo(bvid: string, sessdata?: string, cid?: number) {
   const headers: Record<string, string> = {
     'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36',
@@ -264,6 +276,7 @@ const app = new Hono();
 
 // ── GET /stream — 代理视频流 ────────────────────────
 
+/** 代理 B 站视频/音频流请求，处理 Range 分段下载和 CDN 域名转发 */
 app.get('/stream', async c => {
   const url = c.req.query('url');
   const bvid = c.req.query('bvid') ?? '';
@@ -332,6 +345,7 @@ app.get('/stream', async c => {
 
 // ── GET /captcha — 获取验证码 ───────────────────────
 
+/** 代理请求 B 站登录验证码接口 */
 app.get('/captcha', async c => {
   try {
     const res = await ofetch('https://passport.bilibili.com/x/passport-login/captcha?source=main_web');
@@ -343,6 +357,7 @@ app.get('/captcha', async c => {
 
 // ── POST /sms — 发送短信验证码 ──────────────────────
 
+/** 代理请求 B 站短信验证码发送接口，需携带人机验证参数 */
 app.post('/sms', async c => {
   const params = await c.req.json();
   const userAgent = c.req.header('user-agent') || '';
@@ -359,9 +374,21 @@ app.post('/sms', async c => {
     const res = await ofetch('https://passport.bilibili.com/x/passport-login/web/sms/send', {
       method: 'POST',
       headers: {
+        accept: '*/*',
+        'accept-language': 'zh-CN,zh;q=0.9,en;q=0.8',
+        'Accept-Encoding': 'gzip, deflate, br',
+        Connection: 'keep-alive',
         'content-type': 'application/x-www-form-urlencoded',
         origin: 'https://www.bilibili.com',
+        Host: 'passport.bilibili.com',
+        priority: 'u=1, i',
         referer: 'https://www.bilibili.com/',
+        'sec-ch-ua': '"Chromium";v="142", "Google Chrome";v="142", "Not_A Brand";v="99"',
+        'sec-ch-ua-mobile': '?0',
+        'sec-ch-ua-platform': '"Windows"',
+        'sec-fetch-dest': 'empty',
+        'sec-fetch-mode': 'cors',
+        'sec-fetch-site': 'same-site',
         'user-agent': userAgent,
       },
       body,
@@ -374,6 +401,7 @@ app.post('/sms', async c => {
 
 // ── POST /login — 短信登录 ──────────────────────────
 
+/** 代理 B 站短信登录接口，登录成功后提取并转发 SESSDATA Cookie */
 app.post('/login', async c => {
   const params = await c.req.json();
   const body = new URLSearchParams();
@@ -389,9 +417,19 @@ app.post('/login', async c => {
     const resRaw = await ofetch.raw('https://passport.bilibili.com/x/passport-login/web/login/sms', {
       method: 'POST',
       headers: {
+        accept: '*/*',
+        'accept-language': 'zh-CN,zh;q=0.9,en;q=0.8',
         'content-type': 'application/x-www-form-urlencoded',
         origin: 'https://www.bilibili.com',
+        priority: 'u=1, i',
         referer: 'https://www.bilibili.com/',
+        'sec-ch-ua': '"Google Chrome";v="141", "Not?A_Brand";v="8", "Chromium";v="141"',
+        'sec-ch-ua-mobile': '?0',
+        'sec-ch-ua-platform': '"Windows"',
+        'sec-fetch-dest': 'empty',
+        'sec-fetch-mode': 'cors',
+        'sec-fetch-site': 'same-site',
+        'user-agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/141.0.0.0 Safari/537.36',
       },
       body,
     } as any);
@@ -413,6 +451,7 @@ app.post('/login', async c => {
 
 // ── GET /video-manifest — 生成 DASH 清单 ────────────
 
+/** 根据 bvid 获取视频 DASH 信息，生成 MPD 清单 XML、格式列表和统一 MPD */
 app.get('/video-manifest', async c => {
   const bvid = c.req.query('bvid');
   const cidParam = c.req.query('cid');

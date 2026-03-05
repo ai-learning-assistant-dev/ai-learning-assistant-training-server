@@ -24,6 +24,7 @@ app.route(
 
 // ── POST /getExercisesWithOptionsBySection ──────────
 
+/** 根据小节 ID 查询该小节下所有练习题及其选项列表 */
 app.post('/getExercisesWithOptionsBySection', async c => {
   const { section_id } = await c.req.json();
   if (!section_id) return c.json(fail('section_id 必填'), 400);

@@ -78,7 +78,10 @@ export const userSessionMappings = pgTable('user_session_mapping', {
   user_id: uuid('user_id').notNull(),
   thread_id: uuid('thread_id').notNull(),
   created_at: timestamp('created_at', { withTimezone: true }).defaultNow().notNull(),
-  updated_at: timestamp('updated_at', { withTimezone: true }).defaultNow().notNull(),
+  updated_at: timestamp('updated_at', { withTimezone: true })
+    .defaultNow()
+    .notNull()
+    .$onUpdate(() => new Date()),
   metadata: jsonb('metadata'),
 });
 
@@ -91,7 +94,10 @@ export const conversationAnalytics = pgTable('conversation_analytics', {
   conversation_summary: text('conversation_summary'),
   analytics_data: jsonb('analytics_data'),
   created_at: timestamp('created_at').defaultNow().notNull(),
-  updated_at: timestamp('updated_at').defaultNow().notNull(),
+  updated_at: timestamp('updated_at')
+    .defaultNow()
+    .notNull()
+    .$onUpdate(() => new Date()),
 });
 
 // ── 用户小节解锁 ────────────────────────────────────

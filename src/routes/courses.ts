@@ -25,6 +25,7 @@ app.route(
 
 // ── POST /getCourseChaptersSections ─────────────────
 
+/** 获取课程完整的章节-小节树形结构，包含用户解锁状态与瀑布式逐级解锁逻辑 */
 app.post('/getCourseChaptersSections', async c => {
   const { course_id, user_id } = await c.req.json();
   if (!course_id || !user_id) return c.json(fail('course_id 和 user_id 必填'), 400);

@@ -44,6 +44,7 @@ function repeatDetect(userAnswer: string, refAnswer: string): { isValid: boolean
 
 // ── POST /saveExerciseResults ───────────────────────
 
+/** 批量保存练习答题结果：选择题本地判分，简答题通过 LLM 评估打分，通过后自动解锁下一小节 */
 app.post('/saveExerciseResults', async c => {
   const body = await c.req.json();
   const { user_id, section_id, test_result_id, list, duration } = body;
@@ -242,6 +243,7 @@ app.post('/saveExerciseResults', async c => {
 
 // ── POST /getExerciseResults ────────────────────────
 
+/** 查询指定小节下用户的答题结果，包含各题判分、正确性校验及 AI 反馈 */
 app.post('/getExerciseResults', async c => {
   const { user_id, section_id, test_result_id } = await c.req.json();
   if (!user_id || !section_id) return c.json(fail('user_id 和 section_id 必须传'), 400);

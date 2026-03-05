@@ -18,11 +18,8 @@ export type LearningReviewEvaluatorOptions = {
 };
 
 /**
- * LearningReviewEvaluator
- *
- * 用于生成学生学习完一节课后的总结评语。
- * 输入：聊天记录、课程大纲、题目和学习成绩
- * 输出：需要加强的方面、推荐额外学习的知识点
+ * 学习总结评估器：生成学生学完一节课后的总结评语
+ * 综合聊天记录、课程大纲、题目和成绩，输出评估和学习建议
  */
 export class LearningReviewEvaluator {
   private chatOptions?: LearningReviewEvaluatorOptions;
@@ -32,9 +29,7 @@ export class LearningReviewEvaluator {
     this.chatOptions = chatOptions;
   }
 
-  /**
-   * 生成学习总结评语
-   */
+  /** 生成学习总结评语，返回流式输出和完整文本 Promise */
   async evaluate(req: LearningReviewRequest): Promise<{ stream: Readable; fullTextPromise: Promise<string> }> {
     try {
       logger.debug('正在生成学习总结评语:', JSON.stringify(req, null, 2));
@@ -122,9 +117,7 @@ export class LearningReviewEvaluator {
     }
   }
 
-  /**
-   * 获取课程大纲
-   */
+  // 获取课程大纲
   private async getSectionOutline(sectionId: string): Promise<string> {
     const section = await mainDb.query.sections.findFirst({
       where: eq(sections.section_id, sectionId),
@@ -160,9 +153,7 @@ export class LearningReviewEvaluator {
     return outline;
   }
 
-  /**
-   * 获取题目和成绩
-   */
+  // 获取题目和成绩
   private async getExerciseData(userId: string, sectionId: string): Promise<string> {
     const exerciseList = await mainDb.select().from(exercises).where(eq(exercises.section_id, sectionId)).orderBy(asc(exercises.exercise_id));
 
@@ -196,9 +187,7 @@ export class LearningReviewEvaluator {
     return data;
   }
 
-  /**
-   * 获取聊天记录（从下到上拼接，直到超出token限制）
-   */
+  // 获取聊天记录（从最新往前拼接，直到超出 token 限制）
   private async getChatHistory(sessionId: string): Promise<string> {
     const interactions = await userDb.select().from(aiInteractions).where(eq(aiInteractions.session_id, sessionId)).orderBy(desc(aiInteractions.query_time));
 

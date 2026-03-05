@@ -37,6 +37,7 @@ export const sections = pgTable('sections', {
   video_url: text('video_url'),
   knowledge_points: jsonb('knowledge_points'),
   video_subtitles: jsonb('video_subtitles'),
+  // @deprecated 该字段已废弃，字幕数据已迁移至 video_subtitles (jsonb)
   srt_path: varchar('srt_path', { length: 512 }),
   knowledge_content: text('knowledge_content'),
   estimated_time: integer('estimated_time'),
@@ -99,5 +100,8 @@ export const systemPrompts = pgTable('system_prompts', {
   title: varchar('title', { length: 255 }).primaryKey(),
   prompt_text: text('prompt_text').notNull(),
   created_at: timestamp('created_at').defaultNow().notNull(),
-  updated_at: timestamp('updated_at').defaultNow().notNull(),
+  updated_at: timestamp('updated_at')
+    .defaultNow()
+    .notNull()
+    .$onUpdate(() => new Date()),
 });

@@ -8,7 +8,6 @@ export const createAiInteractionSchema = z.object({
   ai_response: z.string(),
   query_time: z.string().optional(),
   persona_id_in_use: z.uuid().optional(),
-  persona_id: z.uuid().optional(),
 });
 
 export const updateAiInteractionSchema = z.object({
@@ -20,5 +19,4 @@ export const updateAiInteractionSchema = z.object({
   ai_response: z.string().optional(),
   query_time: z.string().optional(),
   persona_id_in_use: z.uuid().optional(),
-  persona_id: z.uuid().optional(),
 });

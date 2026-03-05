@@ -4,14 +4,10 @@ import { userSessionMappings, conversationAnalytics } from '@db/user/schema';
 
 /**
  * Drizzle 持久化存储管理器
- *
- * PGlite 进程内模式，无需 connect/disconnect 生命周期。
- * 提供用户会话映射和对话分析的 CRUD 操作。
+ * PGlite 进程内模式，提供用户会话映射和对话分析的 CRUD 操作
  */
 export class PersistentStorage {
-  /**
-   * 映射用户ID到线程ID
-   */
+  /** 映射用户ID到线程ID（存在则更新，不存在则插入） */
   async mapUserToThread(userId: string, threadId: string, metadata?: unknown): Promise<void> {
     const [existing] = await userDb
       .select()
@@ -32,9 +28,7 @@ export class PersistentStorage {
     }
   }
 
-  /**
-   * 获取用户的所有会话线程
-   */
+  /** 获取用户的所有会话线程 */
   async getUserThreads(userId: string): Promise<Array<{ threadId: string; createdAt: Date; updatedAt: Date; metadata?: unknown }>> {
     const records = await userDb.select().from(userSessionMappings).where(eq(userSessionMappings.user_id, userId)).orderBy(userSessionMappings.updated_at);
 
@@ -46,9 +40,7 @@ export class PersistentStorage {
     }));
   }
 
-  /**
-   * 更新对话分析数据
-   */
+  /** 更新对话分析数据（upsert） */
   async updateConversationAnalytics(sessionId: string, userId: string, conversationSummary: string, analyticsData: unknown): Promise<void> {
     const [existing] = await userDb
       .select()
@@ -74,9 +66,7 @@ export class PersistentStorage {
     }
   }
 
-  /**
-   * 获取对话分析数据
-   */
+  /** 获取对话分析数据 */
   async getConversationAnalytics(sessionId: string, userId: string) {
     const [result] = await userDb
       .select()
@@ -86,9 +76,7 @@ export class PersistentStorage {
     return result ?? null;
   }
 
-  /**
-   * 清理过期的会话数据
-   */
+  /** 清理过期的会话数据 */
   async cleanupExpiredSessions(daysOld: number = 30): Promise<number> {
     const cutoff = new Date(Date.now() - daysOld * 24 * 60 * 60 * 1000);
 

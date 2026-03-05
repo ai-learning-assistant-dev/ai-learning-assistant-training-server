@@ -11,7 +11,7 @@ import logger from '@utils/logger';
 const app = new Hono();
 
 // ── GET /firstUser ──────────────────────────────────
-
+/** 获取第一个用户，用于快速验证数据库是否有用户数据 */
 app.get('/firstUser', async c => {
   const rows = await userDb.select().from(users).limit(1);
   if (!rows[0]) return c.json(fail('没有用户数据'), 404);
@@ -19,7 +19,11 @@ app.get('/firstUser', async c => {
 });
 
 // ── POST /courseChaptersSectionsByUser ───────────────
-
+/**
+ * 通过学员ID查询在学课程及学习进度
+ * 瀑布查询：课程安排 → 课程 → 章节 → 小节，最终根据 schedule.status（已解锁小节序号）
+ * 与该课程最大小节序号计算百分比进度
+ */
 app.post('/courseChaptersSectionsByUser', async c => {
   const { user_id } = await c.req.json();
   if (!user_id) return c.json(fail('user_id 必填'), 400);
@@ -56,14 +60,14 @@ app.post('/courseChaptersSectionsByUser', async c => {
 });
 
 // ── GET /allCourses ─────────────────────────────────
-
+/** 获取全部课程列表（从主库查询） */
 app.get('/allCourses', async c => {
   const rows = await mainDb.select().from(courses);
   return c.json(ok(rows));
 });
 
 // ── POST /testJoinById ──────────────────────────────
-
+/** 测试连表查询：通过用户ID查询用户及其每日总结（dailySummaries）关联数据 */
 app.post('/testJoinById', async c => {
   const { user_id } = await c.req.json();
   if (!user_id) return c.json(fail('user_id 必填'), 400);
@@ -78,7 +82,7 @@ app.post('/testJoinById', async c => {
 });
 
 // ── POST /search（带模糊搜索）───────────────────────
-
+/** 搜索用户，支持按用户名模糊匹配和分页 */
 app.post('/search', async c => {
   const body = await c.req.json();
   const { page = 1, limit = 20 } = searchSchema.parse(body);
@@ -99,7 +103,7 @@ app.post('/search', async c => {
 });
 
 // ── POST /getById ───────────────────────────────────
-
+/** 根据 user_id 获取单个用户信息 */
 app.post('/getById', async c => {
   const { user_id } = await c.req.json();
   if (!user_id) return c.json(fail('缺少 user_id'), 400);
@@ -111,15 +115,23 @@ app.post('/getById', async c => {
 });
 
 // ── POST /add ───────────────────────────────────────
-
+/** 创建新用户，用户名唯一约束冲突时返回 409 */
 app.post('/add', async c => {
   const body = createUserSchema.parse(await c.req.json());
-  const result = await userDb.insert(users).values(body).returning();
-  return c.json(ok(result[0], '用户创建成功'));
+  try {
+    const result = await userDb.insert(users).values(body).returning();
+    return c.json(ok(result[0], '用户创建成功'));
+  } catch (err: any) {
+    // 唯一约束冲突（用户名已存在）
+    if (err?.message?.includes('unique') || err?.code === '23505') {
+      return c.json(fail('用户名已存在'), 409);
+    }
+    throw err;
+  }
 });
 
 // ── POST /update ────────────────────────────────────
-
+/** 更新用户信息，需先校验用户存在 */
 app.post('/update', async c => {
   const body = updateUserSchema.parse(await c.req.json());
   const existing = await userDb.select().from(users).where(eq(users.user_id, body.user_id)).limit(1);
@@ -131,7 +143,7 @@ app.post('/update', async c => {
 });
 
 // ── POST /delete ────────────────────────────────────
-
+/** 删除用户，需先校验用户存在 */
 app.post('/delete', async c => {
   const { user_id } = await c.req.json();
   if (!user_id) return c.json(fail('缺少 user_id'), 400);

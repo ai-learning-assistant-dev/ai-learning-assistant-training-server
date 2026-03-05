@@ -16,9 +16,7 @@ import { getPromptWithArgs } from '../prompt/manager';
 import { KEY_LEARNING_ASSISTANT, KEY_LEARNING_ASSISTANT_FALLBACK } from '../prompt/default';
 import { type ModelConfig, modelConfigManager } from '../utils/modelConfigManager';
 
-/**
- * 学习助手配置选项
- */
+/** 学习助手配置选项 */
 export interface LearningAssistantOptions {
   /** 用户ID */
   userId: string;
@@ -48,11 +46,7 @@ const normalizePersonaId = (id?: string): string | undefined => {
 
 /**
  * 集成 Drizzle 的学习助手
- *
- * - 使用 AiInteraction 表记录对话
- * - 使用 MemorySaver 管理会话内记忆
- * - 支持用户、章节、AI人设的关联
- * - 提供会话管理和历史记录功能
+ * 使用 AiInteraction 记录对话，MemorySaver 管理会话内记忆，支持用户/章节/AI人设关联
  */
 export class LearningAssistant {
   private agent!: ReactAgent;
@@ -80,9 +74,7 @@ export class LearningAssistant {
     this.storage = options.storage ?? new IntegratedStorage();
   }
 
-  /**
-   * 初始化助手
-   */
+  /** 初始化助手：加载课程信息、设置系统提示词、创建 ReactAgent、验证实体 */
   async initialize(): Promise<void> {
     // 加载课程信息并设置默认人设
     await this.loadCourseInfo();
@@ -126,9 +118,7 @@ export class LearningAssistant {
     logger.debug(`学习助手已初始化 - 用户: ${this.userId}, 章节: ${this.sectionId}, 会话: ${this.sessionId}`);
   }
 
-  /**
-   * 与AI进行对话
-   */
+  /** 与AI进行对话，保存交互记录到数据库 */
   async chat(userMessage: string): Promise<string> {
     try {
       const aiResponse = await this.agent.chat(userMessage, {
@@ -144,9 +134,7 @@ export class LearningAssistant {
     }
   }
 
-  /**
-   * 与AI进行流式对话（返回Readable流）
-   */
+  /** 与AI进行流式对话，返回 Readable 流 */
   chatStream(userMessage: string): Readable {
     const readable = new Readable({
       async read() {
@@ -220,31 +208,23 @@ export class LearningAssistant {
     return readable;
   }
 
-  /**
-   * 获取对话历史
-   */
+  /** 获取对话历史 */
   async getConversationHistory(): Promise<BaseMessage[]> {
     return this.agent.getConversationHistory(this.sessionId);
   }
 
-  /**
-   * 获取用户在当前章节的所有会话
-   */
+  /** 获取用户在当前章节的所有会话 */
   async getUserSectionSessions() {
     const allSessions = await this.storage.getUserSessions(this.userId);
     return allSessions.filter(session => session.sectionId === this.sectionId);
   }
 
-  /**
-   * 获取当前会话的统计分析
-   */
+  /** 获取当前会话的统计分析 */
   async getSessionAnalytics() {
     return this.storage.getSessionAnalytics(this.sessionId);
   }
 
-  /**
-   * 切换到不同的AI人设
-   */
+  /** 切换到不同的AI人设 */
   async switchPersona(newPersonaId: string): Promise<void> {
     const [persona] = await mainDb.select().from(aiPersonas).where(eq(aiPersonas.persona_id, newPersonaId));
 
@@ -256,9 +236,7 @@ export class LearningAssistant {
     logger.debug(`已切换到AI人设: ${persona.name}`);
   }
 
-  /**
-   * 获取用户的学习记录和进度
-   */
+  /** 获取用户的学习记录和进度 */
   async getUserLearningProgress() {
     const [user] = await userDb.select().from(users).where(eq(users.user_id, this.userId));
 
@@ -274,9 +252,7 @@ export class LearningAssistant {
     return { user, learningRecords: records, courseSchedules: schedules };
   }
 
-  /**
-   * 获取课程信息（含关联章节）
-   */
+  /** 获取课程信息（含关联章节） */
   async getCourseInfo() {
     if (!this.courseId) return null;
 
@@ -292,9 +268,7 @@ export class LearningAssistant {
     return result ?? null;
   }
 
-  /**
-   * 获取课程大纲（章节结构）
-   */
+  /** 获取课程大纲（章节结构） */
   async getCourseOutline(): Promise<string> {
     if (!this.courseId) {
       return '当前会话未关联课程信息';
@@ -336,9 +310,7 @@ export class LearningAssistant {
     return outline;
   }
 
-  /**
-   * 获取当前章节在课程中的上下文信息
-   */
+  /** 获取当前章节在课程中的上下文信息 */
   async getSectionContext(): Promise<string> {
     const sectionResult = await mainDb.query.sections.findFirst({
       where: eq(sections.section_id, this.sectionId),
@@ -500,6 +472,7 @@ export class LearningAssistant {
 
 // ── 工厂函数 ────────────────────────────────────────
 
+/** 创建并初始化学习助手实例 */
 export async function createLearningAssistant(
   userId: string,
   sectionId: string,
@@ -524,11 +497,13 @@ export async function createLearningAssistant(
   return assistant;
 }
 
+/** 为指定用户和章节启动新的学习会话 */
 export async function startNewLearningSession(userId: string, sectionId: string, personaId?: string, courseId?: string): Promise<LearningAssistant> {
   const sessionId = IntegratedStorage.generateSessionId(userId, sectionId);
   return createLearningAssistant(userId, sectionId, personaId, sessionId, courseId);
 }
 
+/** 根据 sessionId 恢复已有学习会话 */
 export async function resumeLearningSession(userId: string, sessionId: string, requirements?: string, modelName?: string, reasoning?: boolean): Promise<LearningAssistant> {
   const parts = sessionId.split('_');
   if (parts.length < 4) {
@@ -538,6 +513,7 @@ export async function resumeLearningSession(userId: string, sessionId: string, r
   return createLearningAssistant(userId, sectionId, undefined, sessionId, undefined, requirements, modelName, reasoning);
 }
 
+/** 为指定课程创建学习助手，自动选择第一个章节（若未指定） */
 export async function createCourseAssistant(userId: string, courseId: string, sectionId?: string, requirements?: string, modelName?: string): Promise<LearningAssistant> {
   let finalSectionId = sectionId;
 

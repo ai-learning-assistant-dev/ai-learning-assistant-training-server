@@ -4,10 +4,10 @@ import { z } from 'zod';
 
 export const createExerciseSchema = z.object({
   section_id: z.uuid().optional(),
-  question: z.string(),
-  type_status: z.string(),
+  question: z.string().min(1),
+  type_status: z.string().min(1),
   score: z.number().int().optional(),
-  answer: z.string(),
+  answer: z.string().min(1),
 });
 
 export const updateExerciseSchema = z.object({

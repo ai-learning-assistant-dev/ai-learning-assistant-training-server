@@ -38,7 +38,11 @@ async function pipeReadable(s: { write: (data: string) => Promise<unknown> }, re
 const app = new Hono();
 
 // ── POST /chat ──────────────────────────────────────
-
+/**
+ * 非流式 AI 对话，支持通过 sessionId 恢复已有会话或新建会话
+ * 参数：userId, sectionId, message, personaId?, sessionId?, modelName?
+ * 返回完整 AI 响应文本，对话结束后清理 assistant 资源
+ */
 app.post('/chat', async c => {
   const request = chatRequestSchema.parse(await c.req.json());
   const { userId, sectionId, message, personaId, sessionId, modelName } = request;
@@ -72,7 +76,11 @@ app.post('/chat', async c => {
 });
 
 // ── POST /daily ─────────────────────────────────────
-
+/**
+ * DailyChat 轻量流式对话，使用固定「信心十足的教育家」人设，无需指定 sectionId
+ * 参数：message, reasoning?, modelName?, useAudio?, ttsOption?
+ * 支持 TTS 语音选项注入额外 prompt，通过 Hono streamText 返回流式响应
+ */
 app.post('/daily', async c => {
   const request = streamChatRequestSchema.parse(await c.req.json());
   const { message, reasoning, modelName } = request;
@@ -101,7 +109,10 @@ app.post('/daily', async c => {
 });
 
 // ── POST /evaluate ──────────────────────────────────
-
+/**
+ * 使用大模型评估学生简答题答案，返回评语与分数
+ * 参数：studentAnswer, question, standardAnswer, priorKnowledge?, prompt?
+ */
 app.post('/evaluate', async c => {
   const request = answerEvaluateRequestSchema.parse(await c.req.json());
   const evaluator = new AnswerEvaluator();
@@ -110,7 +121,11 @@ app.post('/evaluate', async c => {
 });
 
 // ── POST /learning-review ───────────────────────────
-
+/**
+ * 生成学习总结评语（流式返回），基于聊天记录、课程大纲和学习成绩
+ * 参数：userId, sectionId, sessionId, modelName?
+ * 流式结束后异步将总结内容保存到 aiInteractions 表
+ */
 app.post('/learning-review', async c => {
   const request = learningReviewRequestSchema.parse(await c.req.json());
   const { userId, sectionId, sessionId, modelName } = request;
@@ -143,7 +158,11 @@ app.post('/learning-review', async c => {
 });
 
 // ── POST /chat/stream ───────────────────────────────
-
+/**
+ * 流式 AI 对话主接口，同时兼容 daily 模式和学习助手模式
+ * daily 模式（daily=true 或 sectionId 为空）委托给 DailyChat 处理
+ * 学习助手模式需要 userId, sectionId, message，支持 sessionId 恢复会话、TTS 语音选项
+ */
 app.post('/chat/stream', async c => {
   const request = streamChatRequestSchema.parse(await c.req.json());
 
@@ -208,7 +227,10 @@ app.post('/chat/stream', async c => {
 });
 
 // ── GET /sessionID/by-user-section ──────────────────
-
+/**
+ * 根据 userId 和 sectionId 查询该用户在该小节的所有会话列表
+ * 返回每个会话的交互次数、首次和末次交互时间，按最后交互时间倒序排列
+ */
 app.get('/sessionID/by-user-section', async c => {
   const userId = c.req.query('userId');
   const sectionId = c.req.query('sectionId');
@@ -253,7 +275,11 @@ app.get('/sessionID/by-user-section', async c => {
 });
 
 // ── GET /history/:sessionId ─────────────────────────
-
+/**
+ * 获取指定会话的完整对话历史，关联查询用户名、小节标题、人设名
+ * 参数：sessionId (路径参数), withoutInner? (查询参数，过滤 [inner] 开头的内部消息)
+ * 使用内存缓存避免 N+1 查询问题
+ */
 app.get('/history/:sessionId', async c => {
   const sessionId = c.req.param('sessionId');
   const withoutInner = c.req.query('withoutInner') === 'true';
@@ -323,7 +349,11 @@ app.get('/history/:sessionId', async c => {
 });
 
 // ── POST /sessions/new ──────────────────────────────
-
+/**
+ * 创建新学习会话，daily 模式（sectionId 为空）返回固定 sessionId
+ * 参数：userId, sectionId, personaId?
+ * 正常模式下初始化 LearningAssistant 并返回新生成的 sessionId
+ */
 app.post('/sessions/new', async c => {
   const request = createSessionRequestSchema.parse(await c.req.json());
   const { userId, sectionId, personaId } = request;
@@ -359,7 +389,10 @@ app.post('/sessions/new', async c => {
 });
 
 // ── GET /analytics/:sessionId ───────────────────────
-
+/**
+ * 获取指定会话的学习分析统计数据
+ * 从 sessionId 格式（xxx_userId_sectionId_xxx）中解析用户和小节信息
+ */
 app.get('/analytics/:sessionId', async c => {
   const sessionId = c.req.param('sessionId');
   if (!sessionId) return c.json(fail('缺少会话ID参数'), 400);
@@ -378,7 +411,7 @@ app.get('/analytics/:sessionId', async c => {
 });
 
 // ── GET /personas ───────────────────────────────────
-
+/** 获取所有 AI 人设列表，按 is_default_template 倒序排列（默认模板优先） */
 app.get('/personas', async c => {
   const rows = await mainDb
     .select({
@@ -394,7 +427,10 @@ app.get('/personas', async c => {
 });
 
 // ── POST /switch-persona ────────────────────────────
-
+/**
+ * 切换指定会话的 AI 人设，从 sessionId 解析 userId 后恢复会话并执行切换
+ * 参数：sessionId, personaId
+ */
 app.post('/switch-persona', async c => {
   const { sessionId, personaId } = switchPersonaSchema.parse(await c.req.json());
 
@@ -411,7 +447,7 @@ app.post('/switch-persona', async c => {
 });
 
 // ── GET /models ─────────────────────────────────────
-
+/** 获取可用的非嵌入大模型列表及默认模型名称，供前端模型选择使用 */
 app.get('/models', async c => {
   const models = modelConfigManager.getNonEmbeddingModels();
   const modelList = models.map(model => ({

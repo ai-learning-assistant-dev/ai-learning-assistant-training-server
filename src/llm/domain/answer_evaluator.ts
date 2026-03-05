@@ -5,10 +5,8 @@ import { getPromptWithArgs } from '../prompt/manager';
 import { KEY_ANSWER_EVALUATOR } from '../prompt/default';
 
 /**
- * AnswerEvaluator
- *
- * 用于对学生的简答题答案进行一次性评估的工具类。
- * 调用外部大模型（通过 SingleChat）返回评语与分数。
+ * 答案评估器：对学生简答题答案进行一次性评估
+ * 通过 SingleChat 调用大模型，返回评语和分数
  */
 export class AnswerEvaluator {
   private chatOptions?: any;
@@ -17,10 +15,7 @@ export class AnswerEvaluator {
     this.chatOptions = chatOptions;
   }
 
-  /**
-   * 评估学生答案。
-   * 返回结构：{ reply: string, score: number }
-   */
+  /** 评估学生答案，返回 { reply, score } */
   async evaluate(req: AnswerEvaluateRequest): Promise<AnswerEvaluateResponse> {
     // Print the full request object so nested fields are visible in logs
     try {

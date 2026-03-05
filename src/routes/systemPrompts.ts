@@ -7,19 +7,19 @@ import { ok, fail } from '@schemas/common';
 
 const app = new Hono();
 
-// GET / — 获取全部系统提示词
+/** GET / — 获取全部系统提示词 */
 app.get('/', async c => {
   const rows = await mainDb.select().from(systemPrompts);
   return c.json(ok(rows));
 });
 
-// GET /keys — 获取全部 title 列表
+/** GET /keys — 获取全部 title 列表 */
 app.get('/keys', async c => {
   const rows = await mainDb.select({ title: systemPrompts.title }).from(systemPrompts);
   return c.json(ok(rows.map(r => r.title)));
 });
 
-// GET /:title — 按 title 查找
+/** GET /:title — 按 title 查找 */
 app.get('/:title', async c => {
   const title = c.req.param('title');
   const rows = await mainDb.select().from(systemPrompts).where(eq(systemPrompts.title, title)).limit(1);
@@ -27,7 +27,7 @@ app.get('/:title', async c => {
   return c.json(ok(rows[0]));
 });
 
-// PUT /:title — 更新提示词
+/** PUT /:title — 更新或新增提示词（按 title 做 upsert，存在则更新，不存在则插入） */
 app.put('/:title', async c => {
   const title = c.req.param('title');
   const body = updateSystemPromptSchema.parse(await c.req.json());

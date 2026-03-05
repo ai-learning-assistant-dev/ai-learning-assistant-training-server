@@ -3,9 +3,7 @@ import { eq, sql, min, max, count, lt } from 'drizzle-orm';
 import { userDb } from '@db/index';
 import { aiInteractions } from '@db/user/schema';
 
-/**
- * 会话映射信息接口
- */
+/** 会话映射信息 */
 export interface SessionMapping {
   userId: string;
   sessionId: string;
@@ -16,9 +14,7 @@ export interface SessionMapping {
   metadata?: unknown;
 }
 
-/**
- * 对话分析信息接口
- */
+/** 对话分析信息 */
 export interface ConversationAnalytics {
   sessionId: string;
   messageCount: number;
@@ -31,14 +27,10 @@ export interface ConversationAnalytics {
 
 /**
  * 集成 Drizzle 的 LLM 存储管理器
- *
- * 使用 PGlite 进程内数据库，无需 connect/disconnect 生命周期管理。
- * 会话数据基于 AiInteraction 表实时查询。
+ * 基于 AiInteraction 表实时查询会话数据，PGlite 进程内模式
  */
 export class IntegratedStorage {
-  /**
-   * 获取用户的所有会话（基于 AiInteraction 表聚合）
-   */
+  /** 获取用户的所有会话（基于 AiInteraction 表聚合） */
   async getUserSessions(userId: string): Promise<SessionMapping[]> {
     const sessions = await userDb
       .select({
@@ -64,9 +56,7 @@ export class IntegratedStorage {
     }));
   }
 
-  /**
-   * 获取会话的对话分析数据（基于 AiInteraction 表实时计算）
-   */
+  /** 获取会话的对话分析数据（基于 AiInteraction 表实时计算） */
   async getSessionAnalytics(sessionId: string): Promise<ConversationAnalytics | null> {
     const [analytics] = await userDb
       .select({
@@ -96,9 +86,7 @@ export class IntegratedStorage {
     };
   }
 
-  /**
-   * 清理过期的会话数据
-   */
+  /** 清理过期的会话数据 */
   async cleanupExpiredSessions(daysOld: number = 30): Promise<number> {
     const cutoffDate = new Date();
     cutoffDate.setDate(cutoffDate.getDate() - daysOld);
@@ -108,18 +96,14 @@ export class IntegratedStorage {
     return result.length;
   }
 
-  /**
-   * 根据用户ID和章节ID生成会话ID
-   */
+  /** 根据用户ID和章节ID生成会话ID */
   static generateSessionId(userId: string, sectionId: string, timestamp?: Date): string {
     const time = timestamp ?? new Date();
     const dateStr = time.toISOString().split('T')[0]; // YYYY-MM-DD
     return `session_${userId}_${sectionId}_${dateStr}`;
   }
 
-  /**
-   * 为用户在特定章节创建新的会话ID
-   */
+  /** 为用户在特定章节创建新的会话ID */
   createUserSectionSession(userId: string, sectionId: string): string {
     const sessionId = IntegratedStorage.generateSessionId(userId, sectionId);
     logger.debug(`📝 用户会话创建: ${userId} -> ${sessionId}`);
@@ -127,9 +111,7 @@ export class IntegratedStorage {
   }
 }
 
-/**
- * 全局集成存储实例（单例）
- */
+// 全局集成存储实例（单例）
 let globalStorage: IntegratedStorage | null = null;
 
 export function getIntegratedStorage(): IntegratedStorage {

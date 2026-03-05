@@ -191,7 +191,13 @@ bun clean          # 清理构建产物
 - **数据库列名**：snake_case（`user_id`、`section_order`）
 - **Zod schema 名**：camelCase + Schema 后缀（`createCourseSchema`、`chatRequestSchema`）
 
-### 5.3 API 设计
+### 5.3 注释规范
+
+- **文档注释**（`/** */`）：需要 IDE 悬停提示的场景——类、接口、导出函数、公共方法、路由处理器。中文描述，不加 JSDoc 类型标签（`@param`、`@returns` 等由 TS 类型系统承担）
+- **普通注释**（`//`）：不需要 IDE 悬停提示的场景——段落分隔（`// ── xxx ──`）、代码逻辑说明、标记（如 `// @deprecated`）
+- **不写注释**：命名自解释的简单函数、私有方法、getter/setter
+
+### 5.4 API 设计
 
 - **Hono 驱动**：路由使用 Hono 创建，Zod 手动 `.parse()` 校验请求体
 - **基础路径**：`/api`
@@ -207,7 +213,7 @@ bun clean          # 清理构建产物
 4. 在 `src/routes/index.ts` 中注册路由
 5. 完成！
 
-### 5.4 数据库规范
+### 5.5 数据库规范
 
 - **Drizzle ORM 0.45**，`pgTable()` 函数定义表结构，`relations()` 定义关系
 - **PGlite** 嵌入式 PostgreSQL，进程内模式直连，无需外部服务
@@ -216,7 +222,7 @@ bun clean          # 清理构建产物
 - **Schema 同步**：启动时通过 `syncSchema.ts` 执行 `CREATE TABLE IF NOT EXISTS`
 - Docker 部署时切换为标准 PostgreSQL + `drizzle-orm/node-postgres`
 
-### 5.5 LLM 集成规范
+### 5.6 LLM 集成规范
 
 - **工厂方法**：`create_llm.ts` 统一创建 LLM 实例，支持 7 种 Provider
 - **配置管理**：`ModelConfigManager` 单例从 `src/config/llm-config.json` 加载模型配置
@@ -224,7 +230,7 @@ bun clean          # 清理构建产物
 - **流式响应**：路由使用 Hono `streamText`，LLM 输出通过 `pipeReadable()` 逐 chunk 推送
 - **Checkpoint**：使用 MemorySaver（进程内），恢复会话时从 AiInteraction 表重建对话历史
 
-### 5.6 文件组织
+### 5.7 文件组织
 
 - 新 API 路由放在 `src/routes/`
 - 新的 Drizzle 表定义放在 `src/db/main/schema.ts` 或 `src/db/user/schema.ts`
@@ -233,7 +239,7 @@ bun clean          # 清理构建产物
 - 新的 LangChain 工具放在 `src/llm/tool/`
 - 新的提示词模板放在 `src/llm/prompt/`
 
-### 5.7 依赖管理
+### 5.8 依赖管理
 
 - 所有依赖版本在根 `package.json` 中管理
 - 使用 `bun` 安装依赖

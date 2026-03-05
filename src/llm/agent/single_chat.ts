@@ -19,11 +19,8 @@ export type SingleChatOptions = {
 var memorySaver = new MemorySaver();
 
 /**
- * SingleChat: a lightweight disposable chat wrapper around ReactAgent.
- *
- * - Intended for one-off LLM calls without durable memory.
- * - Internally creates a new thread id and does not reuse stored history.
- * - Call `cleanup()` when finished to allow GC of internal resources.
+ * 轻量一次性对话封装，基于 ReactAgent
+ * 适用于无持久记忆的一次性 LLM 调用，使用后需调用 cleanup 释放资源
  */
 export class SingleChat {
   private agent: ReactAgent;
@@ -46,17 +43,12 @@ export class SingleChat {
     this.threadId = options?.threadId;
   }
 
-  /**
-   * Send a single user message and return the model's textual reply.
-   * Uses ReactAgent's built-in conversation history management.
-   */
+  /** 发送用户消息并返回模型文本回复 */
   async chat(userInput: string): Promise<string> {
     return this.agent.chat(userInput);
   }
 
-  /**
-   * Stream intermediate updates as the agent reasons. Returns an async iterable (from ReactAgent.stream).
-   */
+  /** 流式输出 Agent 推理过程，返回异步迭代器 */
   async stream(userInput: string, options?: Record<string, any>) {
     // 获取当前对话历史
     const existingMessages = await this.agent.getConversationHistory(this.threadId);
@@ -67,16 +59,12 @@ export class SingleChat {
     return this.agent.stream(allMessages, options);
   }
 
-  /**
-   * Convenience wrapper that invokes the agent and returns the final state.
-   */
+  /** 便捷封装：调用 Agent 并返回最终状态 */
   async invoke(messages: BaseMessageLike[], options?: Record<string, any>) {
     return (this.agent as any).invoke(messages, { ...(options ?? {}), configurable: { ...(options?.configurable ?? {}), thread_id: this.threadId } } as any);
   }
 
-  /**
-   * Clean up internal resources. After calling this the instance should not be used.
-   */
+  /** 清理内部资源，调用后实例不应再使用 */
   async cleanup(): Promise<void> {
     try {
       (this.agent as any) = undefined as any;

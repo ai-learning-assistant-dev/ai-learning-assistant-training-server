@@ -7,9 +7,7 @@ import { createReactAgent, type CreateReactAgentParams } from '@langchain/langgr
 import { PersistentStorage } from '../storage/persistent_storage';
 import { isAPIKeyEmpty } from '../utils/modelConfigManager';
 
-/**
- * Configuration required to instantiate a LangGraph React agent without tools.
- */
+/** ReactAgent 构造参数 */
 export type ReactAgentOptions = {
   /**
    * Chat model instance compatible with OpenAI-style tool calling.
@@ -50,13 +48,12 @@ type InvokeOptions = Parameters<ReactAgentGraph['invoke']>[1];
 type StreamOptions = Parameters<ReactAgentGraph['stream']>[1];
 type InvokeReturn = Awaited<ReturnType<ReactAgentGraph['invoke']>>;
 
-/**
- * Alias for the state shape produced by LangGraph's prebuilt React agent.
- */
+/** LangGraph ReactAgent 输出状态类型 */
 export type ReactAgentState = InvokeReturn;
 
 /**
- * Thin wrapper around LangGraph's prebuilt React agent that disables tool usage.
+ * 对 LangGraph 预构建 ReactAgent 的轻量封装
+ * 统一管理对话、流式输出、线程和持久化存储
  */
 export class ReactAgent {
   private readonly graph: ReactAgentGraph;
@@ -84,16 +81,12 @@ export class ReactAgent {
     this.persistentStorage = persistentStorage;
   }
 
-  /**
-   * Executes the agent end-to-end and returns the final LangGraph state.
-   */
+  /** 执行 Agent 完整调用，返回最终 LangGraph 状态 */
   async invoke(messages: BaseMessageLike[], options?: InvokeOptions): Promise<ReactAgentState> {
     return this.graph.invoke({ messages }, this.applyThreadConfig(options as Record<string, unknown> | undefined) as InvokeOptions | undefined);
   }
 
-  /**
-   * Streams intermediate state updates emitted while the agent reasons.
-   */
+  /** 流式输出 Agent 推理过程中的中间状态更新 */
   stream(messages: BaseMessageLike[], options?: StreamOptions) {
     if (isAPIKeyEmpty) {
       const fallbackChunk = [{ content: '请先参考使用手册配置大模型，以使用语言模型服务' }];
@@ -167,19 +160,14 @@ export class ReactAgent {
     });
   }
 
-  /**
-   * Helper that runs the agent and extracts the last AI message as plain text.
-   */
+  /** 运行 Agent 并提取最后一条 AI 消息为纯文本 */
   async runToText(messages: BaseMessageLike[], options?: InvokeOptions): Promise<string> {
     const state = await this.invoke(messages, options);
     const last = state.messages[state.messages.length - 1];
     return last ? messageContentToString(last) : '';
   }
 
-  /**
-   * Convenience helper that sends a single user input to the agent and
-   * returns the model's textual reply. Uses checkpointer to maintain conversation history.
-   */
+  /** 发送用户消息并返回模型文本回复，自动维护对话历史 */
   async chat(userInput: string, options?: InvokeOptions): Promise<string> {
     if (isAPIKeyEmpty) {
       return '请先参考使用手册配置大模型，以使用语言模型服务。';
@@ -218,17 +206,12 @@ export class ReactAgent {
     return response;
   }
 
-  /**
-   * Starts a new conversation thread and returns the thread ID.
-   * Useful for managing multiple separate conversations.
-   */
+  /** 创建新的对话线程并返回线程 ID */
   createNewThread(): string {
     return `thread_${Date.now()}_${Math.random().toString(36).substring(7)}`;
   }
 
-  /**
-   * Gets the conversation history for a specific thread.
-   */
+  /** 获取指定线程的对话历史 */
   async getConversationHistory(threadId?: string): Promise<BaseMessage[]> {
     const resolvedThreadId = threadId ?? this.defaultThreadId;
     if (!resolvedThreadId) {
@@ -246,9 +229,7 @@ export class ReactAgent {
     }
   }
 
-  /**
-   * Map a user ID to a thread ID for session management
-   */
+  /** 映射用户 ID 到线程 ID */
   async mapUserToThread(userId: string, threadId?: string, metadata?: any): Promise<string> {
     const finalThreadId = threadId || this.createNewThread();
 
@@ -259,9 +240,7 @@ export class ReactAgent {
     return finalThreadId;
   }
 
-  /**
-   * Get all thread IDs for a specific user
-   */
+  /** 获取用户的所有线程 */
   async getUserThreads(userId: string): Promise<Array<{ threadId: string; createdAt: Date; updatedAt: Date; metadata?: any }>> {
     if (!this.persistentStorage) {
       throw new Error('Persistent storage not available');
@@ -270,9 +249,7 @@ export class ReactAgent {
     return this.persistentStorage.getUserThreads(userId);
   }
 
-  /**
-   * Get conversation analytics for a thread
-   */
+  /** 获取线程的对话分析数据 */
   async getThreadAnalytics(threadId: string): Promise<any> {
     if (!this.persistentStorage) {
       throw new Error('Persistent storage not available');
@@ -280,9 +257,7 @@ export class ReactAgent {
     return this.persistentStorage.getConversationAnalytics(threadId, threadId);
   }
 
-  /**
-   * Clean up expired sessions
-   */
+  /** 清理过期会话 */
   async cleanupExpiredSessions(daysOld: number = 30): Promise<number> {
     if (!this.persistentStorage) {
       throw new Error('Persistent storage not available');
@@ -291,16 +266,12 @@ export class ReactAgent {
     return this.persistentStorage.cleanupExpiredSessions(daysOld);
   }
 
-  /**
-   * Get the PostgreSQL storage instance
-   */
+  /** 获取持久化存储实例 */
   getPersistentStorage(): PersistentStorage | undefined {
     return this.persistentStorage;
   }
 
-  /**
-   * Update conversation analytics
-   */
+  // 更新对话分析数据
   private async updateAnalytics(threadId: string, messages: BaseMessage[]): Promise<void> {
     if (!this.persistentStorage) {
       return;

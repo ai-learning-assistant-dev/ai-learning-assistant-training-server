@@ -25,6 +25,7 @@ app.route(
 
 // ── POST /getTestsWithExercisesByCourse ─────────────
 
+/** 根据课程 ID 查询所有测试及其关联的练习题与选项 */
 app.post('/getTestsWithExercisesByCourse', async c => {
   const { course_id } = await c.req.json();
   if (!course_id) return c.json(fail('course_id 必填'), 400);
@@ -57,6 +58,7 @@ app.post('/getTestsWithExercisesByCourse', async c => {
 
 // ── POST /saveTestResults ───────────────────────────
 
+/** 批量保存测试答题结果，自动判分（选择题/简答题），计算总分与通过率 */
 app.post('/saveTestResults', async c => {
   const body = await c.req.json();
   const { user_id, test_id, start_date, end_date, ai_feedback, list } = body;

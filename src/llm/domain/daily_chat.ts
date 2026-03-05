@@ -7,12 +7,8 @@ import { type ModelConfig, modelConfigManager } from '../utils/modelConfigManage
 import { createLLM } from '../utils/create_llm';
 
 /**
- * DailyChat
- *
- * A lightweight disposable agent built on SingleChat for one-off daily conversations.
- * - session id is fixed to '12345672'
- * - memory is enabled for the lifetime of the SingleChat instance
- * - exposes chat and stream methods
+ * 每日聊天：基于 SingleChat 的轻量一次性对话封装
+ * 使用固定的 sessionId 和内置记忆，支持普通对话和流式对话
  */
 export class DailyChat {
   private sc: SingleChat;
@@ -24,6 +20,7 @@ export class DailyChat {
     logger.debug(`DailyChat created with sessionId=${DailyChat.sessionId}, persona=${DailyChat.FIXED_PERSONA_NAME}, memory enabled=${true}`);
   }
 
+  /** 工厂方法：创建 DailyChat 实例，加载提示词和模型配置 */
   static async create(options?: DailyChatOptions): Promise<DailyChat> {
     // simple system prompt can be passed via options.prompt or default
     const realRequirements = options?.requirements || '请简要回答';
@@ -46,9 +43,7 @@ export class DailyChat {
     return new DailyChat(sc);
   }
 
-  /**
-   * Send a chat message and get the final response text.
-   */
+  /** 发送消息并获取最终回复文本 */
   async chat(userInput: string): Promise<string> {
     try {
       logger.debug(`DailyChat.chat [${DailyChat.sessionId}] request:`, userInput);
@@ -61,10 +56,7 @@ export class DailyChat {
     }
   }
 
-  /**
-   * Stream the agent's intermediate outputs as a Node Readable stream.
-   * This mirrors the approach used in `learning_assistant.chatStream`.
-   */
+  /** 流式输出对话结果，返回 Node Readable 流 */
   stream(userInput: string, options?: Record<string, any>): Readable {
     logger.debug(`DailyChat.stream [${DailyChat.sessionId}] request:`, userInput);
 
@@ -152,9 +144,7 @@ export class DailyChat {
     return readable;
   }
 
-  /**
-   * Clean up internal resources (delegate to SingleChat.cleanup)
-   */
+  /** 清理内部资源 */
   async cleanup(): Promise<void> {
     try {
       await this.sc.cleanup();

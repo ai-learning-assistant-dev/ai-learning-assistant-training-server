@@ -15,7 +15,7 @@ export interface AnswerEvaluateResponse {
 export const chatRequestSchema = z.object({
   userId: z.uuid(),
   sectionId: z.union([z.uuid(), z.literal('')]),
-  message: z.string(),
+  message: z.string().min(1),
   personaId: z.uuid().optional(),
   sessionId: z.string().optional(),
   modelName: z.string().optional(),
@@ -27,7 +27,7 @@ export const chatRequestSchema = z.object({
 export const streamChatRequestSchema = z.object({
   userId: z.uuid().optional(),
   sectionId: z.union([z.uuid(), z.literal('')]).optional(),
-  message: z.string(),
+  message: z.string().min(1),
   personaId: z.uuid().optional(),
   sessionId: z.string().optional(),
   useAudio: z.boolean().optional(),
@@ -40,9 +40,9 @@ export const streamChatRequestSchema = z.object({
 // ── 答案评估 ────────────────────────────────────────
 
 export const answerEvaluateRequestSchema = z.object({
-  studentAnswer: z.string(),
-  question: z.string(),
-  standardAnswer: z.string(),
+  studentAnswer: z.string().min(1),
+  question: z.string().min(1),
+  standardAnswer: z.string().min(1),
   priorKnowledge: z.string().optional(),
   prompt: z.string().optional(),
 });
