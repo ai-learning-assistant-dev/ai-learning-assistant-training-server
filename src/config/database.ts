@@ -54,7 +54,8 @@ const workerPath = process.env.NODE_ENV === 'production' ? path.resolve(__dirnam
 console.log(`ℹ️ 使用的 pgLiteWorker 路径: ${workerPath}`);
 const mainPgLite = new Worker(workerPath);
 const userPgLite = new Worker(workerPath);
-mainPgLite.postMessage({ action: 'start', params: { name: 'ai_learning_assistant', port: mainPort, backupFile: path.resolve('./back_f.sql') } });
+const courseFile = process.env.ALA_COURSE_PATH ? process.env.ALA_COURSE_PATH : path.resolve('./back_f.sql');
+mainPgLite.postMessage({ action: 'start', params: { name: 'ai_learning_assistant', port: mainPort, backupFile: courseFile } });
 userPgLite.postMessage({ action: 'start', params: { name: 'ai_learning_assistant_users', port: userPort } });
 await new Promise<void>(resolve => {
   let mainStarted = false;
