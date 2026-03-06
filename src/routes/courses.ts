@@ -2,11 +2,13 @@ import { Hono } from 'hono';
 import { describeRoute } from 'hono-openapi';
 import { eq, inArray, asc, and } from 'drizzle-orm';
 import { mainDb, userDb } from '@db/index';
-import { courses, chapters, sections, exercises } from '@db/main/schema';
+import { courses, chapters, sections, exercises, exerciseOptions, leadingQuestions } from '@db/main/schema';
 import { userSectionUnlocks } from '@db/user/schema';
 import { createCrudRoutes } from './_crud';
-import { createCourseSchema, updateCourseSchema } from '@schemas/course';
+import { createCourseSchema, updateCourseSchema, importCourseSchema } from '@schemas/course';
 import { ok, fail } from '@schemas/common';
+import { jsonBody, jsonResponse, apiErrorSchema } from '@schemas/openapi';
+import { z } from 'zod';
 
 const app = new Hono();
 
@@ -23,6 +25,38 @@ app.route(
     updateSchema: updateCourseSchema,
     tag: '课程管理',
     entityName: '课程',
+    afterDelete: async record => {
+      const courseId = (record as { course_id: string }).course_id;
+
+      // 查询该课程下所有章节
+      const chapterRows = await mainDb.select({ chapter_id: chapters.chapter_id }).from(chapters).where(eq(chapters.course_id, courseId));
+      const chapterIds = chapterRows.map(r => r.chapter_id);
+
+      if (chapterIds.length > 0) {
+        // 查询所有小节
+        const sectionRows = await mainDb.select({ section_id: sections.section_id }).from(sections).where(inArray(sections.chapter_id, chapterIds));
+        const sectionIds = sectionRows.map(r => r.section_id);
+
+        if (sectionIds.length > 0) {
+          // 查询所有练习
+          const exerciseRows = await mainDb.select({ exercise_id: exercises.exercise_id }).from(exercises).where(inArray(exercises.section_id, sectionIds));
+          const exerciseIds = exerciseRows.map(r => r.exercise_id);
+
+          // 删除练习选项
+          if (exerciseIds.length > 0) {
+            await mainDb.delete(exerciseOptions).where(inArray(exerciseOptions.exercise_id, exerciseIds));
+          }
+          // 删除练习
+          await mainDb.delete(exercises).where(inArray(exercises.section_id, sectionIds));
+          // 删除引导问题
+          await mainDb.delete(leadingQuestions).where(inArray(leadingQuestions.section_id, sectionIds));
+        }
+        // 删除小节
+        await mainDb.delete(sections).where(inArray(sections.chapter_id, chapterIds));
+      }
+      // 删除章节
+      await mainDb.delete(chapters).where(eq(chapters.course_id, courseId));
+    },
   }),
 );
 
@@ -34,6 +68,12 @@ app.post(
   describeRoute({
     tags: ['课程管理'],
     summary: '获取课程完整的章节-小节树形结构，包含用户解锁状态与瀑布式逐级解锁逻辑',
+    requestBody: jsonBody(z.object({ course_id: z.uuid(), user_id: z.uuid() })) as any,
+    responses: {
+      200: jsonResponse('课程章节树形结构'),
+      400: jsonResponse('参数缺失', apiErrorSchema),
+      404: jsonResponse('课程不存在', apiErrorSchema),
+    },
   }),
   async c => {
     const { course_id, user_id } = await c.req.json();
@@ -157,6 +197,93 @@ app.post(
         chapters: chapterList,
       }),
     );
+  },
+);
+
+// ── POST /import ─────────────────────────────────────
+
+/** 整体导入课程（含章节、小节、练习、选项、引导问题），使用事务保证原子性 */
+app.post(
+  '/import',
+  describeRoute({
+    tags: ['课程管理'],
+    summary: '整体导入课程数据（含章节/小节/练习/选项/引导问题）',
+    requestBody: jsonBody(importCourseSchema) as any,
+    responses: {
+      201: jsonResponse('导入成功', z.object({ success: z.literal(true), data: z.object({ course_id: z.uuid(), name: z.string() }), message: z.string() })),
+      400: jsonResponse('请求参数错误', apiErrorSchema),
+    },
+  }),
+  async c => {
+    const body = await c.req.json();
+    const payload = importCourseSchema.parse(body);
+
+    const result = await mainDb.transaction(async tx => {
+      // 1. 插入课程
+      const [course] = await tx
+        .insert(courses)
+        .values({ name: payload.title, icon_url: payload.icon_url || null, description: payload.description, category: payload.category, contributors: payload.contributors })
+        .returning();
+
+      const courseId = course!.course_id;
+
+      for (const ch of payload.chapters) {
+        // 2. 插入章节
+        const [chapter] = await tx.insert(chapters).values({ course_id: courseId, title: ch.title, chapter_order: ch.order }).returning();
+
+        const chapterId = chapter!.chapter_id;
+
+        for (const sec of ch.sections) {
+          // 3. 插入小节
+          const [section] = await tx
+            .insert(sections)
+            .values({
+              chapter_id: chapterId,
+              title: sec.title,
+              section_order: sec.order,
+              video_url: sec.video_url,
+              knowledge_content: sec.knowledge_content,
+              estimated_time: sec.estimated_time,
+              knowledge_points: sec.knowledge_points ?? null,
+              video_subtitles: sec.video_subtitles,
+            })
+            .returning();
+
+          const sectionId = section!.section_id;
+
+          // 4. 插入练习及选项
+          for (const ex of sec.exercises) {
+            const [exercise] = await tx.insert(exercises).values({ section_id: sectionId, question: ex.question, type_status: ex.type, score: ex.score }).returning();
+
+            const exerciseId = exercise!.exercise_id;
+
+            if (ex.options.length > 0) {
+              await tx.insert(exerciseOptions).values(
+                ex.options.map(opt => ({
+                  exercise_id: exerciseId,
+                  option_text: opt.text,
+                  is_correct: opt.is_correct,
+                })),
+              );
+            }
+          }
+
+          // 5. 插入引导问题
+          if (sec.leading_questions.length > 0) {
+            await tx.insert(leadingQuestions).values(
+              sec.leading_questions.map(lq => ({
+                section_id: sectionId,
+                question: lq.question,
+              })),
+            );
+          }
+        }
+      }
+
+      return { course_id: courseId, name: payload.title };
+    });
+
+    return c.json(ok(result, '课程导入成功'), 201);
   },
 );
 

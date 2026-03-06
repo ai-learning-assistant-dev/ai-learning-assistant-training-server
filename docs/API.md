@@ -90,9 +90,71 @@ createCourseSchema:
 | 方法 | 路径                                 | 说明                      |
 | ---- | ------------------------------------ | ------------------------- |
 | POST | `/courses/getCourseChaptersSections` | 课程章节树 + 用户解锁状态 |
+| POST | `/courses/import`                    | 整体导入课程（事务）      |
+
+**`/courses/getCourseChaptersSections`**
 
 请求：`{ course_id, user_id }`
 响应：课程信息 + `chapters[].sections[]`，每个 section 含 `unlocked`(0/1/2)、`has_exercise`
+
+**`/courses/import`** — 整体导入课程（含章节、小节、练习、选项、引导问题）
+
+整个导入在一个数据库事务中执行，任一步骤失败自动回滚。
+
+请求体：
+
+```jsonc
+{
+  "id": "uuid", // 必填，课程源 ID
+  "title": "string", // 必填，课程名称
+  "description": "string", // 可选，默认 ''
+  "icon_url": "string", // 可选，默认 ''
+  "category": "string", // 可选，默认 '职业技能'
+  "contributors": "string", // 可选，默认 '志愿者'
+  "chapters": [
+    // 可选，默认 []
+    {
+      "id": "uuid",
+      "title": "string",
+      "order": 1,
+      "sections": [
+        {
+          "id": "uuid",
+          "title": "string",
+          "order": 1,
+          "video_url": "",
+          "knowledge_content": "",
+          "estimated_time": 0,
+          "knowledge_points": {},
+          "video_subtitles": [],
+          "exercises": [{ "id": "uuid", "question": "string", "type": "string", "score": 10, "options": [{ "id": "uuid", "text": "string", "is_correct": false }] }],
+          "leading_questions": [{ "id": "uuid", "question": "string" }],
+        },
+      ],
+    },
+  ],
+}
+```
+
+命令行导入示例：
+
+```bash
+curl -X POST http://localhost:3000/api/courses/import \
+  -H "Content-Type: application/json" \
+  -d @course-data.json
+```
+
+成功响应（201）：`{ "success": true, "data": { "course_id": "uuid", "name": "课程名" }, "message": "课程导入成功" }`
+
+**`/courses/delete`** — 删除课程（级联删除所有关联数据）
+
+删除课程时自动清理所有关联的章节、小节、练习、练习选项、引导问题。
+
+```bash
+curl -X POST http://localhost:3000/api/courses/delete \
+  -H "Content-Type: application/json" \
+  -d '{"course_id":"uuid"}'
+```
 
 ### 章节 `/chapters`
 

@@ -42,6 +42,22 @@ bun run db:init        # 手动初始化（通常无需执行）
 bun run db:import      # 从 db.sql 导入数据
 ```
 
+### 导入课程数据
+
+支持通过 API 整体导入课程（含章节、小节、练习、引导问题），详见 [API 文档 - 课程导入](docs/API.md#课程-courses)。
+
+```bash
+# 启动服务后，通过命令行导入课程 JSON 文件
+curl -X POST http://localhost:3000/api/courses/import \
+  -H "Content-Type: application/json" \
+  -d @course-data.json
+
+# 删除课程（级联删除所有章节、小节、练习等关联数据）
+curl -X POST http://localhost:3000/api/courses/delete \
+  -H "Content-Type: application/json" \
+  -d '{"course_id":"课程ID"}'
+```
+
 ### 类型检查
 
 ```bash
@@ -154,6 +170,8 @@ const data = await res.json();
 | `bun run db:generate`    | 生成 Drizzle 迁移     |
 | `bun run db:studio:main` | 主库 Drizzle Studio   |
 | `bun run db:studio:user` | 用户库 Drizzle Studio |
+
+> **Drizzle Studio 使用说明**：项目已配置 PGlite 驱动适配，`drizzle-kit studio` 可直接连接嵌入式数据库。由于 PGlite 为单进程数据库，运行 Studio 前需先停止开发服务器（`bun dev`），否则数据目录会被锁定。
 
 ## LLM 多模型支持
 

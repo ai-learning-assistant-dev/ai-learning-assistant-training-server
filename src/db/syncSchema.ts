@@ -89,6 +89,12 @@ export async function syncMainSchema(pg: PGlite): Promise<void> {
       updated_at TIMESTAMP NOT NULL DEFAULT NOW()
     );
   `);
+
+  // ── 修复列约束（已有表可能因旧 dump 带入了错误的 NOT NULL）──
+  await pg.exec(`
+    ALTER TABLE courses ALTER COLUMN icon_url DROP NOT NULL;
+  `);
+
   logger.info('✅ 主库 schema 已同步');
 }
 
