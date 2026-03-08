@@ -70,6 +70,10 @@ async function importSingleCourse(data: ImportCoursePayload, baseUrl: string, in
     if (result.success) {
       logger.info(`${prefix}✅ 导入成功: course_id=${result.data?.course_id}`);
       return true;
+    } else if (response.status === 409) {
+      const details = result.details as { course_id?: string; name?: string } | undefined;
+      logger.warn(`${prefix}⚠️ 课程已存在，跳过: "${data.title}" (course_id=${details?.course_id})`);
+      return true;
     } else {
       logger.error(`${prefix}❌ 导入失败: ${result.error}`);
       if (result.details) logger.error(`${prefix}   详情: ${JSON.stringify(result.details)}`);

@@ -218,6 +218,12 @@ app.post(
     const body = await c.req.json();
     const payload = importCourseSchema.parse(body);
 
+    // 去重检查：按课程名称检查是否已存在
+    const existing = await mainDb.select({ course_id: courses.course_id, name: courses.name }).from(courses).where(eq(courses.name, payload.title)).limit(1);
+    if (existing[0]) {
+      return c.json(fail('课程已存在', { course_id: existing[0].course_id, name: existing[0].name }), 409);
+    }
+
     const result = await mainDb.transaction(async tx => {
       // 1. 插入课程
       const [course] = await tx
