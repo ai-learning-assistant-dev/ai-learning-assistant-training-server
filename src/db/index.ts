@@ -4,6 +4,7 @@ import { join } from 'node:path';
 import { paths } from '../utils/paths';
 import logger from '../utils/logger';
 import { syncMainSchema, syncUserSchema } from './syncSchema';
+import { runMigrations } from './migrations';
 
 import * as mainSchema from './main/schema';
 import * as mainRelations from './main/relations';
@@ -40,6 +41,9 @@ export async function initializeDatabase(): Promise<void> {
   // 同步表结构（CREATE TABLE IF NOT EXISTS）
   await syncMainSchema(mainPg);
   await syncUserSchema(userPg);
+
+  // 执行增量迁移（处理列变更等）
+  await runMigrations(mainPg, userPg);
 
   // 创建 Drizzle ORM 实例
   mainDb = drizzlePglite(mainPg, { schema: { ...mainSchema, ...mainRelations } });

@@ -13,6 +13,7 @@
     "db:init": "bun src/scripts/initDB.ts",
     "db:init:fullinit": "NODE_ENV=fullinit bun src/scripts/initDB.ts",
     "db:import": "bun src/scripts/importSQL.ts",
+    "db:import:course": "bun src/scripts/importCourse.ts",
     "db:seed": "bun src/scripts/seedFromAI.ts",
     "db:generate:main": "DB_TARGET=main drizzle-kit generate",
     "db:generate:user": "DB_TARGET=user drizzle-kit generate",

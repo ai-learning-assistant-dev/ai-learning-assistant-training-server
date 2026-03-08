@@ -1,5 +1,5 @@
 import { defineConfig } from 'drizzle-kit';
-import envPaths from 'env-paths';
+import { paths } from './src/utils/paths';
 import path from 'node:path';
 
 // 双数据库配置：通过 DB_TARGET 环境变量选择目标库
@@ -10,8 +10,7 @@ import path from 'node:path';
 //   DB_TARGET=user bun db:studio:user — 启动用户库 Drizzle Studio
 const target = process.env.DB_TARGET ?? 'main';
 
-const rawPaths = envPaths('AILearningAssistantServer', { suffix: '' });
-const dbBase = path.resolve(rawPaths.data, 'database');
+const dbBase = paths.db;
 
 const configs = {
   main: defineConfig({

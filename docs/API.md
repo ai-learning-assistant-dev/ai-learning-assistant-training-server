@@ -139,10 +139,23 @@ createCourseSchema:
 命令行导入示例：
 
 ```bash
+# 通过 API 接口（curl）
 curl -X POST http://localhost:3000/api/courses/import \
   -H "Content-Type: application/json" \
   -d @course-data.json
+
+# 通过 CLI 脚本（推荐，自动校验 + 日志 + 批量支持）
+bun db:import:course course-data.json
+
+# 指定服务地址
+bun db:import:course course-data.json --base-url=http://your-server:3000
 ```
+
+CLI 脚本 (`bun db:import:course`) 支持：
+
+- 单个课程对象或课程数组批量导入
+- Zod schema 本地预校验，导入前发现格式问题
+- 彩色日志输出导入进度和结果统计
 
 成功响应（201）：`{ "success": true, "data": { "course_id": "uuid", "name": "课程名" }, "message": "课程导入成功" }`
 
