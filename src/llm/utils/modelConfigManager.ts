@@ -20,7 +20,7 @@ export class ModelConfigManager {
 
   constructor() {
     // 使用项目中的配置文件
-    this.configPath = path.join(process.cwd(), '/src/config/llm-config.json');
+    this.configPath = process.env.ALA_LLM_CONFIG_PATH ? process.env.ALA_LLM_CONFIG_PATH : path.join(process.cwd(), '/src/config/llm-config.json');
     logger.debug('Config path:', this.configPath);
     this.loadConfigs();
   }
