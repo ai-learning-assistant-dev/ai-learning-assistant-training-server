@@ -11,3 +11,4 @@ llm-config.json
 .env.example
 .DS_Store
 .bun
+course-version.json
