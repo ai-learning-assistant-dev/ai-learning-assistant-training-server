@@ -5,6 +5,7 @@ import { cors } from 'hono/cors';
 import { secureHeaders } from 'hono/secure-headers';
 import { trimTrailingSlash } from 'hono/trailing-slash';
 import { onError, onNotFound } from './middleware/errorHandler';
+import { serveStatic } from 'hono/bun'
 import logger from './utils/logger';
 import api from './routes';
 import docs from './routes/docs';
@@ -21,8 +22,22 @@ app.use(
     origin: ['http://127.0.0.1:3000', 'http://127.0.0.1:7100', 'http://127.0.0.1:8989'],
   }),
 );
-app.use('*', secureHeaders());
+const geetestDomains = ['https://api.geetest.com', 'https://static.geetest.com'];
+app.use('*', secureHeaders({
+  contentSecurityPolicy: {
+    defaultSrc: ["'self'", 'http://127.0.0.1:7100', 'blob:', 'data:', ...geetestDomains],
+    connectSrc: ["'self'", 'blob:', 'blob: http://127.0.0.1:8989', 'data:', 'http://127.0.0.1:8989', ...geetestDomains], // 添加blob:允许blob URL连接
+    mediaSrc: ["'self'", 'blob:', 'blob: http://127.0.0.1:8989', 'http://127.0.0.1:8989', ...geetestDomains],
+    scriptSrc: ["'self'", 'https://api.geetest.com', ...geetestDomains],
+    styleSrc: ["'self'", "'unsafe-inline'", ...geetestDomains],
+    imgSrc: ["'self'", 'blob:', 'data:', ...geetestDomains],
+    // TODO 这个代码会导致隐私泄漏，只在开发或本地环境使用，不要用在远程生产环境
+    upgradeInsecureRequests: []
+  }
+}));
 app.use(trimTrailingSlash());
+
+app.use('*',serveStatic({root: 'public'}));
 
 // ── 错误响应日志中间件 ────────────────────────────────
 // 记录所有 4xx/5xx 响应到日志（不含 Zod 校验错误，已在 errorHandler 中处理）
@@ -127,3 +142,16 @@ process.on('unhandledRejection', reason => {
 startServer();
 
 export { app };
+  function helmet(arg0: {
+    contentSecurityPolicy: {
+      directives: {
+        defaultSrc: string[]; connectSrc: string[]; // 添加blob:允许blob URL连接
+        mediaSrc: string[]; scriptSrc: string[]; styleSrc: string[]; imgSrc: string[];
+        // TODO 这个代码会导致隐私泄漏，只在开发或本地环境使用，不要用在远程生产环境
+        'upgrade-insecure-requests': null;
+      };
+    }; crossOriginResourcePolicy: { policy: string; };
+  }): any {
+    throw new Error('Function not implemented.');
+  }
+

@@ -12,3 +12,4 @@ llm-config.json
 .DS_Store
 .bun
 course-version.json
+public
