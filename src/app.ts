@@ -22,13 +22,15 @@ app.use(
     origin: ['http://127.0.0.1:3000', 'http://127.0.0.1:7100', 'http://127.0.0.1:8989'],
   }),
 );
-const geetestDomains = ['https://api.geetest.com', 'https://static.geetest.com'];
+const jsdelivrDomains = ['cdn.jsdelivr.net'];
+const geetestDomains = ['https://api.geetest.com', 'https://static.geetest.com',...jsdelivrDomains];
+
 app.use('*', secureHeaders({
   contentSecurityPolicy: {
     defaultSrc: ["'self'", 'http://127.0.0.1:7100', 'blob:', 'data:', ...geetestDomains],
     connectSrc: ["'self'", 'blob:', 'blob: http://127.0.0.1:8989', 'data:', 'http://127.0.0.1:8989', ...geetestDomains], // 添加blob:允许blob URL连接
     mediaSrc: ["'self'", 'blob:', 'blob: http://127.0.0.1:8989', 'http://127.0.0.1:8989', ...geetestDomains],
-    scriptSrc: ["'self'", 'https://api.geetest.com', ...geetestDomains],
+    scriptSrc: ["'self'", "'unsafe-inline'", 'https://api.geetest.com', ...geetestDomains],
     styleSrc: ["'self'", "'unsafe-inline'", ...geetestDomains],
     imgSrc: ["'self'", 'blob:', 'data:', ...geetestDomains],
     // TODO 这个代码会导致隐私泄漏，只在开发或本地环境使用，不要用在远程生产环境
