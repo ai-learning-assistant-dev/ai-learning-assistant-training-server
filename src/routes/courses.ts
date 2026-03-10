@@ -5,10 +5,11 @@ import { mainDb, userDb } from '@db/index';
 import { courses, chapters, sections, exercises, exerciseOptions, leadingQuestions } from '@db/main/schema';
 import { userSectionUnlocks } from '@db/user/schema';
 import { createCrudRoutes } from './_crud';
-import { createCourseSchema, updateCourseSchema, importCourseSchema } from '@schemas/course';
+import { createCourseSchema, updateCourseSchema, importCourseSchema, type ImportCoursePayload } from '@schemas/course';
 import { ok, fail } from '@schemas/common';
 import { jsonBody, jsonResponse, apiErrorSchema } from '@schemas/openapi';
 import { z } from 'zod';
+import AdmZip from 'adm-zip';
 
 const app = new Hono();
 
@@ -200,6 +201,88 @@ app.post(
   },
 );
 
+// ── 公共导入函数 ─────────────────────────────────────
+
+/**
+ * 导入课程数据的公共函数
+ * @param payload 课程导入数据
+ * @returns 导入结果
+ */
+async function importCourseData(payload: ImportCoursePayload) {
+  // 去重检查：按课程名称检查是否已存在
+  const existing = await mainDb.select({ course_id: courses.course_id, name: courses.name }).from(courses).where(eq(courses.name, payload.title)).limit(1);
+  if (existing[0]) {
+    throw { status: 409, error: fail('课程已存在', { course_id: existing[0].course_id, name: existing[0].name }) };
+  }
+
+  const result = await mainDb.transaction(async tx => {
+    // 1. 插入课程
+    const [course] = await tx
+      .insert(courses)
+      .values({ name: payload.title, icon_url: payload.icon_url || null, description: payload.description, category: payload.category, contributors: payload.contributors })
+      .returning();
+
+    const courseId = course!.course_id;
+
+    for (const ch of payload.chapters) {
+      // 2. 插入章节
+      const [chapter] = await tx.insert(chapters).values({ course_id: courseId, title: ch.title, chapter_order: ch.order }).returning();
+
+      const chapterId = chapter!.chapter_id;
+
+      for (const sec of ch.sections) {
+        // 3. 插入小节
+        const [section] = await tx
+          .insert(sections)
+          .values({
+            chapter_id: chapterId,
+            title: sec.title,
+            section_order: sec.order,
+            video_url: sec.video_url,
+            knowledge_content: sec.knowledge_content,
+            estimated_time: sec.estimated_time,
+            knowledge_points: sec.knowledge_points ?? null,
+            video_subtitles: sec.video_subtitles,
+          })
+          .returning();
+
+        const sectionId = section!.section_id;
+
+        // 4. 插入练习及选项
+        for (const ex of sec.exercises) {
+          const [exercise] = await tx.insert(exercises).values({ section_id: sectionId, question: ex.question, type_status: ex.type, score: ex.score }).returning();
+
+          const exerciseId = exercise!.exercise_id;
+
+          if (ex.options.length > 0) {
+            await tx.insert(exerciseOptions).values(
+              ex.options.map(opt => ({
+                exercise_id: exerciseId,
+                option_text: opt.text,
+                is_correct: opt.is_correct,
+              })),
+            );
+          }
+        }
+
+        // 5. 插入引导问题
+        if (sec.leading_questions.length > 0) {
+          await tx.insert(leadingQuestions).values(
+            sec.leading_questions.map(lq => ({
+              section_id: sectionId,
+              question: lq.question,
+            })),
+          );
+        }
+      }
+    }
+
+    return { course_id: courseId, name: payload.title };
+  });
+
+  return result;
+}
+
 // ── POST /import ─────────────────────────────────────
 
 /** 整体导入课程（含章节、小节、练习、选项、引导问题），使用事务保证原子性 */
@@ -215,81 +298,172 @@ app.post(
     },
   }),
   async c => {
-    const body = await c.req.json();
-    const payload = importCourseSchema.parse(body);
-
-    // 去重检查：按课程名称检查是否已存在
-    const existing = await mainDb.select({ course_id: courses.course_id, name: courses.name }).from(courses).where(eq(courses.name, payload.title)).limit(1);
-    if (existing[0]) {
-      return c.json(fail('课程已存在', { course_id: existing[0].course_id, name: existing[0].name }), 409);
+    try {
+      const body = await c.req.json();
+      const payload = importCourseSchema.parse(body);
+      const result = await importCourseData(payload);
+      return c.json(ok(result, '课程导入成功'), 201);
+    } catch (error: any) {
+      if (error.status === 409) {
+        return c.json(error.error, 409);
+      }
+      return c.json(fail('导入失败', error.message), 500);
     }
+  },
+);
 
-    const result = await mainDb.transaction(async tx => {
-      // 1. 插入课程
-      const [course] = await tx
-        .insert(courses)
-        .values({ name: payload.title, icon_url: payload.icon_url || null, description: payload.description, category: payload.category, contributors: payload.contributors })
-        .returning();
+// ── POST /import-zip ─────────────────────────────────
 
-      const courseId = course!.course_id;
-
-      for (const ch of payload.chapters) {
-        // 2. 插入章节
-        const [chapter] = await tx.insert(chapters).values({ course_id: courseId, title: ch.title, chapter_order: ch.order }).returning();
-
-        const chapterId = chapter!.chapter_id;
-
-        for (const sec of ch.sections) {
-          // 3. 插入小节
-          const [section] = await tx
-            .insert(sections)
-            .values({
-              chapter_id: chapterId,
-              title: sec.title,
-              section_order: sec.order,
-              video_url: sec.video_url,
-              knowledge_content: sec.knowledge_content,
-              estimated_time: sec.estimated_time,
-              knowledge_points: sec.knowledge_points ?? null,
-              video_subtitles: sec.video_subtitles,
-            })
-            .returning();
-
-          const sectionId = section!.section_id;
-
-          // 4. 插入练习及选项
-          for (const ex of sec.exercises) {
-            const [exercise] = await tx.insert(exercises).values({ section_id: sectionId, question: ex.question, type_status: ex.type, score: ex.score }).returning();
-
-            const exerciseId = exercise!.exercise_id;
-
-            if (ex.options.length > 0) {
-              await tx.insert(exerciseOptions).values(
-                ex.options.map(opt => ({
-                  exercise_id: exerciseId,
-                  option_text: opt.text,
-                  is_correct: opt.is_correct,
-                })),
-              );
+/** 通过 ZIP 文件批量导入课程，递归读取压缩包内的所有 course*.json 文件并导入 */
+app.post(
+  '/import-zip',
+  describeRoute({
+    tags: ['课程管理'],
+    summary: '通过 ZIP 文件批量导入课程，递归读取压缩包内的所有 course*.json 文件并导入',
+    requestBody: {
+      content: {
+        'multipart/form-data': {
+          schema: {
+            type: 'object',
+            properties: {
+              file: {
+                type: 'string',
+                format: 'binary',
+                description: '上传的文件'
+              }
             }
           }
+        },
+      },
+    },
+    responses: {
+      201: jsonResponse('批量导入成功', z.object({ 
+        success: z.literal(true), 
+        data: z.object({ 
+          total: z.number().int(), 
+          success: z.number().int(), 
+          failed: z.number().int(),
+          results: z.array(z.object({
+            filename: z.string(),
+            success: z.boolean(),
+            course_id: z.uuid().optional(),
+            name: z.string().optional(),
+            error: z.string().optional(),
+          }))
+        }), 
+        message: z.string() 
+      })),
+      400: jsonResponse('请求参数错误', apiErrorSchema),
+      500: jsonResponse('服务器内部错误', apiErrorSchema),
+    },
+  }),
+  async c => {
+    try {
+      const formData = await c.req.formData();
+      const file = formData.get('file') as File | null;
+      
+      if (!file) {
+        return c.json(fail('请上传 ZIP 文件'), 400);
+      }
 
-          // 5. 插入引导问题
-          if (sec.leading_questions.length > 0) {
-            await tx.insert(leadingQuestions).values(
-              sec.leading_questions.map(lq => ({
-                section_id: sectionId,
-                question: lq.question,
-              })),
+      // 检查文件类型
+      if (!file.type.includes('zip') && !file.name.toLowerCase().endsWith('.zip')) {
+        return c.json(fail('请上传 ZIP 格式文件'), 400);
+      }
+
+      // 读取文件内容
+      const arrayBuffer = await file.arrayBuffer();
+      const buffer = Buffer.from(arrayBuffer);
+      
+      // 解析 ZIP 文件
+      const zip = new AdmZip(buffer);
+      const zipEntries = zip.getEntries();
+      
+      // 递归查找所有 course*.json 文件
+      const courseFiles: { entry: AdmZip.IZipEntry; path: string }[] = [];
+      
+      function findCourseFiles(entries: AdmZip.IZipEntry[], basePath = '') {
+        for (const entry of entries) {
+          const entryPath = basePath ? `${basePath}/${entry.entryName}` : entry.entryName;
+          if (entry.isDirectory) {
+            // 递归处理子目录 - 使用 zip.getEntries() 和过滤
+            const allEntries = zip.getEntries();
+            const dirEntries = allEntries.filter(e => 
+              e.entryName.startsWith(entry.entryName + '/') && 
+              e.entryName !== entry.entryName
             );
+            if (dirEntries.length > 0) {
+              findCourseFiles(dirEntries, entryPath);
+            }
+          } else if (entry.name.match(/^course.*\.json$/i)) {
+            // 匹配 course*.json 文件
+            courseFiles.push({ entry, path: entryPath });
           }
         }
       }
-
-      return { course_id: courseId, name: payload.title };
-    });
-
-    return c.json(ok(result, '课程导入成功'), 201);
+      
+      findCourseFiles(zipEntries);
+      
+      if (courseFiles.length === 0) {
+        return c.json(fail('ZIP 文件中未找到 course*.json 文件'), 400);
+      }
+      
+      // 处理每个课程文件
+      const results: Array<{
+        filename: string;
+        success: boolean;
+        course_id?: string;
+        name?: string;
+        error?: string;
+      }> = [];
+      
+      let successCount = 0;
+      let failedCount = 0;
+      
+      for (const { entry, path } of courseFiles) {
+        try {
+          // 读取 JSON 文件内容
+          const fileContent = entry.getData().toString('utf8');
+          const jsonData = JSON.parse(fileContent);
+          
+          // 验证数据格式
+          const payload = importCourseSchema.parse(jsonData);
+          
+          // 导入课程
+          const result = await importCourseData(payload);
+          
+          results.push({
+            filename: path,
+            success: true,
+            course_id: result.course_id,
+            name: result.name,
+          });
+          successCount++;
+        } catch (error: any) {
+          results.push({
+            filename: path,
+            success: false,
+            error: error.message || '导入失败',
+          });
+          failedCount++;
+        }
+      }
+      
+      return c.json(
+        ok(
+          {
+            total: courseFiles.length,
+            success: successCount,
+            failed: failedCount,
+            results,
+          },
+          `批量导入完成，成功 ${successCount} 个，失败 ${failedCount} 个`
+        ),
+        201
+      );
+    } catch (error: any) {
+      return c.json(fail('处理 ZIP 文件失败', error.message), 500);
+    }
   },
 );
 
