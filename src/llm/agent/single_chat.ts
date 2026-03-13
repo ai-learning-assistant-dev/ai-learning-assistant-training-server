@@ -69,7 +69,7 @@ export class SingleChat {
     try {
       (this.agent as any) = undefined as any;
     } catch (err) {
-      // ignore
+      logger.debug('[SingleChat.cleanup] 清理资源时出现异常:', err);
     }
   }
 }

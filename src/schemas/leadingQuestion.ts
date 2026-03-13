@@ -10,3 +10,9 @@ export const updateLeadingQuestionSchema = z.object({
   section_id: z.uuid().optional(),
   question: z.string().optional(),
 });
+
+export const searchBySectionSchema = z.object({
+  section_id: z.uuid(),
+  page: z.number().int().min(1).default(1),
+  limit: z.number().int().min(1).max(1000).default(20),
+});

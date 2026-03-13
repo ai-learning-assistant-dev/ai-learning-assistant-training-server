@@ -15,6 +15,7 @@ import type { z } from 'zod';
 import { describeRoute } from 'hono-openapi';
 import { searchSchema, ok, fail, paginate } from '@schemas/common';
 import { jsonBody, jsonResponse, standardResponses, paginatedResponses, apiErrorSchema } from '@schemas/openapi';
+import logger from '@utils/logger';
 
 export interface CrudConfig {
   /** Drizzle 数据库实例的 getter（延迟获取，避免模块加载时未初始化） */
@@ -59,14 +60,19 @@ export function createCrudRoutes(config: CrudConfig): Hono {
       responses: paginatedResponses(entityName),
     }),
     async c => {
-      const db = getDb();
-      const { page, limit } = searchSchema.parse(await c.req.json());
-      const offset = (page - 1) * limit;
+      try {
+        const db = getDb();
+        const { page, limit } = searchSchema.parse(await c.req.json());
+        const offset = (page - 1) * limit;
 
-      const [rows, totalResult] = await Promise.all([db.select().from(table).limit(limit).offset(offset), db.select({ count: sql<number>`count(*)::int` }).from(table)]);
-      const total = Number(totalResult[0]?.count ?? 0);
+        const [rows, totalResult] = await Promise.all([db.select().from(table).limit(limit).offset(offset), db.select({ count: sql<number>`count(*)::int` }).from(table)]);
+        const total = Number(totalResult[0]?.count ?? 0);
 
-      return c.json(paginate(rows, total, page, limit));
+        return c.json(paginate(rows, total, page, limit));
+      } catch (err) {
+        logger.error(`[CRUD] 分页查询${entityName}失败:`, err);
+        return c.json(fail(`查询${entityName}列表失败`), 500);
+      }
     },
   );
 
@@ -79,15 +85,20 @@ export function createCrudRoutes(config: CrudConfig): Hono {
       responses: standardResponses(`查询${entityName}成功`),
     }),
     async c => {
-      const db = getDb();
-      const body = await c.req.json();
-      const id = body[idField];
-      if (!id) return c.json(fail(`缺少 ${idField}`), 400);
+      try {
+        const db = getDb();
+        const body = await c.req.json();
+        const id = body[idField];
+        if (!id) return c.json(fail(`缺少 ${idField}`), 400);
 
-      const rows = await db.select().from(table).where(eq(idColumn, id)).limit(1);
-      if (!rows[0]) return c.json(fail('未找到记录'), 404);
+        const rows = await db.select().from(table).where(eq(idColumn, id)).limit(1);
+        if (!rows[0]) return c.json(fail('未找到记录'), 404);
 
-      return c.json(ok(rows[0]));
+        return c.json(ok(rows[0]));
+      } catch (err) {
+        logger.error(`[CRUD] 按ID查询${entityName}失败 (${idField}):`, err);
+        return c.json(fail(`查询${entityName}失败`), 500);
+      }
     },
   );
 
@@ -101,11 +112,22 @@ export function createCrudRoutes(config: CrudConfig): Hono {
       responses: standardResponses(`${entityName}创建成功`),
     }),
     async c => {
-      const db = getDb();
-      const body = createSchema.parse(await c.req.json());
-      const result = await db.insert(table).values(body).returning();
-      if (afterCreate && result[0]) await afterCreate(result[0] as Record<string, unknown>);
-      return c.json(ok(result[0], '创建成功'));
+      try {
+        const db = getDb();
+        const body = createSchema.parse(await c.req.json());
+        const result = await db.insert(table).values(body).returning();
+        if (afterCreate && result[0]) {
+          try {
+            await afterCreate(result[0] as Record<string, unknown>);
+          } catch (hookErr) {
+            logger.error(`[CRUD] 创建${entityName}后置钩子执行失败:`, hookErr);
+          }
+        }
+        return c.json(ok(result[0], '创建成功'));
+      } catch (err) {
+        logger.error(`[CRUD] 创建${entityName}失败:`, err);
+        return c.json(fail(`创建${entityName}失败`), 500);
+      }
     },
   );
 
@@ -119,18 +141,29 @@ export function createCrudRoutes(config: CrudConfig): Hono {
       responses: standardResponses(`${entityName}更新成功`),
     }),
     async c => {
-      const db = getDb();
-      const body = updateSchema.parse(await c.req.json());
-      const id = (body as Record<string, unknown>)[idField];
-      if (!id) return c.json(fail(`缺少 ${idField}`), 400);
+      try {
+        const db = getDb();
+        const body = updateSchema.parse(await c.req.json());
+        const id = (body as Record<string, unknown>)[idField];
+        if (!id) return c.json(fail(`缺少 ${idField}`), 400);
 
-      const existing = await db.select().from(table).where(eq(idColumn, id)).limit(1);
-      if (!existing[0]) return c.json(fail('未找到记录'), 404);
+        const existing = await db.select().from(table).where(eq(idColumn, id)).limit(1);
+        if (!existing[0]) return c.json(fail('未找到记录'), 404);
 
-      const { [idField]: _, ...data } = body as Record<string, unknown>;
-      const result = await db.update(table).set(data).where(eq(idColumn, id)).returning();
-      if (afterUpdate && result[0]) await afterUpdate(result[0] as Record<string, unknown>);
-      return c.json(ok(result[0], '更新成功'));
+        const { [idField]: _, ...data } = body as Record<string, unknown>;
+        const result = await db.update(table).set(data).where(eq(idColumn, id)).returning();
+        if (afterUpdate && result[0]) {
+          try {
+            await afterUpdate(result[0] as Record<string, unknown>);
+          } catch (hookErr) {
+            logger.error(`[CRUD] 更新${entityName}后置钩子执行失败 (${idField}=${id}):`, hookErr);
+          }
+        }
+        return c.json(ok(result[0], '更新成功'));
+      } catch (err) {
+        logger.error(`[CRUD] 更新${entityName}失败:`, err);
+        return c.json(fail(`更新${entityName}失败`), 500);
+      }
     },
   );
 
@@ -147,17 +180,28 @@ export function createCrudRoutes(config: CrudConfig): Hono {
       },
     }),
     async c => {
-      const db = getDb();
-      const body = await c.req.json();
-      const id = body[idField];
-      if (!id) return c.json(fail(`缺少 ${idField}`), 400);
+      try {
+        const db = getDb();
+        const body = await c.req.json();
+        const id = body[idField];
+        if (!id) return c.json(fail(`缺少 ${idField}`), 400);
 
-      const existing = await db.select().from(table).where(eq(idColumn, id)).limit(1);
-      if (!existing[0]) return c.json(fail('未找到记录'), 404);
+        const existing = await db.select().from(table).where(eq(idColumn, id)).limit(1);
+        if (!existing[0]) return c.json(fail('未找到记录'), 404);
 
-      await db.delete(table).where(eq(idColumn, id));
-      if (afterDelete) await afterDelete(existing[0] as Record<string, unknown>);
-      return c.json(ok(null, '删除成功'));
+        await db.delete(table).where(eq(idColumn, id));
+        if (afterDelete) {
+          try {
+            await afterDelete(existing[0] as Record<string, unknown>);
+          } catch (hookErr) {
+            logger.error(`[CRUD] 删除${entityName}后置钩子执行失败 (${idField}=${id}):`, hookErr);
+          }
+        }
+        return c.json(ok(null, '删除成功'));
+      } catch (err) {
+        logger.error(`[CRUD] 删除${entityName}失败:`, err);
+        return c.json(fail(`删除${entityName}失败`), 500);
+      }
     },
   );
 

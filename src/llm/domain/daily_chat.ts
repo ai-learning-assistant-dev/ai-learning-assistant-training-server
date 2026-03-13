@@ -22,25 +22,30 @@ export class DailyChat {
 
   /** 工厂方法：创建 DailyChat 实例，加载提示词和模型配置 */
   static async create(options?: DailyChatOptions): Promise<DailyChat> {
-    // simple system prompt can be passed via options.prompt or default
-    const realRequirements = options?.requirements || '请简要回答';
-    const personaPrompt = `信心十足的教育家`;
-    const prompt = await getPromptWithArgs(KEY_DAILY_CHAT, { requirements: realRequirements, personaPrompt });
-    const modelConfig = options?.modelName ? modelConfigManager.getModelConfig(options.modelName) : modelConfigManager.getDefaultModel();
-    if (modelConfig && options?.reasoning !== undefined) {
-      modelConfig.reasoning = options.reasoning;
-    }
-    const llm = modelConfig ? createLLM(modelConfig) : undefined;
+    try {
+      // simple system prompt can be passed via options.prompt or default
+      const realRequirements = options?.requirements || '请简要回答';
+      const personaPrompt = `信心十足的教育家`;
+      const prompt = await getPromptWithArgs(KEY_DAILY_CHAT, { requirements: realRequirements, personaPrompt });
+      const modelConfig = options?.modelName ? modelConfigManager.getModelConfig(options.modelName) : modelConfigManager.getDefaultModel();
+      if (modelConfig && options?.reasoning !== undefined) {
+        modelConfig.reasoning = options.reasoning;
+      }
+      const llm = modelConfig ? createLLM(modelConfig) : undefined;
 
-    const sc = new SingleChat({
-      prompt,
-      enableMemory: true,
-      tools: options?.tools,
-      llm,
-      reasoning: options?.reasoning,
-      threadId: DailyChat.sessionId, // 固定threadId以保持会话一致
-    });
-    return new DailyChat(sc);
+      const sc = new SingleChat({
+        prompt,
+        enableMemory: true,
+        tools: options?.tools,
+        llm,
+        reasoning: options?.reasoning,
+        threadId: DailyChat.sessionId, // 固定threadId以保持会话一致
+      });
+      return new DailyChat(sc);
+    } catch (error) {
+      logger.error('DailyChat.create 创建实例失败:', error);
+      throw error;
+    }
   }
 
   /** 发送消息并获取最终回复文本 */
@@ -135,7 +140,8 @@ export class DailyChat {
           readable.push(null);
         } catch (fallbackErr) {
           const errorMessage = fallbackErr instanceof Error ? fallbackErr.message : String(fallbackErr);
-          readable.push(`对话处理失败: ${errorMessage}`);
+          logger.error('DailyChat 流式对话 fallback 也失败:', errorMessage);
+          readable.push('对话处理遇到问题: ' + errorMessage);
           readable.push(null);
         }
       }

@@ -198,8 +198,8 @@ export class LearningAssistant {
           readable.push(response);
           readable.push(null);
         } catch (fallbackError) {
-          const errorMessage = fallbackError instanceof Error ? fallbackError.message : String(fallbackError);
-          readable.push(`对话处理失败: ${errorMessage}`);
+          logger.error('流式对话 fallback 也失败:', fallbackError);
+          readable.push('对话处理遇到问题，请稍后重试');
           readable.push(null);
         }
       }

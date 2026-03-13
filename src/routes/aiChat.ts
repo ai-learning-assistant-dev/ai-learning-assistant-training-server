@@ -13,6 +13,7 @@ import {
   learningReviewRequestSchema,
   createSessionRequestSchema,
   switchPersonaSchema,
+  sessionByUserSectionQuerySchema,
 } from '@schemas/aiChat';
 import { createLearningAssistant, startNewLearningSession, resumeLearningSession } from '@llm/domain/learning_assistant';
 import type { LearningAssistant } from '@llm/domain/learning_assistant';
@@ -125,7 +126,6 @@ app.post(
   async c => {
     const request = streamChatRequestSchema.parse(await c.req.json());
     const { message, reasoning, modelName } = request;
-    if (!message) return c.json(fail('缺少必要参数 message'), 400);
 
     let requirements: string | undefined;
     if (request.useAudio && request.ttsOption) {
@@ -232,7 +232,6 @@ app.post(
     if (request.daily || request.sectionId === '') {
       // 重新创建 daily 流程
       const { message, reasoning, modelName } = request;
-      if (!message) return c.json(fail('缺少必要参数 message'), 400);
 
       let requirements: string | undefined;
       if (request.useAudio && request.ttsOption) {
@@ -301,9 +300,7 @@ app.get(
     summary: '根据 userId 和 sectionId 查询该用户在该小节的所有会话列表',
   }),
   async c => {
-    const userId = c.req.query('userId');
-    const sectionId = c.req.query('sectionId');
-    if (!userId || !sectionId) return c.json(fail('缺少必要参数：userId 和 sectionId'), 400);
+    const { userId, sectionId } = sessionByUserSectionQuerySchema.parse(c.req.query());
 
     const interactions = await userDb
       .select()

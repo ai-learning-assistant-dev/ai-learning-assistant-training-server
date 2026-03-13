@@ -70,3 +70,8 @@ export const switchPersonaSchema = z.object({
   sessionId: z.string(),
   personaId: z.uuid(),
 });
+
+export const sessionByUserSectionQuerySchema = z.object({
+  userId: z.uuid(),
+  sectionId: z.union([z.uuid(), z.literal('')]),
+});

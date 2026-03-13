@@ -8,6 +8,7 @@ import { ok, fail } from '@schemas/common';
 import { ofetchRawStream, ofetchJson } from '@utils/ofetch';
 import logger from '@utils/logger';
 import type { BaseResponse, NavData, VideoViewData, PlayVideoData, WbiKeysResponse, DashData, DashStream, FormatListItem, EncWbiParams, EncWbiResult } from '@schemas/bilibili';
+import { mediaStreamQuerySchema, dashQuerySchema } from '@schemas/bilibili';
 
 // ── WBI 签名工具 ────────────────────────────────────
 
@@ -285,69 +286,72 @@ app.get(
     summary: '代理 B 站视频/音频流请求，处理 Range 分段下载和 CDN 域名转发',
   }),
   async c => {
-    const url = c.req.query('url');
-    const bvid = c.req.query('bvid') ?? '';
-    const sign = c.req.query('sign');
-    const platform = c.req.query('platform');
-    const traceid = c.req.query('traceid');
+    try {
+      const { url, bvid: bvidRaw } = mediaStreamQuerySchema.parse(c.req.query());
+      const bvid = bvidRaw ?? '';
+      const sign = c.req.query('sign');
+      const platform = c.req.query('platform');
+      const traceid = c.req.query('traceid');
 
-    if (!url) return c.json(fail('URL 参数不能为空'), 400);
+      let finalUrl = platform && sign ? `${url}&sign=${sign}&platform=${platform}&traceid=${traceid}` : url;
+      const decodedUrl = decodeURIComponent(finalUrl);
 
-    let finalUrl = platform && sign ? `${url}&sign=${sign}&platform=${platform}&traceid=${traceid}` : url;
-    const decodedUrl = decodeURIComponent(finalUrl);
+      let hostHeader = '';
+      if (decodedUrl.includes('mcdn.bilivideo')) hostHeader = extractHostFromUrl(decodedUrl);
 
-    let hostHeader = '';
-    if (decodedUrl.includes('mcdn.bilivideo')) hostHeader = extractHostFromUrl(decodedUrl);
+      const headers: Record<string, string> = {
+        Accept: c.req.header('accept') || '*/*',
+        'Accept-Language': c.req.header('accept-language') || 'zh-CN,zh;q=0.9',
+        Origin: c.req.header('origin') || 'https://www.bilibili.com',
+        Referer: bvid ? `https://www.bilibili.com/video/${bvid}/` : c.req.header('referer') || 'https://www.bilibili.com/',
+        'User-Agent': c.req.header('user-agent') || 'Mozilla/5.0',
+        Connection: 'keep-alive',
+      };
+      if (hostHeader) headers['Host'] = hostHeader;
+      if (c.req.header('if-range')) headers['If-Range'] = c.req.header('if-range')!;
 
-    const headers: Record<string, string> = {
-      Accept: c.req.header('accept') || '*/*',
-      'Accept-Language': c.req.header('accept-language') || 'zh-CN,zh;q=0.9',
-      Origin: c.req.header('origin') || 'https://www.bilibili.com',
-      Referer: bvid ? `https://www.bilibili.com/video/${bvid}/` : c.req.header('referer') || 'https://www.bilibili.com/',
-      'User-Agent': c.req.header('user-agent') || 'Mozilla/5.0',
-      Connection: 'keep-alive',
-    };
-    if (hostHeader) headers['Host'] = hostHeader;
-    if (c.req.header('if-range')) headers['If-Range'] = c.req.header('if-range')!;
-
-    const rangeHeader = c.req.header('range');
-    let rangeStart: number | undefined;
-    let rangeEnd: number | undefined;
-    if (rangeHeader) {
-      const m = rangeHeader.match(/^bytes=(\d+)-(\d*)$/);
-      if (!m) return c.json(fail('Range 请求头格式无效'), 400);
-      rangeStart = parseInt(m[1]!, 10);
-      rangeEnd = m[2] ? parseInt(m[2], 10) : undefined;
-      headers['Range'] = rangeHeader;
-    }
-
-    const response = await ofetchRawStream(decodedUrl, { method: 'GET', headers, responseType: 'stream', timeout: 15000 });
-    if (response.status === 204) return c.json(fail('B 站返回 204 错误'), 502);
-
-    // 构建响应头
-    const respHeaders = new Headers();
-    respHeaders.set('Accept-Ranges', 'bytes');
-    for (const [key, value] of response.headers.entries()) {
-      const lower = key.toLowerCase();
-      if (lower !== 'content-length' && lower !== 'content-range') {
-        respHeaders.set(key, value);
+      const rangeHeader = c.req.header('range');
+      let rangeStart: number | undefined;
+      let rangeEnd: number | undefined;
+      if (rangeHeader) {
+        const m = rangeHeader.match(/^bytes=(\d+)-(\d*)$/);
+        if (!m) return c.json(fail('Range 请求头格式无效'), 400);
+        rangeStart = parseInt(m[1]!, 10);
+        rangeEnd = m[2] ? parseInt(m[2], 10) : undefined;
+        headers['Range'] = rangeHeader;
       }
+
+      const response = await ofetchRawStream(decodedUrl, { method: 'GET', headers, responseType: 'stream', timeout: 15000 });
+      if (response.status === 204) return c.json(fail('B 站返回 204 错误'), 502);
+
+      // 构建响应头
+      const respHeaders = new Headers();
+      respHeaders.set('Accept-Ranges', 'bytes');
+      for (const [key, value] of response.headers.entries()) {
+        const lower = key.toLowerCase();
+        if (lower !== 'content-length' && lower !== 'content-range') {
+          respHeaders.set(key, value);
+        }
+      }
+
+      const contentLength = response.headers.get('content-length');
+      const totalSize = contentLength ? parseInt(contentLength, 10) : undefined;
+      let statusCode = response.status;
+
+      if (rangeHeader && totalSize && rangeStart !== undefined) {
+        const end = rangeEnd !== undefined && rangeEnd < totalSize ? rangeEnd : totalSize - 1;
+        respHeaders.set('Content-Range', `bytes ${rangeStart}-${end}/${totalSize}`);
+        respHeaders.set('Content-Length', String(end - rangeStart + 1));
+        statusCode = 206;
+      } else if (totalSize) {
+        respHeaders.set('Content-Length', String(totalSize));
+      }
+
+      return new Response(response.body, { status: statusCode, headers: respHeaders });
+    } catch (err) {
+      logger.error('[bilibili] 代理视频流失败:', err);
+      return c.json(fail('代理视频流失败'), 500);
     }
-
-    const contentLength = response.headers.get('content-length');
-    const totalSize = contentLength ? parseInt(contentLength, 10) : undefined;
-    let statusCode = response.status;
-
-    if (rangeHeader && totalSize && rangeStart !== undefined) {
-      const end = rangeEnd !== undefined && rangeEnd < totalSize ? rangeEnd : totalSize - 1;
-      respHeaders.set('Content-Range', `bytes ${rangeStart}-${end}/${totalSize}`);
-      respHeaders.set('Content-Length', String(end - rangeStart + 1));
-      statusCode = 206;
-    } else if (totalSize) {
-      respHeaders.set('Content-Length', String(totalSize));
-    }
-
-    return new Response(response.body, { status: statusCode, headers: respHeaders });
   },
 );
 
@@ -364,7 +368,8 @@ app.get(
     try {
       const res = await ofetch('https://passport.bilibili.com/x/passport-login/captcha?source=main_web');
       return c.json(ok(res, '获取验证码成功'));
-    } catch {
+    } catch (err) {
+      logger.error('[bilibili] 获取验证码失败:', err);
       return c.json(fail('获取验证码失败'));
     }
   },
@@ -415,7 +420,8 @@ app.post(
         body,
       } as any);
       return c.json(ok(res, '短信发送成功'));
-    } catch (error) {
+    } catch (err) {
+      logger.error('[bilibili] 短信发送失败:', err);
       return c.json(fail('短信发送失败'));
     }
   },
@@ -472,7 +478,8 @@ app.post(
       }
 
       return c.json(ok((resRaw as any)._data, '登录成功'));
-    } catch (error) {
+    } catch (err) {
+      logger.error('[bilibili] 登录失败:', err);
       return c.json(fail('登录失败'));
     }
   },
@@ -488,33 +495,34 @@ app.get(
     summary: '根据 bvid 获取视频 DASH 信息，生成 MPD 清单 XML、格式列表和统一 MPD',
   }),
   async c => {
-    const bvid = c.req.query('bvid');
-    const cidParam = c.req.query('cid');
-    const pParam = c.req.query('p');
+    try {
+      const { bvid, cid: cidParam, p: pParam } = dashQuerySchema.parse(c.req.query());
 
-    if (!bvid?.trim()) return c.json(fail('bvid parameter is required'), 400);
+      const host = c.req.header('host') || process.env.HOST || 'localhost:3000';
+      const proto = c.req.header('x-forwarded-proto') || 'http';
+      let baseUrl = `${proto}://${host}`;
+      if (proto === 'http' && host.includes(':443')) baseUrl = `https://${host.split(':')[0]}`;
 
-    const host = c.req.header('host') || process.env.HOST || 'localhost:3000';
-    const proto = c.req.header('x-forwarded-proto') || 'http';
-    let baseUrl = `${proto}://${host}`;
-    if (proto === 'http' && host.includes(':443')) baseUrl = `https://${host.split(':')[0]}`;
+      const cookie = c.req.header('cookie') || '';
+      const sessdata = getCookieValue(cookie, 'SESSDATA');
+      const cid = cidParam ? parseInt(cidParam, 10) : undefined;
 
-    const cookie = c.req.header('cookie') || '';
-    const sessdata = getCookieValue(cookie, 'SESSDATA');
-    const cid = cidParam ? parseInt(cidParam, 10) : undefined;
+      let dashInfo = await getDashInfo(bvid, sessdata, cid);
+      if (pParam && dashInfo.pages) {
+        const p = parseInt(pParam, 10);
+        const pageCid = dashInfo.pages[p - 1]?.cid;
+        if (pageCid) dashInfo = await getDashInfo(bvid, sessdata, pageCid);
+      }
 
-    let dashInfo = await getDashInfo(bvid, sessdata, cid);
-    if (pParam && dashInfo.pages) {
-      const p = parseInt(pParam, 10);
-      const pageCid = dashInfo.pages[p - 1]?.cid;
-      if (pageCid) dashInfo = await getDashInfo(bvid, sessdata, pageCid);
+      const xmlResult = generateMPD(dashInfo.dash, baseUrl + '/api', bvid);
+      const formatList = generateFormatList(dashInfo.dash);
+      const unifiedMpd = generateUnifiedMPD(dashInfo.dash, baseUrl + '/api', bvid);
+
+      return c.json(ok({ xml: xmlResult, formatList, unifiedMpd, pages: dashInfo.pages }));
+    } catch (err) {
+      logger.error('[bilibili] 获取视频清单失败:', err);
+      return c.json(fail('获取视频清单失败'), 500);
     }
-
-    const xmlResult = generateMPD(dashInfo.dash, baseUrl + '/api', bvid);
-    const formatList = generateFormatList(dashInfo.dash);
-    const unifiedMpd = generateUnifiedMPD(dashInfo.dash, baseUrl + '/api', bvid);
-
-    return c.json(ok({ xml: xmlResult, formatList, unifiedMpd, pages: dashInfo.pages }));
   },
 );
 
