@@ -262,18 +262,6 @@ export class LearningAssistant {
     return this.storage.getSessionAnalytics(this.sessionId);
   }
 
-  /** 切换到不同的AI人设 */
-  async switchPersona(newPersonaId: string): Promise<void> {
-    const [persona] = await mainDb.select().from(aiPersonas).where(eq(aiPersonas.persona_id, newPersonaId));
-
-    if (!persona) {
-      throw new Error(`AI人设不存在: ${newPersonaId}`);
-    }
-
-    this.personaId = newPersonaId;
-    logger.debug(`已切换到AI人设: ${persona.name}`);
-  }
-
   /** 获取用户的学习记录和进度 */
   async getUserLearningProgress() {
     const [user] = await userDb.select().from(users).where(eq(users.user_id, this.userId));
