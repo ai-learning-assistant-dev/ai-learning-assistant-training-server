@@ -3,7 +3,7 @@ import type { BaseMessage } from '@langchain/core/messages';
 import { HumanMessage, SystemMessage } from '@langchain/core/messages';
 import { Readable } from 'stream';
 import { MemorySaver } from '@langchain/langgraph';
-import { eq, asc } from 'drizzle-orm';
+import { eq, asc, and, desc, isNotNull } from 'drizzle-orm';
 import { mainDb, userDb } from '@db/index';
 import { courses, chapters, sections, aiPersonas } from '@db/main/schema';
 import { users, aiInteractions, learningRecords, courseSchedules } from '@db/user/schema';
@@ -542,13 +542,33 @@ export async function startNewLearningSession(userId: string, sectionId: string,
 }
 
 /** 根据 sessionId 恢复已有学习会话 */
-export async function resumeLearningSession(userId: string, sessionId: string, requirements?: string, modelName?: string, reasoning?: boolean): Promise<LearningAssistant> {
+export async function resumeLearningSession(
+  userId: string,
+  sessionId: string,
+  personaId?: string,
+  requirements?: string,
+  modelName?: string,
+  reasoning?: boolean,
+): Promise<LearningAssistant> {
   const parts = sessionId.split('_');
   if (parts.length < 4) {
     throw new Error(`无效的会话ID格式: ${sessionId}`);
   }
   const sectionId = parts[2]!;
-  return createLearningAssistant(userId, sectionId, undefined, sessionId, undefined, requirements, modelName, reasoning);
+
+  // 未指定 personaId 时，从历史交互记录中取最近一次使用的人设作为兜底
+  let resolvedPersonaId = normalizePersonaId(personaId);
+  if (!resolvedPersonaId) {
+    const [lastInteraction] = await userDb
+      .select({ persona_id_in_use: aiInteractions.persona_id_in_use })
+      .from(aiInteractions)
+      .where(and(eq(aiInteractions.session_id, sessionId), isNotNull(aiInteractions.persona_id_in_use)))
+      .orderBy(desc(aiInteractions.query_time))
+      .limit(1);
+    resolvedPersonaId = lastInteraction?.persona_id_in_use ?? undefined;
+  }
+
+  return createLearningAssistant(userId, sectionId, resolvedPersonaId, sessionId, undefined, requirements, modelName, reasoning);
 }
 
 /** 为指定课程创建学习助手，自动选择第一个章节（若未指定） */

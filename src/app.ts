@@ -104,7 +104,7 @@ const startServer = async (): Promise<void> => {
 
     // Bun 原生 HTTP 服务 / Node.js 兼容
     if (typeof Bun !== 'undefined') {
-      Bun.serve({ port: PORT, fetch: app.fetch });
+      Bun.serve({ port: PORT, fetch: app.fetch, idleTimeout: 0 });
     } else {
       const { serve } = await import('@hono/node-server');
       serve({ fetch: app.fetch, port: PORT });
