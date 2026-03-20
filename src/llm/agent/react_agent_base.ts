@@ -186,6 +186,7 @@ export class ReactAgent {
         existingMessages = currentState?.values?.messages ?? [];
       } catch (error) {
         // If no existing state, start with empty messages
+        logger.debug(`[ReactAgent.chat] 获取线程 ${threadId} 已有状态失败，使用空历史:`, error);
         existingMessages = [];
       }
     }
@@ -225,6 +226,7 @@ export class ReactAgent {
       });
       return currentState?.values?.messages ?? [];
     } catch (error) {
+      logger.warn(`[ReactAgent.getConversationHistory] 获取线程 ${resolvedThreadId} 对话历史失败:`, error);
       return [];
     }
   }

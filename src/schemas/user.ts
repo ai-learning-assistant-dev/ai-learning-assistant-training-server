@@ -22,3 +22,7 @@ export const updateUserSchema = z.object({
   experience: z.number().int().optional(),
   current_title_id: z.uuid().optional(),
 });
+
+export const userIdRequestSchema = z.object({
+  user_id: z.uuid(),
+});

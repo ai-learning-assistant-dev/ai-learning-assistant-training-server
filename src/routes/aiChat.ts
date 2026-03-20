@@ -1,7 +1,7 @@
 import { Hono } from 'hono';
 import { streamText } from 'hono/streaming';
 import { describeRoute } from 'hono-openapi';
-import { eq, and, asc, desc } from 'drizzle-orm';
+import { eq, and, asc, desc, isNotNull } from 'drizzle-orm';
 import { mainDb, userDb } from '@db/index';
 import { aiPersonas, sections } from '@db/main/schema';
 import { aiInteractions, users } from '@db/user/schema';
@@ -13,6 +13,7 @@ import {
   learningReviewRequestSchema,
   createSessionRequestSchema,
   switchPersonaSchema,
+  sessionByUserSectionQuerySchema,
 } from '@schemas/aiChat';
 import { createLearningAssistant, startNewLearningSession, resumeLearningSession } from '@llm/domain/learning_assistant';
 import type { LearningAssistant } from '@llm/domain/learning_assistant';
@@ -58,7 +59,7 @@ app.post(
     let assistant: LearningAssistant;
 
     if (sessionId) {
-      assistant = await resumeLearningSession(userId, sessionId, undefined, modelName);
+      assistant = await resumeLearningSession(userId, sessionId, normalizedPersonaId, undefined, modelName);
     } else {
       assistant = await createLearningAssistant(userId, sectionId, normalizedPersonaId, undefined, undefined, undefined, modelName);
     }
@@ -98,7 +99,7 @@ app.post(
     let assistant: LearningAssistant;
 
     if (sessionId) {
-      assistant = await resumeLearningSession(userId, sessionId, undefined, modelName, reasoning);
+      assistant = await resumeLearningSession(userId, sessionId, undefined, undefined, modelName, reasoning);
     } else {
       assistant = await createLearningAssistant(userId, sectionId, undefined, undefined, undefined, undefined, modelName, reasoning);
     }
@@ -125,7 +126,6 @@ app.post(
   async c => {
     const request = streamChatRequestSchema.parse(await c.req.json());
     const { message, reasoning, modelName } = request;
-    if (!message) return c.json(fail('缺少必要参数 message'), 400);
 
     let requirements: string | undefined;
     if (request.useAudio && request.ttsOption) {
@@ -232,7 +232,6 @@ app.post(
     if (request.daily || request.sectionId === '') {
       // 重新创建 daily 流程
       const { message, reasoning, modelName } = request;
-      if (!message) return c.json(fail('缺少必要参数 message'), 400);
 
       let requirements: string | undefined;
       if (request.useAudio && request.ttsOption) {
@@ -272,7 +271,7 @@ app.post(
     let assistant: LearningAssistant;
 
     if (sessionId) {
-      assistant = await resumeLearningSession(userId, sessionId, requirements, modelName, reasoning);
+      assistant = await resumeLearningSession(userId, sessionId, normalizedPersonaId, requirements, modelName, reasoning);
     } else {
       assistant = await createLearningAssistant(userId, sectionId, normalizedPersonaId, undefined, undefined, requirements, modelName, reasoning);
     }
@@ -301,9 +300,7 @@ app.get(
     summary: '根据 userId 和 sectionId 查询该用户在该小节的所有会话列表',
   }),
   async c => {
-    const userId = c.req.query('userId');
-    const sectionId = c.req.query('sectionId');
-    if (!userId || !sectionId) return c.json(fail('缺少必要参数：userId 和 sectionId'), 400);
+    const { userId, sectionId } = sessionByUserSectionQuerySchema.parse(c.req.query());
 
     const interactions = await userDb
       .select()
@@ -542,12 +539,24 @@ app.post(
     if (parts.length < 4) return c.json(fail('无效的会话ID格式'), 400);
 
     const userId = parts[1]!;
+    const sectionId = parts[2]!;
 
-    const assistant = await resumeLearningSession(userId, sessionId);
-    await assistant.switchPersona(personaId);
-    await assistant.cleanup();
+    // 验证人设存在
+    const [persona] = await mainDb.select().from(aiPersonas).where(eq(aiPersonas.persona_id, personaId));
+    if (!persona) return c.json(fail('指定的人设不存在'), 404);
 
-    return c.json(ok({ success: true, message: `已成功切换到人设: ${personaId}` }));
+    // 将人设切换意图持久化到交互记录，下次恢复会话时 resumeLearningSession 将自动读取
+    await userDb.insert(aiInteractions).values({
+      user_id: userId,
+      section_id: sectionId,
+      session_id: sessionId,
+      user_message: '[persona:switch]',
+      ai_response: '',
+      query_time: new Date(),
+      persona_id_in_use: personaId,
+    });
+
+    return c.json(ok({ success: true, message: `已成功切换到人设: ${persona.name}` }));
   },
 );
 

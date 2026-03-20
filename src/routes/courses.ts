@@ -5,11 +5,12 @@ import { mainDb, userDb } from '@db/index';
 import { courses, chapters, sections, exercises, exerciseOptions, leadingQuestions } from '@db/main/schema';
 import { userSectionUnlocks } from '@db/user/schema';
 import { createCrudRoutes } from './_crud';
-import { createCourseSchema, updateCourseSchema, importCourseSchema, type ImportCoursePayload } from '@schemas/course';
+import { createCourseSchema, updateCourseSchema, importCourseSchema, type ImportCoursePayload, courseChaptersSectionsRequestSchema } from '@schemas/course';
 import { ok, fail } from '@schemas/common';
 import { jsonBody, jsonResponse, apiErrorSchema } from '@schemas/openapi';
 import { z } from 'zod';
 import AdmZip from 'adm-zip';
+import logger from '@utils/logger';
 
 const app = new Hono();
 
@@ -77,127 +78,132 @@ app.post(
     },
   }),
   async c => {
-    const { course_id, user_id } = await c.req.json();
-    if (!course_id || !user_id) return c.json(fail('course_id 和 user_id 必填'), 400);
+    let course_id: string | undefined, user_id: string | undefined;
+    try {
+      ({ course_id, user_id } = courseChaptersSectionsRequestSchema.parse(await c.req.json()));
 
-    const course = await mainDb.select().from(courses).where(eq(courses.course_id, course_id)).limit(1);
-    if (!course[0]) return c.json(fail('课程不存在'), 404);
+      const course = await mainDb.select().from(courses).where(eq(courses.course_id, course_id)).limit(1);
+      if (!course[0]) return c.json(fail('课程不存在'), 404);
 
-    // 1. 查章节 + 小节
-    const chapterRows = await mainDb.select().from(chapters).where(eq(chapters.course_id, course_id)).orderBy(asc(chapters.chapter_order));
-    const chapterIds = chapterRows.map(c => c.chapter_id);
+      // 1. 查章节 + 小节
+      const chapterRows = await mainDb.select().from(chapters).where(eq(chapters.course_id, course_id)).orderBy(asc(chapters.chapter_order));
+      const chapterIds = chapterRows.map(c => c.chapter_id);
 
-    const sectionRows = chapterIds.length > 0 ? await mainDb.select().from(sections).where(inArray(sections.chapter_id, chapterIds)).orderBy(asc(sections.section_order)) : [];
+      const sectionRows = chapterIds.length > 0 ? await mainDb.select().from(sections).where(inArray(sections.chapter_id, chapterIds)).orderBy(asc(sections.section_order)) : [];
 
-    // 1.1 查哪些 section 有练习
-    const sectionIds = sectionRows.map(s => s.section_id);
-    const exerciseList = sectionIds.length > 0 ? await mainDb.select({ section_id: exercises.section_id }).from(exercises).where(inArray(exercises.section_id, sectionIds)) : [];
-    const exerciseSet = new Set(exerciseList.map(e => e.section_id));
+      // 1.1 查哪些 section 有练习
+      const sectionIds = sectionRows.map(s => s.section_id);
+      const exerciseList = sectionIds.length > 0 ? await mainDb.select({ section_id: exercises.section_id }).from(exercises).where(inArray(exercises.section_id, sectionIds)) : [];
+      const exerciseSet = new Set(exerciseList.map(e => e.section_id));
 
-    // 2. 查用户解锁记录（跨库）
-    const userUnlocks =
-      chapterIds.length > 0
-        ? await userDb
-            .select()
-            .from(userSectionUnlocks)
-            .where(and(eq(userSectionUnlocks.user_id, user_id), inArray(userSectionUnlocks.chapter_id, chapterIds)))
-        : [];
-    const unlockMap = new Map(userUnlocks.map(u => [u.section_id, u.unlocked]));
+      // 2. 查用户解锁记录（跨库）
+      const userUnlocks =
+        chapterIds.length > 0
+          ? await userDb
+              .select()
+              .from(userSectionUnlocks)
+              .where(and(eq(userSectionUnlocks.user_id, user_id), inArray(userSectionUnlocks.chapter_id, chapterIds)))
+          : [];
+      const unlockMap = new Map(userUnlocks.map(u => [u.section_id, u.unlocked]));
 
-    // 3. 组装数据
-    const chapterList = chapterRows.map(ch => {
-      const chSections = sectionRows
-        .filter(s => s.chapter_id === ch.chapter_id)
-        .map(sec => ({
-          ...sec,
-          unlocked: process.env.UNLOCK_ALL_SECTION === 'true' ? 2 : unlockMap.get(sec.section_id) || 0,
-          has_exercise: exerciseSet.has(sec.section_id),
-        }));
-      return { ...ch, unlocked: 0, sections: chSections } as any;
-    });
+      // 3. 组装数据
+      const chapterList = chapterRows.map(ch => {
+        const chSections = sectionRows
+          .filter(s => s.chapter_id === ch.chapter_id)
+          .map(sec => ({
+            ...sec,
+            unlocked: process.env.UNLOCK_ALL_SECTION === 'true' ? 2 : unlockMap.get(sec.section_id) || 0,
+            has_exercise: exerciseSet.has(sec.section_id),
+          }));
+        return { ...ch, unlocked: 0, sections: chSections } as any;
+      });
 
-    // 4. 瀑布式解锁逻辑
-    let lastSectionPassed = false;
-    let nextSectionUnlocked = false;
+      // 4. 瀑布式解锁逻辑
+      let lastSectionPassed = false;
+      let nextSectionUnlocked = false;
 
-    let firstNonEmptyChapterIndex = -1;
-    for (let i = 0; i < chapterList.length; i++) {
-      if (chapterList[i].sections.some((s: any) => s.has_exercise)) {
-        firstNonEmptyChapterIndex = i;
-        break;
+      let firstNonEmptyChapterIndex = -1;
+      for (let i = 0; i < chapterList.length; i++) {
+        if (chapterList[i].sections.some((s: any) => s.has_exercise)) {
+          firstNonEmptyChapterIndex = i;
+          break;
+        }
       }
-    }
-    if (firstNonEmptyChapterIndex !== -1) {
-      const first = chapterList[firstNonEmptyChapterIndex].sections[0];
-      if (first && first.unlocked === 0) first.unlocked = 1;
-    }
+      if (firstNonEmptyChapterIndex !== -1) {
+        const first = chapterList[firstNonEmptyChapterIndex].sections[0];
+        if (first && first.unlocked === 0) first.unlocked = 1;
+      }
 
-    for (let i = 0; i < chapterList.length; i++) {
-      const chapter = chapterList[i];
-      let allPassed = chapter.sections.length > 0;
-      let inProgress = false;
+      for (let i = 0; i < chapterList.length; i++) {
+        const chapter = chapterList[i];
+        let allPassed = chapter.sections.length > 0;
+        let inProgress = false;
 
-      for (let j = 0; j < chapter.sections.length; j++) {
-        const sec = chapter.sections[j];
+        for (let j = 0; j < chapter.sections.length; j++) {
+          const sec = chapter.sections[j];
 
-        if (!sec.has_exercise) {
-          if ((i === 0 && j === 0) || process.env.UNLOCK_ALL_SECTION === 'true' || lastSectionPassed) {
-            if (sec.unlocked === 0) sec.unlocked = 2;
-            lastSectionPassed = true;
-            nextSectionUnlocked = false;
-            inProgress = inProgress || sec.unlocked > 0;
+          if (!sec.has_exercise) {
+            if ((i === 0 && j === 0) || process.env.UNLOCK_ALL_SECTION === 'true' || lastSectionPassed) {
+              if (sec.unlocked === 0) sec.unlocked = 2;
+              lastSectionPassed = true;
+              nextSectionUnlocked = false;
+              inProgress = inProgress || sec.unlocked > 0;
+              continue;
+            }
+            allPassed = false;
             continue;
           }
-          allPassed = false;
-          continue;
-        }
 
-        if (lastSectionPassed && !nextSectionUnlocked) {
-          if (sec.unlocked === 0) sec.unlocked = 1;
-          nextSectionUnlocked = true;
-        }
+          if (lastSectionPassed && !nextSectionUnlocked) {
+            if (sec.unlocked === 0) sec.unlocked = 1;
+            nextSectionUnlocked = true;
+          }
 
-        if (sec.unlocked === 2) {
-          lastSectionPassed = true;
-          nextSectionUnlocked = false;
-        } else {
-          lastSectionPassed = false;
-          allPassed = false;
-        }
-        if (sec.unlocked > 0) inProgress = true;
-      }
-
-      const hasExercise = chapter.sections.some((s: any) => s.has_exercise);
-      if (!hasExercise) {
-        if (lastSectionPassed || chapter.unlocked === 2) chapter.unlocked = 2;
-      } else {
-        if (allPassed) chapter.unlocked = 2;
-        else if (inProgress) chapter.unlocked = 1;
-      }
-
-      if (chapter.unlocked === 2) {
-        let next = i + 1;
-        while (next < chapterList.length) {
-          const nc = chapterList[next];
-          if (nc.sections.some((s: any) => s.has_exercise)) {
-            const first = nc.sections[0];
-            if (first && first.unlocked === 0) first.unlocked = 1;
-            break;
+          if (sec.unlocked === 2) {
+            lastSectionPassed = true;
+            nextSectionUnlocked = false;
           } else {
-            nc.unlocked = 2;
-            next++;
+            lastSectionPassed = false;
+            allPassed = false;
+          }
+          if (sec.unlocked > 0) inProgress = true;
+        }
+
+        const hasExercise = chapter.sections.some((s: any) => s.has_exercise);
+        if (!hasExercise) {
+          if (lastSectionPassed || chapter.unlocked === 2) chapter.unlocked = 2;
+        } else {
+          if (allPassed) chapter.unlocked = 2;
+          else if (inProgress) chapter.unlocked = 1;
+        }
+
+        if (chapter.unlocked === 2) {
+          let next = i + 1;
+          while (next < chapterList.length) {
+            const nc = chapterList[next];
+            if (nc.sections.some((s: any) => s.has_exercise)) {
+              const first = nc.sections[0];
+              if (first && first.unlocked === 0) first.unlocked = 1;
+              break;
+            } else {
+              nc.unlocked = 2;
+              next++;
+            }
           }
         }
       }
-    }
 
-    return c.json(
-      ok({
-        course_id: course[0]!.course_id,
-        course_name: course[0]!.name,
-        chapters: chapterList,
-      }),
-    );
+      return c.json(
+        ok({
+          course_id: course[0]!.course_id,
+          course_name: course[0]!.name,
+          chapters: chapterList,
+        }),
+      );
+    } catch (err) {
+      logger.error(`[courses] 获取课程章节树失败 (course_id=${course_id}, user_id=${user_id}):`, err);
+      return c.json(fail('获取课程章节树失败'), 500);
+    }
   },
 );
 
@@ -383,10 +389,10 @@ app.post(
               file: {
                 type: 'string',
                 format: 'binary',
-                description: '上传的文件'
-              }
-            }
-          }
+                description: '上传的文件',
+              },
+            },
+          },
         },
       },
     },
@@ -400,22 +406,27 @@ app.post(
       }
     ],
     responses: {
-      201: jsonResponse('批量导入成功', z.object({ 
-        success: z.literal(true), 
-        data: z.object({ 
-          total: z.number().int(), 
-          success: z.number().int(), 
-          failed: z.number().int(),
-          results: z.array(z.object({
-            filename: z.string(),
-            success: z.boolean(),
-            course_id: z.uuid().optional(),
-            name: z.string().optional(),
-            error: z.string().optional(),
-          }))
-        }), 
-        message: z.string() 
-      })),
+      201: jsonResponse(
+        '批量导入成功',
+        z.object({
+          success: z.literal(true),
+          data: z.object({
+            total: z.number().int(),
+            success: z.number().int(),
+            failed: z.number().int(),
+            results: z.array(
+              z.object({
+                filename: z.string(),
+                success: z.boolean(),
+                course_id: z.uuid().optional(),
+                name: z.string().optional(),
+                error: z.string().optional(),
+              }),
+            ),
+          }),
+          message: z.string(),
+        }),
+      ),
       400: jsonResponse('请求参数错误', apiErrorSchema),
       500: jsonResponse('服务器内部错误', apiErrorSchema),
     },
@@ -425,7 +436,7 @@ app.post(
       const formData = await c.req.formData();
       const override = c.req.query('override') === 'true';
       const file = formData.get('file') as File | null;
-      
+
       if (!file) {
         return c.json(fail('请上传 ZIP 文件'), 400);
       }
@@ -438,24 +449,21 @@ app.post(
       // 读取文件内容
       const arrayBuffer = await file.arrayBuffer();
       const buffer = Buffer.from(arrayBuffer);
-      
+
       // 解析 ZIP 文件
       const zip = new AdmZip(buffer);
       const zipEntries = zip.getEntries();
-      
+
       // 递归查找所有 course*.json 文件
       const courseFiles: { entry: AdmZip.IZipEntry; path: string }[] = [];
-      
+
       function findCourseFiles(entries: AdmZip.IZipEntry[], basePath = '') {
         for (const entry of entries) {
           const entryPath = basePath ? `${basePath}/${entry.entryName}` : entry.entryName;
           if (entry.isDirectory) {
             // 递归处理子目录 - 使用 zip.getEntries() 和过滤
             const allEntries = zip.getEntries();
-            const dirEntries = allEntries.filter(e => 
-              e.entryName.startsWith(entry.entryName + '/') && 
-              e.entryName !== entry.entryName
-            );
+            const dirEntries = allEntries.filter(e => e.entryName.startsWith(entry.entryName + '/') && e.entryName !== entry.entryName);
             if (dirEntries.length > 0) {
               findCourseFiles(dirEntries, entryPath);
             }
@@ -465,13 +473,13 @@ app.post(
           }
         }
       }
-      
+
       findCourseFiles(zipEntries);
-      
+
       if (courseFiles.length === 0) {
         return c.json(fail('ZIP 文件中未找到 course*.json 文件'), 400);
       }
-      
+
       // 处理每个课程文件
       const results: Array<{
         filename: string;
@@ -480,19 +488,19 @@ app.post(
         name?: string;
         error?: string;
       }> = [];
-      
+
       let successCount = 0;
       let failedCount = 0;
-      
+
       for (const { entry, path } of courseFiles) {
         try {
           // 读取 JSON 文件内容
           const fileContent = entry.getData().toString('utf8');
           const jsonData = JSON.parse(fileContent);
-          
+
           // 验证数据格式
           const payload = importCourseSchema.parse(jsonData);
-          
+
           // 导入课程
           const result = await importCourseData(payload, override);
           
@@ -512,7 +520,7 @@ app.post(
           failedCount++;
         }
       }
-      
+
       return c.json(
         ok(
           {
@@ -521,9 +529,9 @@ app.post(
             failed: failedCount,
             results,
           },
-          `批量导入完成，成功 ${successCount} 个，失败 ${failedCount} 个`
+          `批量导入完成，成功 ${successCount} 个，失败 ${failedCount} 个`,
         ),
-        201
+        201,
       );
     } catch (error: any) {
       return c.json(fail('处理 ZIP 文件失败', error.message), 500);

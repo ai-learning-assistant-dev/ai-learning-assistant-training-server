@@ -1,10 +1,10 @@
 import { Hono } from 'hono';
 import { eq, sql } from 'drizzle-orm';
 import { mainDb } from '@db/index';
-import { leadingQuestions, sections } from '@db/main/schema';
+import { leadingQuestions } from '@db/main/schema';
 import { createCrudRoutes } from './_crud';
-import { createLeadingQuestionSchema, updateLeadingQuestionSchema } from '@schemas/leadingQuestion';
-import { searchSchema, ok, fail, paginate } from '@schemas/common';
+import { createLeadingQuestionSchema, updateLeadingQuestionSchema, searchBySectionSchema } from '@schemas/leadingQuestion';
+import { ok, paginate } from '@schemas/common';
 
 const app = new Hono();
 
@@ -25,10 +25,7 @@ app.route(
 
 // POST /searchBySection — 按 section_id 查询引导问题
 app.post('/searchBySection', async c => {
-  const body = await c.req.json();
-  const { section_id, page = 1, limit = 20 } = body;
-
-  if (!section_id) return c.json(fail('缺少 section_id'), 400);
+  const { section_id, page, limit } = searchBySectionSchema.parse(await c.req.json());
 
   const offset = (page - 1) * limit;
 

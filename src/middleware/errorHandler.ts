@@ -2,6 +2,7 @@ import type { Context } from 'hono';
 import type { StatusCode } from 'hono/utils/http-status';
 import logger from '../utils/logger';
 import { isAPIKeyEmpty } from '../llm/utils/modelConfigManager';
+import { LLMSettingsError } from './llmSettingsError';
 
 /** 统一 API 响应类型 */
 export interface ApiResponse<T = unknown> {
@@ -46,10 +47,16 @@ export const onError = async (err: Error, c: Context): Promise<Response> => {
     }
     logger.warn(`[${method} ${path}] 参数校验失败: ${fields}${bodyLog}`);
 
+    // 对客户端返回简化的校验信息（字段名+错误描述），不暴露完整 schema 结构
+    const sanitizedIssues = issues.map((i: any) => ({
+      field: i.path?.join('.') || '',
+      message: i.message,
+    }));
+
     const response: ApiResponse = {
       success: false,
       error: `请求参数验证失败: ${fields}`,
-      details: issues,
+      details: sanitizedIssues,
     };
     return c.json(response, 400);
   }
@@ -63,14 +70,18 @@ export const onError = async (err: Error, c: Context): Promise<Response> => {
   let statusCode: StatusCode = 500;
   let errorMessage = '服务器内部错误';
 
+  // LLM 配置错误
+  if (err instanceof LLMSettingsError) {
+    statusCode = 400;
+    errorMessage = 'AI 模型配置错误，请检查模型设置';
+  }
   // 数据库错误
-  if (err.name?.includes('DrizzleError') || err.name?.includes('PostgresError')) {
+  else if (err.name?.includes('DrizzleError') || err.name?.includes('PostgresError')) {
     statusCode = 400;
     errorMessage = '数据库操作失败';
   }
-
   // 大模型认证错误
-  if (err.name?.includes('AuthenticationError')) {
+  else if (err.name?.includes('AuthenticationError')) {
     statusCode = 400;
     errorMessage = '大模型认证失败，请检查配置的 API Key 是否正确';
   }

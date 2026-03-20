@@ -33,3 +33,7 @@ export const updateExerciseOptionSchema = z.object({
   option_text: z.string().optional(),
   is_correct: z.boolean().optional(),
 });
+
+export const getExercisesBySectionSchema = z.object({
+  section_id: z.uuid(),
+});

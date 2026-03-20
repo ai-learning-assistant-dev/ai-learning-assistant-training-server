@@ -97,3 +97,8 @@ export const importCourseSchema = z.object({
 });
 
 export type ImportCoursePayload = z.infer<typeof importCourseSchema>;
+
+export const courseChaptersSectionsRequestSchema = z.object({
+  course_id: z.uuid(),
+  user_id: z.uuid(),
+});

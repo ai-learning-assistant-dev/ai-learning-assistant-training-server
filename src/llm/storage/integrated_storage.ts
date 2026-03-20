@@ -32,68 +32,83 @@ export interface ConversationAnalytics {
 export class IntegratedStorage {
   /** 获取用户的所有会话（基于 AiInteraction 表聚合） */
   async getUserSessions(userId: string): Promise<SessionMapping[]> {
-    const sessions = await userDb
-      .select({
-        userId: aiInteractions.user_id,
-        sessionId: aiInteractions.session_id,
-        sectionId: aiInteractions.section_id,
-        personaId: aiInteractions.persona_id_in_use,
-        createdAt: min(aiInteractions.query_time),
-        updatedAt: max(aiInteractions.query_time),
-      })
-      .from(aiInteractions)
-      .where(eq(aiInteractions.user_id, userId))
-      .groupBy(aiInteractions.user_id, aiInteractions.session_id, aiInteractions.section_id, aiInteractions.persona_id_in_use)
-      .orderBy(sql`max(${aiInteractions.query_time}) DESC`);
+    try {
+      const sessions = await userDb
+        .select({
+          userId: aiInteractions.user_id,
+          sessionId: aiInteractions.session_id,
+          sectionId: aiInteractions.section_id,
+          personaId: aiInteractions.persona_id_in_use,
+          createdAt: min(aiInteractions.query_time),
+          updatedAt: max(aiInteractions.query_time),
+        })
+        .from(aiInteractions)
+        .where(eq(aiInteractions.user_id, userId))
+        .groupBy(aiInteractions.user_id, aiInteractions.session_id, aiInteractions.section_id, aiInteractions.persona_id_in_use)
+        .orderBy(sql`max(${aiInteractions.query_time}) DESC`);
 
-    return sessions.map(s => ({
-      userId: s.userId,
-      sessionId: s.sessionId,
-      sectionId: s.sectionId ?? undefined,
-      personaId: s.personaId ?? undefined,
-      createdAt: s.createdAt ?? new Date(),
-      updatedAt: s.updatedAt ?? new Date(),
-    }));
+      return sessions.map(s => ({
+        userId: s.userId,
+        sessionId: s.sessionId,
+        sectionId: s.sectionId ?? undefined,
+        personaId: s.personaId ?? undefined,
+        createdAt: s.createdAt ?? new Date(),
+        updatedAt: s.updatedAt ?? new Date(),
+      }));
+    } catch (error) {
+      logger.error(`[IntegratedStorage.getUserSessions] 查询用户会话失败, userId=${userId}:`, error);
+      throw new Error(`获取用户会话失败 (userId=${userId}): ${error instanceof Error ? error.message : String(error)}`);
+    }
   }
 
   /** 获取会话的对话分析数据（基于 AiInteraction 表实时计算） */
   async getSessionAnalytics(sessionId: string): Promise<ConversationAnalytics | null> {
-    const [analytics] = await userDb
-      .select({
-        sessionId: aiInteractions.session_id,
-        messageCount: count(),
-        firstMessageAt: min(aiInteractions.query_time),
-        lastMessageAt: max(aiInteractions.query_time),
-      })
-      .from(aiInteractions)
-      .where(eq(aiInteractions.session_id, sessionId))
-      .groupBy(aiInteractions.session_id);
+    try {
+      const [analytics] = await userDb
+        .select({
+          sessionId: aiInteractions.session_id,
+          messageCount: count(),
+          firstMessageAt: min(aiInteractions.query_time),
+          lastMessageAt: max(aiInteractions.query_time),
+        })
+        .from(aiInteractions)
+        .where(eq(aiInteractions.session_id, sessionId))
+        .groupBy(aiInteractions.session_id);
 
-    if (!analytics) return null;
+      if (!analytics) return null;
 
-    const firstAt = analytics.firstMessageAt;
-    const lastAt = analytics.lastMessageAt;
-    const durationMinutes = firstAt && lastAt ? Math.round((lastAt.getTime() - firstAt.getTime()) / (1000 * 60)) : 0;
+      const firstAt = analytics.firstMessageAt;
+      const lastAt = analytics.lastMessageAt;
+      const durationMinutes = firstAt && lastAt ? Math.round((lastAt.getTime() - firstAt.getTime()) / (1000 * 60)) : 0;
 
-    return {
-      sessionId: analytics.sessionId,
-      messageCount: analytics.messageCount,
-      firstMessageAt: firstAt ?? undefined,
-      lastMessageAt: lastAt ?? undefined,
-      userMessages: analytics.messageCount,
-      aiMessages: analytics.messageCount,
-      sessionDurationMinutes: durationMinutes,
-    };
+      return {
+        sessionId: analytics.sessionId,
+        messageCount: analytics.messageCount,
+        firstMessageAt: firstAt ?? undefined,
+        lastMessageAt: lastAt ?? undefined,
+        userMessages: analytics.messageCount,
+        aiMessages: analytics.messageCount,
+        sessionDurationMinutes: durationMinutes,
+      };
+    } catch (error) {
+      logger.error(`[IntegratedStorage.getSessionAnalytics] 查询会话分析失败, sessionId=${sessionId}:`, error);
+      throw new Error(`获取会话分析失败 (sessionId=${sessionId}): ${error instanceof Error ? error.message : String(error)}`);
+    }
   }
 
   /** 清理过期的会话数据 */
   async cleanupExpiredSessions(daysOld: number = 30): Promise<number> {
-    const cutoffDate = new Date();
-    cutoffDate.setDate(cutoffDate.getDate() - daysOld);
+    try {
+      const cutoffDate = new Date();
+      cutoffDate.setDate(cutoffDate.getDate() - daysOld);
 
-    const result = await userDb.delete(aiInteractions).where(lt(aiInteractions.query_time, cutoffDate)).returning({ id: aiInteractions.interaction_id });
+      const result = await userDb.delete(aiInteractions).where(lt(aiInteractions.query_time, cutoffDate)).returning({ id: aiInteractions.interaction_id });
 
-    return result.length;
+      return result.length;
+    } catch (error) {
+      logger.error(`[IntegratedStorage.cleanupExpiredSessions] 清理过期会话失败, daysOld=${daysOld}:`, error);
+      throw new Error(`清理过期会话失败: ${error instanceof Error ? error.message : String(error)}`);
+    }
   }
 
   /** 根据用户ID和章节ID生成会话ID */

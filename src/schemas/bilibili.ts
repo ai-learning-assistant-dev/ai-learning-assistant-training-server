@@ -1,7 +1,8 @@
 /**
- * B站代理相关类型定义
- * 这些是纯 TypeScript 接口，不需要 Zod 验证
+ * B站代理相关类型定义与请求校验 Schema
  */
+
+import { z } from 'zod';
 
 export interface BaseResponse<T> {
   code: number;
@@ -115,3 +116,14 @@ export interface VideoManifestResponse {
   xml: string;
   pages: Array<{ cid: number; page: number; part: string }>;
 }
+
+export const mediaStreamQuerySchema = z.object({
+  url: z.string().min(1),
+  bvid: z.string().optional(),
+});
+
+export const dashQuerySchema = z.object({
+  bvid: z.string().min(1),
+  cid: z.string().optional(),
+  p: z.string().optional(),
+});

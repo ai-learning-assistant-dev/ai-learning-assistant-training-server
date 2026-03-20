@@ -5,7 +5,7 @@ import { mainDb, userDb } from '@db/index';
 import { courses, chapters, sections } from '@db/main/schema';
 import { users, courseSchedules, dailySummaries } from '@db/user/schema';
 import { createCrudRoutes } from './_crud';
-import { createUserSchema, updateUserSchema } from '@schemas/user';
+import { createUserSchema, updateUserSchema, userIdRequestSchema } from '@schemas/user';
 import { searchSchema, ok, fail, paginate } from '@schemas/common';
 import logger from '@utils/logger';
 
@@ -20,9 +20,14 @@ app.get(
     summary: '获取第一个用户，用于快速验证数据库是否有用户数据',
   }),
   async c => {
-    const rows = await userDb.select().from(users).limit(1);
-    if (!rows[0]) return c.json(fail('没有用户数据'), 404);
-    return c.json(ok(rows[0]));
+    try {
+      const rows = await userDb.select().from(users).limit(1);
+      if (!rows[0]) return c.json(fail('没有用户数据'), 404);
+      return c.json(ok(rows[0]));
+    } catch (err) {
+      logger.error('[users] 获取第一个用户失败:', err);
+      return c.json(fail('获取用户数据失败'), 500);
+    }
   },
 );
 
@@ -39,38 +44,43 @@ app.post(
     summary: '通过学员ID查询在学课程及学习进度',
   }),
   async c => {
-    const { user_id } = await c.req.json();
-    if (!user_id) return c.json(fail('user_id 必填'), 400);
+    let user_id: string | undefined;
+    try {
+      ({ user_id } = userIdRequestSchema.parse(await c.req.json()));
 
-    // 1. 查课程安排
-    const schedules = await userDb.select().from(courseSchedules).where(eq(courseSchedules.user_id, user_id));
-    const courseIds = schedules.map(s => s.course_id);
-    if (!courseIds.length) return c.json(ok([]));
+      // 1. 查课程安排
+      const schedules = await userDb.select().from(courseSchedules).where(eq(courseSchedules.user_id, user_id));
+      const courseIds = schedules.map(s => s.course_id);
+      if (!courseIds.length) return c.json(ok([]));
 
-    // 2. 查课程
-    const courseList = await mainDb.select().from(courses).where(inArray(courses.course_id, courseIds));
+      // 2. 查课程
+      const courseList = await mainDb.select().from(courses).where(inArray(courses.course_id, courseIds));
 
-    // 3. 查章节
-    const chapterList = await mainDb.select().from(chapters).where(inArray(chapters.course_id, courseIds));
-    const chapterIds = chapterList.map(ch => ch.chapter_id);
+      // 3. 查章节
+      const chapterList = await mainDb.select().from(chapters).where(inArray(chapters.course_id, courseIds));
+      const chapterIds = chapterList.map(ch => ch.chapter_id);
 
-    // 4. 查小节
-    const sectionList = chapterIds.length > 0 ? await mainDb.select().from(sections).where(inArray(sections.chapter_id, chapterIds)) : [];
+      // 4. 查小节
+      const sectionList = chapterIds.length > 0 ? await mainDb.select().from(sections).where(inArray(sections.chapter_id, chapterIds)) : [];
 
-    // 5. 组装结构 — 计算进度百分比
-    const courseMap = courseList.map(course => {
-      const courseChapters = chapterList.filter(ch => ch.course_id === course.course_id);
-      const allSections = courseChapters.flatMap(ch => sectionList.filter(sec => sec.chapter_id === ch.chapter_id));
-      const maxOrder = allSections.length > 0 ? Math.max(...allSections.map(sec => sec.section_order)) : 0;
+      // 5. 组装结构 — 计算进度百分比
+      const courseMap = courseList.map(course => {
+        const courseChapters = chapterList.filter(ch => ch.course_id === course.course_id);
+        const allSections = courseChapters.flatMap(ch => sectionList.filter(sec => sec.chapter_id === ch.chapter_id));
+        const maxOrder = allSections.length > 0 ? Math.max(...allSections.map(sec => sec.section_order)) : 0;
 
-      const schedule = schedules.find(s => s.course_id === course.course_id);
-      const statusNum = schedule?.status ? parseInt(schedule.status, 10) : 0;
-      const percent = maxOrder > 0 ? Math.round((statusNum / maxOrder) * 100) : 0;
+        const schedule = schedules.find(s => s.course_id === course.course_id);
+        const statusNum = schedule?.status ? parseInt(schedule.status, 10) : 0;
+        const percent = maxOrder > 0 ? Math.round((statusNum / maxOrder) * 100) : 0;
 
-      return { ...course, progress: percent };
-    });
+        return { ...course, progress: percent };
+      });
 
-    return c.json(ok(courseMap));
+      return c.json(ok(courseMap));
+    } catch (err) {
+      logger.error(`[users] 查询用户课程进度失败 (user_id=${user_id}):`, err);
+      return c.json(fail('查询用户课程进度失败'), 500);
+    }
   },
 );
 
@@ -83,8 +93,13 @@ app.get(
     summary: '获取全部课程列表（从主库查询）',
   }),
   async c => {
-    const rows = await mainDb.select().from(courses);
-    return c.json(ok(rows));
+    try {
+      const rows = await mainDb.select().from(courses);
+      return c.json(ok(rows));
+    } catch (err) {
+      logger.error('[users] 获取全部课程列表失败:', err);
+      return c.json(fail('获取全部课程列表失败'), 500);
+    }
   },
 );
 
@@ -97,16 +112,21 @@ app.post(
     summary: '测试连表查询：通过用户ID查询用户及其每日总结（dailySummaries）关联数据',
   }),
   async c => {
-    const { user_id } = await c.req.json();
-    if (!user_id) return c.json(fail('user_id 必填'), 400);
+    let user_id: string | undefined;
+    try {
+      ({ user_id } = userIdRequestSchema.parse(await c.req.json()));
 
-    const user = await userDb.query.users.findFirst({
-      where: eq(users.user_id, user_id),
-      with: { dailySummaries: true },
-    });
-    if (!user) return c.json(fail('用户不存在'), 404);
+      const user = await userDb.query.users.findFirst({
+        where: eq(users.user_id, user_id),
+        with: { dailySummaries: true },
+      });
+      if (!user) return c.json(fail('用户不存在'), 404);
 
-    return c.json(ok(user));
+      return c.json(ok(user));
+    } catch (err) {
+      logger.error(`[users] 测试连表查询失败 (user_id=${user_id}):`, err);
+      return c.json(fail('查询失败'), 500);
+    }
   },
 );
 
@@ -147,8 +167,7 @@ app.post(
     summary: '根据 user_id 获取单个用户信息',
   }),
   async c => {
-    const { user_id } = await c.req.json();
-    if (!user_id) return c.json(fail('缺少 user_id'), 400);
+    const { user_id } = userIdRequestSchema.parse(await c.req.json());
 
     const rows = await userDb.select().from(users).where(eq(users.user_id, user_id)).limit(1);
     if (!rows[0]) return c.json(fail('用户不存在'), 404);
@@ -175,6 +194,7 @@ app.post(
       if (err?.message?.includes('unique') || err?.code === '23505') {
         return c.json(fail('用户名已存在'), 409);
       }
+      logger.error('[users] 创建用户失败:', err);
       throw err;
     }
   },
@@ -208,8 +228,7 @@ app.post(
     summary: '删除用户，需先校验用户存在',
   }),
   async c => {
-    const { user_id } = await c.req.json();
-    if (!user_id) return c.json(fail('缺少 user_id'), 400);
+    const { user_id } = userIdRequestSchema.parse(await c.req.json());
 
     const existing = await userDb.select().from(users).where(eq(users.user_id, user_id)).limit(1);
     if (!existing[0]) return c.json(fail('用户不存在'), 404);

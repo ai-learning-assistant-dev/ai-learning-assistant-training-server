@@ -36,7 +36,7 @@ export function createLLM(modelConfig: ModelConfig): BaseChatModel {
       modelConfig.baseUrl = modelConfig.baseUrl.replace('localhost', HOST_DOMAIN).replace('127.0.0.1', HOST_DOMAIN);
     }
 
-    logger.debug('[createLLM] modelConfig:', JSON.stringify(modelConfig));
+    logger.debug(`[createLLM] provider=${modelConfig.provider}, model=${modelConfig.name}, reasoning=${modelConfig.reasoning ?? false}`);
     // 根据提供商创建相应的LLM实例
     switch (modelConfig.provider.toLowerCase()) {
       case 'openai':
@@ -122,10 +122,8 @@ export function createLLM(modelConfig: ModelConfig): BaseChatModel {
     }
   } catch (error) {
     logger.error('Error creating LLM:', error);
-    var errMsg = '请先参考使用手册进行正确的AI配置';
-    if (error instanceof Error) {
-      errMsg += `，错误详情：${error.message}`;
-    }
+    const safeDetail = error instanceof Error ? error.message.replace(/['"]?[A-Za-z0-9_\-]{20,}['"]?/g, '***') : '';
+    const errMsg = safeDetail ? `请先参考使用手册进行正确的AI配置，错误详情：${safeDetail}` : '请先参考使用手册进行正确的AI配置';
     throw new LLMSettingsError(errMsg);
   }
 }
