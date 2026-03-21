@@ -3,7 +3,7 @@
  *
  * 支持两种导入方式：
  * 1. JSON 文件导入：读取课程 JSON 文件，通过 API 接口导入到数据库
- * 2. ZIP 文件导入：读取包含多个 course*.json 文件的 ZIP 压缩包，批量导入课程
+ * 2. ZIP 文件导入：读取 ZIP 内 .json（如 example.json、course*.json），批量调用导入接口
  *
  * 用法:
  *   bun db:import:course <文件路径> [--base-url=http://localhost:3000]
@@ -13,11 +13,11 @@
  *   --base-url     API 服务地址（默认: http://localhost:3000）
  *
  * JSON 格式:
- *   单个课程: { id, title, description?, chapters: [...] }
- *   批量课程: [{ id, title, ... }, { id, title, ... }]
+ *   单个课程: 主键字段为 course_id、chapter_id、section_id 等（与 DB 一致），不接收泛型 `id`
+ *   批量课程: [{ ... }, { ... }]
  *
  * ZIP 格式:
- *   包含多个 course*.json 文件的 ZIP 压缩包，支持递归目录结构
+ *   内含多个 course.json / course*.json 的 ZIP，与 POST /courses/import-zip 一致
  */
 import { readFileSync, existsSync } from 'node:fs';
 import { resolve } from 'node:path';

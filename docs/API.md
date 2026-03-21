@@ -91,6 +91,7 @@ createCourseSchema:
 | ---- | ------------------------------------ | ------------------------- |
 | POST | `/courses/getCourseChaptersSections` | 课程章节树 + 用户解锁状态 |
 | POST | `/courses/import`                    | 整体导入课程（事务）      |
+| POST | `/courses/import-zip`                | ZIP 内 course*.json 批量导入 |
 
 **`/courses/getCourseChaptersSections`**
 
@@ -101,40 +102,49 @@ createCourseSchema:
 
 整个导入在一个数据库事务中执行，任一步骤失败自动回滚。
 
-请求体：
+请求体主键命名与数据库表一致（`courses.course_id`、`chapters.chapter_id`、`sections.section_id`、`exercises.exercise_id`、`exercise_options.option_id`、`leading_question.question_id`）。各层 `*_id` 均为可选；提供合法 UUID（或 32 位十六进制无连字符）时按该值插入，否则由数据库 `defaultRandom()` 生成。不接收泛型字段 `id`。
 
 ```jsonc
 {
-  "id": "uuid", // 必填，课程源 ID
-  "title": "string", // 必填，课程名称
-  "description": "string", // 可选，默认 ''
-  "icon_url": "string", // 可选，默认 ''
-  "category": "string", // 可选，默认 '职业技能'
-  "contributors": "string", // 可选，默认 '志愿者'
+  "title": "string",
+  "course_id": "uuid?",
+  "description": "",
+  "icon_url": "",
+  "category": "职业技能",
+  "contributors": "志愿者",
   "chapters": [
-    // 可选，默认 []
     {
-      "id": "uuid",
       "title": "string",
-      "order": 1,
+      "order": 0,
+      "chapter_id": "uuid?",
       "sections": [
         {
-          "id": "uuid",
+          "section_id": "uuid?",
           "title": "string",
-          "order": 1,
+          "order": 0,
           "video_url": "",
           "knowledge_content": "",
           "estimated_time": 0,
           "knowledge_points": {},
           "video_subtitles": [],
-          "exercises": [{ "id": "uuid", "question": "string", "type": "string", "score": 10, "options": [{ "id": "uuid", "text": "string", "is_correct": false }] }],
-          "leading_questions": [{ "id": "uuid", "question": "string" }],
+          "exercises": [
+            {
+              "exercise_id": "uuid?",
+              "question": "string",
+              "type": "单选|多选|简答|0|1|2",  // 导入时统一转为 0单选、1多选、2简答 存入 type_status
+              "score": 5,
+              "options": [{ "option_id": "uuid?", "text": "string", "is_correct": true }],
+            },
+          ],
+          "leading_questions": [{ "question_id": "uuid?", "question": "string" }],
         },
       ],
     },
   ],
 }
 ```
+
+**`/courses/import-zip`** — `multipart/form-data` 字段 `file`，上传 ZIP。包内递归匹配 **`course.json`** 或 **`course*.json`**（不区分大小写），每个文件按与 `/import` 相同的 schema 尝试导入；校验失败的文件计入 `failed` 并带 `error`。
 
 命令行导入示例：
 

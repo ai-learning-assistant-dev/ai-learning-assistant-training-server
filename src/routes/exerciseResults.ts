@@ -105,9 +105,9 @@ app.post(
           const correctIds = options.filter(o => o.is_correct).map(o => o.option_id);
           const userIds = userAnswerRaw
             ? String(userAnswerRaw)
-                .split(';')
-                .map((s: string) => s.trim())
-                .filter(Boolean)
+              .split(';')
+              .map((s: string) => s.trim())
+              .filter(Boolean)
             : [];
           if (typeStatus === '0') {
             isCorrect = userIds.length === 1 && correctIds.length === 1 && userIds[0] === correctIds[0];
@@ -193,7 +193,7 @@ app.post(
                   const expect = (exercise?.answer ?? '').toString().trim().toLowerCase();
                   const actual = (userAnswerRaw ?? '').toString().trim().toLowerCase();
                   const ratio = distance(expect, actual) / Math.max(expect.length, actual.length);
-                  user_score = (1 - ratio) * questionScore;
+                  user_score = (1 - ratio) * questionScore || 0;
                   ai_feedback = '大模型评分失败，采用距离向量模式进行评分。';
                 }
               }
@@ -304,9 +304,9 @@ app.post(
           const correctIds = options.filter(o => o.is_correct).map(o => o.option_id);
           const userIds = userAnswerRaw
             ? String(userAnswerRaw)
-                .split(';')
-                .map((s: string) => s.trim())
-                .filter(Boolean)
+              .split(';')
+              .map((s: string) => s.trim())
+              .filter(Boolean)
             : [];
           if (typeStatus === '0') {
             isCorrect = userIds.length === 1 && correctIds.length === 1 && userIds[0] === correctIds[0];
