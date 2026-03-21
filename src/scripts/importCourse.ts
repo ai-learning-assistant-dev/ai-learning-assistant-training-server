@@ -88,7 +88,7 @@ async function importSingleCourse(data: ImportCoursePayload, baseUrl: string, in
   logger.info(`${prefix}   章节: ${chapterCount}, 小节: ${sectionCount}`);
 
   try {
-    const response = await fetch(`${baseUrl}/api/courses/import`, {
+    const response = await fetch(`${baseUrl}/api/courses/import?override=true`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify(data),
@@ -133,7 +133,7 @@ async function importZipFile(filePath: string, baseUrl: string): Promise<boolean
     formData.append('file', blob, filePath.split('/').pop() || 'course.zip');
 
     // 发送请求
-    const response = await fetch(`${baseUrl}/api/courses/import-zip`, {
+    const response = await fetch(`${baseUrl}/api/courses/import-zip?override=true`, {
       method: 'POST',
       body: formData,
     });

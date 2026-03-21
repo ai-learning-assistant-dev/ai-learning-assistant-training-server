@@ -218,6 +218,43 @@ app.post(
 // ── 公共导入函数 ─────────────────────────────────────
 
 /**
+ * 删除课程及其关联数据（章节、小节、练习、选项、引导问题）
+ * @param courseId 课程 ID
+ */
+async function deleteCourseWithRelations(courseId: string) {
+  // 查询该课程下所有章节
+  const chapterRows = await mainDb.select({ chapter_id: chapters.chapter_id }).from(chapters).where(eq(chapters.course_id, courseId));
+  const chapterIds = chapterRows.map(r => r.chapter_id);
+
+  if (chapterIds.length > 0) {
+    // 查询所有小节
+    const sectionRows = await mainDb.select({ section_id: sections.section_id }).from(sections).where(inArray(sections.chapter_id, chapterIds));
+    const sectionIds = sectionRows.map(r => r.section_id);
+
+    if (sectionIds.length > 0) {
+      // 查询所有练习
+      const exerciseRows = await mainDb.select({ exercise_id: exercises.exercise_id }).from(exercises).where(inArray(exercises.section_id, sectionIds));
+      const exerciseIds = exerciseRows.map(r => r.exercise_id);
+
+      // 删除练习选项
+      if (exerciseIds.length > 0) {
+        await mainDb.delete(exerciseOptions).where(inArray(exerciseOptions.exercise_id, exerciseIds));
+      }
+      // 删除练习
+      await mainDb.delete(exercises).where(inArray(exercises.section_id, sectionIds));
+      // 删除引导问题
+      await mainDb.delete(leadingQuestions).where(inArray(leadingQuestions.section_id, sectionIds));
+    }
+    // 删除小节
+    await mainDb.delete(sections).where(inArray(sections.chapter_id, chapterIds));
+  }
+  // 删除章节
+  await mainDb.delete(chapters).where(eq(chapters.course_id, courseId));
+  // 删除课程
+  await mainDb.delete(courses).where(eq(courses.course_id, courseId));
+}
+
+/**
  * 导入课程数据的公共函数
  * @param payload 课程导入数据
  * @returns 导入结果
@@ -313,6 +350,15 @@ app.post(
     tags: ['课程管理'],
     summary: '整体导入课程数据（主键字段与库表一致：course_id、chapter_id、section_id 等，可选；兼容历史 id）',
     requestBody: jsonBody(importCourseSchema) as any,
+    parameters: [
+      {
+        name: 'override',
+        in: 'query',
+        schema: {
+          type: 'boolean'
+        }
+      }
+    ],
     responses: {
       201: jsonResponse('导入成功', z.object({ success: z.literal(true), data: z.object({ course_id: z.uuid(), name: z.string() }), message: z.string() })),
       400: jsonResponse('请求参数错误', apiErrorSchema),
@@ -321,8 +367,9 @@ app.post(
   async c => {
     try {
       const body = await c.req.json();
+      const override = c.req.query('override') === 'true';
       const payload = importCourseSchema.parse(body);
-      const result = await importCourseData(payload);
+      const result = await importCourseData(payload, override);
       return c.json(ok(result, '课程导入成功'), 201);
     } catch (error: any) {
       if (error.status === 409) {
@@ -357,6 +404,15 @@ app.post(
         },
       },
     },
+    parameters: [
+      {
+        name: 'override',
+        in: 'query',
+        schema: {
+          type: 'boolean'
+        }
+      }
+    ],
     responses: {
       201: jsonResponse(
         '批量导入成功',
@@ -386,6 +442,7 @@ app.post(
   async c => {
     try {
       const formData = await c.req.formData();
+      const override = c.req.query('override') === 'true';
       const file = formData.get('file') as File | null;
 
       if (!file) {
@@ -451,8 +508,8 @@ app.post(
           const payload = importCourseSchema.parse(jsonData);
 
           // 导入课程
-          const result = await importCourseData(payload);
-
+          const result = await importCourseData(payload, override);
+          
           results.push({
             filename: path,
             success: true,
