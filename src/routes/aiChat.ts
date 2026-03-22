@@ -129,8 +129,8 @@ app.post(
 
     let requirements: string | undefined;
     if (request.useAudio && request.ttsOption) {
-      const audioPrompts = await Promise.all(request.ttsOption.map(getAudioPromptByOption));
-      requirements = audioPrompts.join('\n');
+      const audioPrompts = await getAudioPromptByOption(request.ttsOption);
+      requirements = String(audioPrompts);
     }
 
     const dc = await DailyChat.create({ requirements, reasoning, modelName });
@@ -235,8 +235,8 @@ app.post(
 
       let requirements: string | undefined;
       if (request.useAudio && request.ttsOption) {
-        const audioPrompts = await Promise.all(request.ttsOption.map(getAudioPromptByOption));
-        requirements = audioPrompts.join('\n');
+        const audioPrompt = await getAudioPromptByOption(request.ttsOption);
+        requirements = String(audioPrompt);
       }
 
       const dc = await DailyChat.create({ requirements, reasoning, modelName });
@@ -257,8 +257,8 @@ app.post(
 
     let requirements: string | undefined;
     if (request.useAudio && request.ttsOption) {
-      const audioPrompts = await Promise.all(request.ttsOption.map(getAudioPromptByOption));
-      requirements = audioPrompts.join('\n');
+      const audioPrompt = await getAudioPromptByOption(request.ttsOption);
+      requirements = String(audioPrompt);
     }
 
     const { userId, sectionId, message, personaId, sessionId, modelName, reasoning } = request;

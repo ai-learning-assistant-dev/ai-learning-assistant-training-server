@@ -16,7 +16,7 @@ export const chatRequestSchema = z.object({
   userId: z.uuid(),
   sectionId: z.union([z.uuid(), z.literal('')]),
   message: z.string().min(1),
-  personaId: z.uuid().optional(),
+  personaId: z.string().optional(),
   sessionId: z.string().optional(),
   modelName: z.string().optional(),
   reasoning: z.boolean().optional(),
@@ -28,10 +28,10 @@ export const streamChatRequestSchema = z.object({
   userId: z.uuid().optional(),
   sectionId: z.union([z.uuid(), z.literal('')]).optional(),
   message: z.string().min(1),
-  personaId: z.uuid().optional(),
+  personaId: z.string().optional(),
   sessionId: z.string().optional(),
   useAudio: z.boolean().optional(),
-  ttsOption: z.array(z.string()).optional(),
+  ttsOption: z.string().optional(),
   daily: z.boolean().optional(),
   modelName: z.string().optional(),
   reasoning: z.boolean().optional(),
@@ -61,7 +61,7 @@ export const learningReviewRequestSchema = z.object({
 export const createSessionRequestSchema = z.object({
   userId: z.uuid(),
   sectionId: z.union([z.uuid(), z.literal('')]),
-  personaId: z.uuid().optional(),
+  personaId: z.string().optional(),
 });
 
 // ── 切换人设 ────────────────────────────────────────
