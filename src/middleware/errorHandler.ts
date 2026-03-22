@@ -1,7 +1,8 @@
 import type { Context } from 'hono';
 import type { StatusCode } from 'hono/utils/http-status';
-import logger from '../utils/logger';
 import { isAPIKeyEmpty } from '../llm/utils/modelConfigManager';
+import { truncateText } from '../schemas/common';
+import logger from '../utils/logger';
 import { LLMSettingsError } from './llmSettingsError';
 
 /** 统一 API 响应类型 */
@@ -37,11 +38,11 @@ export const onError = async (err: Error, c: Context): Promise<Response> => {
     const issues = (err as any).issues ?? [];
     const fields = issues.map((i: any) => `${i.path?.join('.')}: ${i.message}`).join('; ');
 
-    // 尝试记录请求参数（c.req.json() 在 Hono 中有缓存）
+    // 尝试记录请求参数（c.req.json() 在 Hono 中有缓存），超长时截取
     let bodyLog = '';
     try {
       const body = await c.req.json();
-      bodyLog = ` | 请求参数: ${JSON.stringify(body)}`;
+      bodyLog = ` | 请求参数: ${truncateText(JSON.stringify(body))}`;
     } catch {
       // body 不可读（GET 请求等）
     }
@@ -62,7 +63,7 @@ export const onError = async (err: Error, c: Context): Promise<Response> => {
   }
 
   // 其他错误 — 打印完整上下文
-  logger.error(`[${method} ${path}] ${err.name}: ${err.message}`);
+  logger.error(`[${method} ${path}] ${err.name}: ${truncateText(err.message)}`);
   if (err.stack) {
     logger.error(err.stack);
   }
@@ -94,7 +95,7 @@ export const onError = async (err: Error, c: Context): Promise<Response> => {
   const response: ApiResponse = {
     success: false,
     error: errorMessage,
-    details: process.env.NODE_ENV === 'development' ? err.message : undefined,
+    details: process.env.NODE_ENV === 'development' ? truncateText(err.message) : undefined,
   };
 
   return c.json(response, statusCode);

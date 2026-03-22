@@ -28,6 +28,13 @@ export interface ApiResponse<T = unknown> {
 
 // ── 响应构建函数 ────────────────────────────────────
 
+/** 截取超长文本，保留前后各一部分 */
+export function truncateText(text: string, maxLen = 500): string {
+  if (text.length <= maxLen) return text;
+  const keep = Math.floor((maxLen - 20) / 2);
+  return `${text.slice(0, keep)} ...(省略 ${text.length - keep * 2} 字符)... ${text.slice(-keep)}`;
+}
+
 export function ok<T>(data: T, message = '成功', pagination?: Pagination): ApiResponse<T> {
   return {
     success: true,
@@ -41,7 +48,7 @@ export function fail(error: string, details?: unknown): ApiResponse {
   return {
     success: false,
     error,
-    ...(details !== undefined ? { details } : {}),
+    ...(details !== undefined ? { details: typeof details === 'string' ? truncateText(details) : details } : {}),
   };
 }
 
