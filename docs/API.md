@@ -105,7 +105,7 @@ createCourseSchema:
 
 ```jsonc
 {
-  "id": "uuid", // 必填，课程源 ID
+  "course_id": "uuid", // 必填，课程 ID
   "title": "string", // 必填，课程名称
   "description": "string", // 可选，默认 ''
   "icon_url": "string", // 可选，默认 ''
@@ -114,12 +114,12 @@ createCourseSchema:
   "chapters": [
     // 可选，默认 []
     {
-      "id": "uuid",
+      "chapter_id": "uuid",
       "title": "string",
       "order": 1,
       "sections": [
         {
-          "id": "uuid",
+          "section_id": "uuid",
           "title": "string",
           "order": 1,
           "video_url": "",
@@ -127,8 +127,16 @@ createCourseSchema:
           "estimated_time": 0,
           "knowledge_points": {},
           "video_subtitles": [],
-          "exercises": [{ "id": "uuid", "question": "string", "type": "string", "score": 10, "options": [{ "id": "uuid", "text": "string", "is_correct": false }] }],
-          "leading_questions": [{ "id": "uuid", "question": "string" }],
+          "exercises": [
+            {
+              "exercise_id": "uuid",
+              "question": "string",
+              "type": "单选|多选|简答|0|1|2",
+              "score": 10,
+              "options": [{ "option_id": "uuid", "text": "string", "is_correct": false }],
+            },
+          ],
+          "leading_questions": [{ "question_id": "uuid", "question": "string" }],
         },
       ],
     },

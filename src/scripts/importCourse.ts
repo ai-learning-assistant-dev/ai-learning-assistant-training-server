@@ -126,7 +126,7 @@ async function importZipFile(filePath: string, baseUrl: string): Promise<boolean
   try {
     // 读取文件内容
     const fileContent = readFileSync(filePath);
-    
+
     // 创建 FormData
     const formData = new FormData();
     const blob = new Blob([fileContent], { type: 'application/zip' });
@@ -142,9 +142,9 @@ async function importZipFile(filePath: string, baseUrl: string): Promise<boolean
 
     if (result.success && result.data) {
       const { total, success, failed, results } = result.data;
-      
+
       logger.info(`📊 ZIP 导入汇总: 共 ${total} 个文件，成功 ${success} 个，失败 ${failed} 个`);
-      
+
       // 输出详细结果
       for (const item of results) {
         if (item.success) {
@@ -153,12 +153,12 @@ async function importZipFile(filePath: string, baseUrl: string): Promise<boolean
           logger.error(`❌ ${item.filename}: 导入失败 - ${item.error}`);
         }
       }
-      
+
       if (failed > 0) {
         logger.warn(`⚠️ 部分文件导入失败，共 ${failed} 个失败`);
         return false;
       }
-      
+
       logger.info('🎉 ZIP 文件导入完成！');
       return true;
     } else {
@@ -190,7 +190,7 @@ async function main(): Promise<void> {
   if (isZipFile(filePath)) {
     logger.info(`📦 ZIP 文件: ${filePath}`);
     logger.info(`🔗 API 地址: ${baseUrl}`);
-    
+
     const success = await importZipFile(filePath, baseUrl);
     if (!success) {
       process.exit(1);

@@ -30,21 +30,35 @@ export const updateCourseSchema = z.object({
 // ── 课程导入 Schema ─────────────────────────────────
 
 const importExerciseOptionSchema = z.object({
-  id: z.string(),
+  option_id: z.uuid(),
   text: z.string(),
   is_correct: z.boolean(),
 });
 
-const importExerciseSchema = z.object({
-  id: z.string(),
-  question: z.string(),
-  type: z.string(),
-  score: z.number().int(),
-  options: z.array(importExerciseOptionSchema),
-});
+/** 将导入的 type 字符串映射为 type_status：0 单选、1 多选、2 简答 */
+function mapExerciseTypeToStatus(type: string): string {
+  const t = String(type).trim();
+  if (t === '0' || t === '单选' || /single|single_choice/i.test(t)) return '0';
+  if (t === '1' || t === '多选' || /multiple|multiple_choice/i.test(t)) return '1';
+  if (t === '2' || t === '简答' || /short|short_answer/i.test(t)) return '2';
+  return '0';
+}
+
+const importExerciseSchema = z
+  .object({
+    exercise_id: z.uuid(),
+    question: z.string(),
+    type: z.string(),
+    score: z.number().int(),
+    options: z.array(importExerciseOptionSchema).optional().default([]),
+  })
+  .transform(data => ({
+    ...data,
+    type: mapExerciseTypeToStatus(data.type),
+  }));
 
 const importLeadingQuestionSchema = z.object({
-  id: z.string(),
+  question_id: z.uuid(),
   question: z.string(),
 });
 
@@ -66,7 +80,7 @@ const importKnowledgePointSchema = z.object({
 });
 
 const importSectionSchema = z.object({
-  id: z.string(),
+  section_id: z.uuid(),
   title: z.string(),
   order: z.number().int(),
   video_url: z.string().optional().default(''),
@@ -79,15 +93,15 @@ const importSectionSchema = z.object({
 });
 
 const importChapterSchema = z.object({
-  id: z.string(),
+  chapter_id: z.uuid(),
   title: z.string(),
   order: z.number().int(),
   sections: z.array(importSectionSchema).optional().default([]),
 });
 
-/** 课程整体导入 schema（对应 t.ts 中的 c 类型） */
+/** 课程整体导入 schema（主键字段与库表一致：course_id、chapter_id、section_id 等，均为必填） */
 export const importCourseSchema = z.object({
-  id: z.string(),
+  course_id: z.uuid(),
   title: z.string(),
   description: z.string().optional().default(''),
   icon_url: z.string().optional().default(''),
@@ -96,7 +110,7 @@ export const importCourseSchema = z.object({
   chapters: z.array(importChapterSchema).optional().default([]),
 });
 
-export type ImportCoursePayload = z.infer<typeof importCourseSchema>;
+export type ImportCoursePayload = z.output<typeof importCourseSchema>;
 
 export const courseChaptersSectionsRequestSchema = z.object({
   course_id: z.uuid(),

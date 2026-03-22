@@ -269,14 +269,21 @@ async function importCourseData(payload: ImportCoursePayload, override = false) 
     // 1. 插入课程
     const [course] = await tx
       .insert(courses)
-      .values({ name: payload.title, icon_url: payload.icon_url || null, description: payload.description, category: payload.category, contributors: payload.contributors })
+      .values({
+        course_id: payload.course_id,
+        name: payload.title,
+        icon_url: payload.icon_url || null,
+        description: payload.description,
+        category: payload.category,
+        contributors: payload.contributors,
+      })
       .returning();
 
     const courseId = course!.course_id;
 
     for (const ch of payload.chapters) {
       // 2. 插入章节
-      const [chapter] = await tx.insert(chapters).values({ course_id: courseId, title: ch.title, chapter_order: ch.order }).returning();
+      const [chapter] = await tx.insert(chapters).values({ chapter_id: ch.chapter_id, course_id: courseId, title: ch.title, chapter_order: ch.order }).returning();
 
       const chapterId = chapter!.chapter_id;
 
@@ -285,6 +292,7 @@ async function importCourseData(payload: ImportCoursePayload, override = false) 
         const [section] = await tx
           .insert(sections)
           .values({
+            section_id: sec.section_id,
             chapter_id: chapterId,
             title: sec.title,
             section_order: sec.order,
@@ -300,13 +308,17 @@ async function importCourseData(payload: ImportCoursePayload, override = false) 
 
         // 4. 插入练习及选项
         for (const ex of sec.exercises) {
-          const [exercise] = await tx.insert(exercises).values({ section_id: sectionId, question: ex.question, type_status: ex.type, score: ex.score }).returning();
+          const [exercise] = await tx
+            .insert(exercises)
+            .values({ exercise_id: ex.exercise_id, section_id: sectionId, question: ex.question, type_status: ex.type, score: ex.score })
+            .returning();
 
           const exerciseId = exercise!.exercise_id;
 
           if (ex.options.length > 0) {
             await tx.insert(exerciseOptions).values(
               ex.options.map(opt => ({
+                option_id: opt.option_id,
                 exercise_id: exerciseId,
                 option_text: opt.text,
                 is_correct: opt.is_correct,
@@ -319,6 +331,7 @@ async function importCourseData(payload: ImportCoursePayload, override = false) 
         if (sec.leading_questions.length > 0) {
           await tx.insert(leadingQuestions).values(
             sec.leading_questions.map(lq => ({
+              question_id: lq.question_id,
               section_id: sectionId,
               question: lq.question,
             })),
@@ -461,7 +474,6 @@ app.post(
         for (const entry of entries) {
           const entryPath = basePath ? `${basePath}/${entry.entryName}` : entry.entryName;
           if (entry.isDirectory) {
-            // 递归处理子目录 - 使用 zip.getEntries() 和过滤
             const allEntries = zip.getEntries();
             const dirEntries = allEntries.filter(e => e.entryName.startsWith(entry.entryName + '/') && e.entryName !== entry.entryName);
             if (dirEntries.length > 0) {
