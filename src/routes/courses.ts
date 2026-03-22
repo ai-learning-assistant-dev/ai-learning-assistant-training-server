@@ -12,14 +12,6 @@ import { z } from 'zod';
 import AdmZip from 'adm-zip';
 import logger from '@utils/logger';
 
-/** ZIP 内课程 JSON：仅匹配 `course.json` 或 `course*.json`（不区分大小写，含子目录） */
-function isZipEntryCourseJson(entry: AdmZip.IZipEntry): boolean {
-  if (entry.isDirectory) return false;
-  const parts = entry.entryName.replace(/\\/g, '/').split('/');
-  const base = parts[parts.length - 1] ?? '';
-  return /^course.*\.json$/i.test(base);
-}
-
 const app = new Hono();
 
 // ── 标准 CRUD ───────────────────────────────────────
@@ -108,9 +100,9 @@ app.post(
       const userUnlocks =
         chapterIds.length > 0
           ? await userDb
-            .select()
-            .from(userSectionUnlocks)
-            .where(and(eq(userSectionUnlocks.user_id, user_id), inArray(userSectionUnlocks.chapter_id, chapterIds)))
+              .select()
+              .from(userSectionUnlocks)
+              .where(and(eq(userSectionUnlocks.user_id, user_id), inArray(userSectionUnlocks.chapter_id, chapterIds)))
           : [];
       const unlockMap = new Map(userUnlocks.map(u => [u.section_id, u.unlocked]));
 
@@ -259,62 +251,74 @@ async function deleteCourseWithRelations(courseId: string) {
  * @param payload 课程导入数据
  * @returns 导入结果
  */
-async function importCourseData(payload: ImportCoursePayload) {
-  if (payload.course_id) {
-    const byId = await mainDb.select({ course_id: courses.course_id }).from(courses).where(eq(courses.course_id, payload.course_id)).limit(1);
-    if (byId[0]) {
-      throw { status: 409, error: fail('课程 ID 已存在', { course_id: byId[0].course_id }) };
+async function importCourseData(payload: ImportCoursePayload, override = false) {
+  // 去重检查：按课程名称检查是否已存在
+  const existing = await mainDb.select({ course_id: courses.course_id }).from(courses).where(eq(courses.name, payload.title)).limit(1);
+
+  if (existing[0]) {
+    // 课程已存在，检查是否需要覆盖
+    if (!override) {
+      // 没有 override 参数，返回课程已存在的信息
+      throw { status: 409, error: fail('课程已存在', { course_id: existing[0].course_id, name: payload.title }) };
     }
+    // 有 override 参数，先删除已存在的课程及相关数据
+    await deleteCourseWithRelations(existing[0].course_id);
   }
 
-
-
   const result = await mainDb.transaction(async tx => {
-    const courseRow = {
-      name: payload.title,
-      icon_url: payload.icon_url || null,
-      description: payload.description,
-      category: payload.category,
-      contributors: payload.contributors,
-    };
+    // 1. 插入课程
     const [course] = await tx
       .insert(courses)
-      .values(payload.course_id ? { ...courseRow, course_id: payload.course_id } : courseRow)
+      .values({
+        course_id: payload.course_id,
+        name: payload.title,
+        icon_url: payload.icon_url || null,
+        description: payload.description,
+        category: payload.category,
+        contributors: payload.contributors,
+      })
       .returning();
 
     const courseId = course!.course_id;
 
     for (const ch of payload.chapters) {
-      const chapterRow = { course_id: courseId, title: ch.title, chapter_order: ch.order };
-      const [chapter] = await tx.insert(chapters).values(ch.chapter_id ? { ...chapterRow, chapter_id: ch.chapter_id } : chapterRow).returning();
+      // 2. 插入章节
+      const [chapter] = await tx.insert(chapters).values({ chapter_id: ch.chapter_id, course_id: courseId, title: ch.title, chapter_order: ch.order }).returning();
 
       const chapterId = chapter!.chapter_id;
 
       for (const sec of ch.sections) {
-        const sectionRow = {
-          chapter_id: chapterId,
-          title: sec.title,
-          section_order: sec.order,
-          video_url: sec.video_url,
-          knowledge_content: sec.knowledge_content,
-          estimated_time: sec.estimated_time,
-          knowledge_points: sec.knowledge_points ?? null,
-          video_subtitles: sec.video_subtitles,
-        };
-        const [section] = await tx.insert(sections).values(sec.section_id ? { ...sectionRow, section_id: sec.section_id } : sectionRow).returning();
+        // 3. 插入小节
+        const [section] = await tx
+          .insert(sections)
+          .values({
+            section_id: sec.section_id,
+            chapter_id: chapterId,
+            title: sec.title,
+            section_order: sec.order,
+            video_url: sec.video_url,
+            knowledge_content: sec.knowledge_content,
+            estimated_time: sec.estimated_time,
+            knowledge_points: sec.knowledge_points ?? null,
+            video_subtitles: sec.video_subtitles,
+          })
+          .returning();
 
         const sectionId = section!.section_id;
 
+        // 4. 插入练习及选项
         for (const ex of sec.exercises) {
-          const exerciseRow = { section_id: sectionId, question: ex.question, type_status: ex.type, score: ex.score };
-          const [exercise] = await tx.insert(exercises).values(ex.exercise_id ? { ...exerciseRow, exercise_id: ex.exercise_id } : exerciseRow).returning();
+          const [exercise] = await tx
+            .insert(exercises)
+            .values({ exercise_id: ex.exercise_id, section_id: sectionId, question: ex.question, type_status: ex.type, score: ex.score })
+            .returning();
 
           const exerciseId = exercise!.exercise_id;
 
           if (ex.options.length > 0) {
             await tx.insert(exerciseOptions).values(
               ex.options.map(opt => ({
-                ...(opt.option_id ? { option_id: opt.option_id } : {}),
+                option_id: opt.option_id,
                 exercise_id: exerciseId,
                 option_text: opt.text,
                 is_correct: opt.is_correct,
@@ -323,10 +327,11 @@ async function importCourseData(payload: ImportCoursePayload) {
           }
         }
 
+        // 5. 插入引导问题
         if (sec.leading_questions.length > 0) {
           await tx.insert(leadingQuestions).values(
             sec.leading_questions.map(lq => ({
-              ...(lq.question_id ? { question_id: lq.question_id } : {}),
+              question_id: lq.question_id,
               section_id: sectionId,
               question: lq.question,
             })),
@@ -348,16 +353,16 @@ app.post(
   '/import',
   describeRoute({
     tags: ['课程管理'],
-    summary: '整体导入课程数据（主键字段与库表一致：course_id、chapter_id、section_id 等，可选；兼容历史 id）',
+    summary: '整体导入课程数据（含章节/小节/练习/选项/引导问题）',
     requestBody: jsonBody(importCourseSchema) as any,
     parameters: [
       {
         name: 'override',
         in: 'query',
         schema: {
-          type: 'boolean'
-        }
-      }
+          type: 'boolean',
+        },
+      },
     ],
     responses: {
       201: jsonResponse('导入成功', z.object({ success: z.literal(true), data: z.object({ course_id: z.uuid(), name: z.string() }), message: z.string() })),
@@ -382,12 +387,12 @@ app.post(
 
 // ── POST /import-zip ─────────────────────────────────
 
-/** 通过 ZIP 文件批量导入课程，递归读取压缩包内 course.json / course*.json 并导入 */
+/** 通过 ZIP 文件批量导入课程，递归读取压缩包内的所有 course*.json 文件并导入 */
 app.post(
   '/import-zip',
   describeRoute({
     tags: ['课程管理'],
-    summary: '通过 ZIP 文件批量导入课程，递归读取压缩包内 course.json / course*.json 并按课程格式导入',
+    summary: '通过 ZIP 文件批量导入课程，递归读取压缩包内的所有 course*.json 文件并导入',
     requestBody: {
       content: {
         'multipart/form-data': {
@@ -409,9 +414,9 @@ app.post(
         name: 'override',
         in: 'query',
         schema: {
-          type: 'boolean'
-        }
-      }
+          type: 'boolean',
+        },
+      },
     ],
     responses: {
       201: jsonResponse(
@@ -462,7 +467,7 @@ app.post(
       const zip = new AdmZip(buffer);
       const zipEntries = zip.getEntries();
 
-      // 递归查找 course.json / course*.json（与单文件 POST /import 同一 schema）
+      // 递归查找所有 course*.json 文件
       const courseFiles: { entry: AdmZip.IZipEntry; path: string }[] = [];
 
       function findCourseFiles(entries: AdmZip.IZipEntry[], basePath = '') {
@@ -474,7 +479,8 @@ app.post(
             if (dirEntries.length > 0) {
               findCourseFiles(dirEntries, entryPath);
             }
-          } else if (isZipEntryCourseJson(entry)) {
+          } else if (entry.name.match(/^course.*\.json$/i)) {
+            // 匹配 course*.json 文件
             courseFiles.push({ entry, path: entryPath });
           }
         }
@@ -483,7 +489,7 @@ app.post(
       findCourseFiles(zipEntries);
 
       if (courseFiles.length === 0) {
-        return c.json(fail('ZIP 文件中未找到 course.json 或 course*.json'), 400);
+        return c.json(fail('ZIP 文件中未找到 course*.json 文件'), 400);
       }
 
       // 处理每个课程文件
@@ -509,7 +515,7 @@ app.post(
 
           // 导入课程
           const result = await importCourseData(payload, override);
-          
+
           results.push({
             filename: path,
             success: true,
