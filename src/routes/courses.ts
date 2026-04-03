@@ -1,16 +1,16 @@
-import { Hono } from 'hono';
-import { describeRoute } from 'hono-openapi';
-import { eq, inArray, asc, and } from 'drizzle-orm';
 import { mainDb, userDb } from '@db/index';
 import { courses, chapters, sections, exercises, exerciseOptions, leadingQuestions, aiPersonas } from '@db/main/schema';
 import { userSectionUnlocks } from '@db/user/schema';
-import { createCrudRoutes } from './_crud';
-import { createCourseSchema, updateCourseSchema, importCourseSchema, type ImportCoursePayload, courseChaptersSectionsRequestSchema } from '@schemas/course';
-import { ok, fail } from '@schemas/common';
-import { jsonBody, jsonResponse, apiErrorSchema } from '@schemas/openapi';
-import { z } from 'zod';
-import AdmZip from 'adm-zip';
+import { fail, ok } from '@schemas/common';
+import { courseChaptersSectionsRequestSchema, createCourseSchema, type ImportCoursePayload, importCourseSchema, updateCourseSchema } from '@schemas/course';
+import { apiErrorSchema, jsonBody, jsonResponse } from '@schemas/openapi';
 import logger from '@utils/logger';
+import AdmZip from 'adm-zip';
+import { and, asc, eq, inArray } from 'drizzle-orm';
+import { Hono } from 'hono';
+import { describeRoute } from 'hono-openapi';
+import { z } from 'zod';
+import { createCrudRoutes } from './_crud';
 
 const app = new Hono();
 
