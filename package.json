@@ -1,6 +1,6 @@
 {
   "name": "ai-learning-assistant-training-server",
-  "version": "1.0.0",
+  "version": "2.0.0",
   "description": "AI Learning Assistant Training Server - Bun + Hono + Drizzle + PGlite",
   "main": "dist/app.mjs",
   "type": "module",
