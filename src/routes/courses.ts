@@ -1,5 +1,5 @@
 import { mainDb, userDb } from '@db/index';
-import { chapters, courses, exerciseOptions, exercises, leadingQuestions, sections } from '@db/main/schema';
+import { courses, chapters, sections, exercises, exerciseOptions, leadingQuestions, aiPersonas } from '@db/main/schema';
 import { userSectionUnlocks } from '@db/user/schema';
 import { fail, ok } from '@schemas/common';
 import { courseChaptersSectionsRequestSchema, createCourseSchema, type ImportCoursePayload, importCourseSchema, updateCourseSchema } from '@schemas/course';
@@ -266,6 +266,46 @@ async function importCourseData(payload: ImportCoursePayload, override = false) 
   }
 
   const result = await mainDb.transaction(async tx => {
+    let defaultPersonaId: string | null = null;
+
+    // 1. 处理课程携带的人设，并作为该课程默认人设
+    if (payload.ai_persona) {
+      const personaPayload = payload.ai_persona;
+
+      if (personaPayload.persona_id) {
+        const existingPersona = await tx.select({ persona_id: aiPersonas.persona_id }).from(aiPersonas).where(eq(aiPersonas.persona_id, personaPayload.persona_id)).limit(1);
+
+        if (existingPersona[0]) {
+          await tx
+            .update(aiPersonas)
+            .set({
+              name: personaPayload.name,
+              prompt: personaPayload.prompt,
+              is_default_template: personaPayload.is_default_template,
+            })
+            .where(eq(aiPersonas.persona_id, personaPayload.persona_id));
+        } else {
+          await tx.insert(aiPersonas).values({
+            persona_id: personaPayload.persona_id,
+            name: personaPayload.name,
+            prompt: personaPayload.prompt,
+            is_default_template: personaPayload.is_default_template,
+          });
+        }
+        defaultPersonaId = personaPayload.persona_id;
+      } else {
+        const [createdPersona] = await tx
+          .insert(aiPersonas)
+          .values({
+            name: personaPayload.name,
+            prompt: personaPayload.prompt,
+            is_default_template: personaPayload.is_default_template,
+          })
+          .returning({ persona_id: aiPersonas.persona_id });
+        defaultPersonaId = createdPersona?.persona_id ?? null;
+      }
+    }
+
     // 1. 插入课程
     const [course] = await tx
       .insert(courses)
@@ -276,6 +316,7 @@ async function importCourseData(payload: ImportCoursePayload, override = false) 
         description: payload.description,
         category: payload.category,
         contributors: payload.contributors,
+        default_ai_persona_id: defaultPersonaId,
       })
       .returning();
 

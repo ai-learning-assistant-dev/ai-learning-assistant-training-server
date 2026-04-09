@@ -99,6 +99,13 @@ const importChapterSchema = z.object({
   sections: z.array(importSectionSchema).optional().default([]),
 });
 
+const importAiPersonaSchema = z.object({
+  persona_id: z.uuid().optional(),
+  name: z.string(),
+  prompt: z.string(),
+  is_default_template: z.boolean().optional().default(false),
+});
+
 /** 课程整体导入 schema（主键字段与库表一致：course_id、chapter_id、section_id 等，均为必填） */
 export const importCourseSchema = z.object({
   course_id: z.uuid(),
@@ -107,6 +114,7 @@ export const importCourseSchema = z.object({
   icon_url: z.string().optional().default(''),
   category: z.string().optional().default('职业技能'),
   contributors: z.string().optional().default('志愿者'),
+  ai_persona: importAiPersonaSchema.optional(),
   chapters: z.array(importChapterSchema).optional().default([]),
 });
 
