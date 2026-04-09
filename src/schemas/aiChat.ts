@@ -62,6 +62,8 @@ export const createSessionRequestSchema = z.object({
   userId: z.uuid(),
   sectionId: z.union([z.uuid(), z.literal('')]),
   personaId: z.string().optional(),
+  modelName: z.string().optional(),
+  reasoning: z.boolean().optional(),
 });
 
 // ── 切换人设 ────────────────────────────────────────

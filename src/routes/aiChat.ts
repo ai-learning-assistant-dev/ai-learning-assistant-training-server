@@ -436,7 +436,7 @@ app.post(
   }),
   async c => {
     const request = createSessionRequestSchema.parse(await c.req.json());
-    const { userId, sectionId, personaId } = request;
+    const { userId, sectionId, personaId, modelName, reasoning } = request;
     const normalizedPersonaId = normalizePersonaId(personaId);
 
     if (sectionId === '') {
@@ -452,7 +452,7 @@ app.post(
       );
     }
 
-    const assistant = await startNewLearningSession(userId, sectionId, normalizedPersonaId);
+    const assistant = await startNewLearningSession(userId, sectionId, normalizedPersonaId, undefined, modelName, reasoning );
     const sessionIdResult = assistant.getSessionId();
     const personaInUse = assistant.getPersonaId();
     await assistant.cleanup();

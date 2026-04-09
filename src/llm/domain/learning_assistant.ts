@@ -524,9 +524,9 @@ export async function createLearningAssistant(
 }
 
 /** 为指定用户和章节启动新的学习会话 */
-export async function startNewLearningSession(userId: string, sectionId: string, personaId?: string, courseId?: string): Promise<LearningAssistant> {
+export async function startNewLearningSession(userId: string, sectionId: string, personaId?: string, courseId?: string, modelName?: string, reasoning?: boolean): Promise<LearningAssistant> {
   const sessionId = IntegratedStorage.generateSessionId(userId, sectionId);
-  return createLearningAssistant(userId, sectionId, personaId, sessionId, courseId);
+  return createLearningAssistant(userId, sectionId, personaId, sessionId, courseId, undefined, modelName, reasoning);
 }
 
 /** 根据 sessionId 恢复已有学习会话 */
