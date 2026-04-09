@@ -1,6 +1,7 @@
 import logger from '../../utils/logger';
 import { LLM } from '@langchain/core/language_models/llms';
 import * as fs from 'fs';
+import { isEmpty } from 'lodash';
 import * as path from 'path';
 
 export interface ModelConfig {
@@ -54,6 +55,12 @@ export class ModelConfigManager {
       if (config) {
         return config;
       }
+    }
+
+    const firstAvailableModel = this.configs.find(m => !m.isEmbeddingModel && !isEmpty(m.apiKey));
+
+    if(firstAvailableModel){
+      return firstAvailableModel;
     }
 
     // 返回第一个可用的非嵌入模型
