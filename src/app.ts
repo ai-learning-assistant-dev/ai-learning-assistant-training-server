@@ -114,6 +114,7 @@ const startServer = async (): Promise<void> => {
     logger.info(`📊 环境: ${process.env.NODE_ENV || 'development'}`);
     logger.info(`🔗 健康检查: http://localhost:${PORT}/health`);
     logger.info(`📚 API接口文档: http://localhost:${PORT}/docs`);
+    logger.info(`🛑 关停程序接口: http://localhost:${PORT}/shutdown`);
   } catch (error) {
     logger.error('❌ 服务器启动失败:', error);
     process.exit(1);
@@ -123,10 +124,21 @@ const startServer = async (): Promise<void> => {
 // ── 进程信号处理 ──────────────────────────────────────
 
 const shutdown = async () => {
-  logger.info('🛑 正在关闭服务器...');
+  logger.info('🛑 正在关闭程序...');
   await closeDatabase();
+  logger.info('✔️ 已经关闭程序...');
   process.exit(0);
 };
+
+app.get('/shutdown', async c => {
+  await shutdown();
+  return c.json({
+    success: true,
+    message: '服务器正在关停',
+    timestamp: new Date().toISOString(),
+    environment: process.env.NODE_ENV || 'development',
+  });
+});
 
 process.on('SIGINT', shutdown);
 process.on('SIGTERM', shutdown);
