@@ -82,6 +82,7 @@ export function createCrudRoutes(config: CrudConfig): Hono {
     describeRoute({
       tags,
       summary: `按 ID 查询${entityName}`,
+      requestBody: jsonBody(updateSchema) as any,
       responses: standardResponses(`查询${entityName}成功`),
     }),
     async c => {
