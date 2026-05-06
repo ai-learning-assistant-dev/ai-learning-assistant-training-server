@@ -111,6 +111,11 @@ export class IntegratedStorage {
     }
   }
 
+  /** 创建临时会话ID，无法追踪课程 */
+  static generateMockSessionId(timestamp?: Date): string {
+    return `session_00000000-0000-0000-0000-000000000001_00000000-0000-0000-0000-000000000001_0001_01_01`;
+  }
+
   /** 根据用户ID和章节ID生成会话ID */
   static generateSessionId(userId: string, sectionId: string, timestamp?: Date): string {
     const time = timestamp ?? new Date();

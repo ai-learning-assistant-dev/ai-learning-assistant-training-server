@@ -5,6 +5,7 @@ import { getPromptWithArgs } from '../prompt/manager';
 import { KEY_DAILY_CHAT } from '../prompt/default';
 import { type ModelConfig, modelConfigManager } from '../utils/modelConfigManager';
 import { createLLM } from '../utils/create_llm';
+import { IntegratedStorage } from '../storage/integrated_storage';
 
 /**
  * 每日聊天：基于 SingleChat 的轻量一次性对话封装
@@ -12,7 +13,8 @@ import { createLLM } from '../utils/create_llm';
  */
 export class DailyChat {
   private sc: SingleChat;
-  static sessionId = '12345672';
+  /** 临时会话ID */
+  static sessionId = IntegratedStorage.generateMockSessionId();
   private static readonly FIXED_PERSONA_NAME = '信心十足的教育家';
 
   private constructor(sc: SingleChat) {

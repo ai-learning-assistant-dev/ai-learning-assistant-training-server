@@ -443,7 +443,7 @@ app.post(
       // daily 模式
       return c.json(
         ok({
-          session_id: '12345672',
+          session_id: DailyChat.sessionId,
           user_id: userId,
           section_id: sectionId,
           persona_id: normalizedPersonaId,
