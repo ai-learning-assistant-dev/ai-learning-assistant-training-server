@@ -253,16 +253,20 @@ async function deleteCourseWithRelations(courseId: string) {
  */
 async function importCourseData(payload: ImportCoursePayload, override = false) {
   // 去重检查：按课程名称检查是否已存在
-  const existing = await mainDb.select({ course_id: courses.course_id }).from(courses).where(eq(courses.name, payload.title)).limit(1);
+  const existingSameId = await mainDb.select({ course_id: courses.course_id, name: courses.name }).from(courses).limit(1);
+  const existingSameName = await mainDb.select({ course_id: courses.course_id, name: courses.name }).from(courses).where(eq(courses.name, payload.title)).limit(1);
 
-  if (existing[0]) {
+  if (existingSameId[0]) {
     // 课程已存在，检查是否需要覆盖
     if (!override) {
       // 没有 override 参数，返回课程已存在的信息
-      throw { status: 409, error: fail('课程已存在', { course_id: existing[0].course_id, name: payload.title }) };
+      throw { status: 409, error: fail('相同id课程已存在', { course_id: existingSameId[0].course_id, name: existingSameId[0].name }) };
     }
     // 有 override 参数，先删除已存在的课程及相关数据
-    await deleteCourseWithRelations(existing[0].course_id);
+    await deleteCourseWithRelations(existingSameId[0].course_id);
+  } else if (existingSameName[0]) {
+    // 课程已存在，检查是否需要覆盖
+    throw { status: 409, error: fail('相同名称课程已存在', { course_id: existingSameName[0].course_id, name: existingSameName[0].name }) };
   }
 
   const result = await mainDb.transaction(async tx => {
