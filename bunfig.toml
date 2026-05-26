@@ -2,6 +2,7 @@
 # 使用 taobao 源
 registry = "https://registry.npmmirror.com"
 linker = "isolated"
+ignoreScripts = true
 [install.cache]
 dir = "./.bun/install/cache"
 disable = false
