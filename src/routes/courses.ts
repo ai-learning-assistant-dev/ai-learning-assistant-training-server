@@ -253,7 +253,7 @@ async function deleteCourseWithRelations(courseId: string) {
  */
 async function importCourseData(payload: ImportCoursePayload, override = false) {
   // 去重检查：按课程名称检查是否已存在
-  const existingSameId = await mainDb.select({ course_id: courses.course_id, name: courses.name }).from(courses).limit(1);
+  const existingSameId = await mainDb.select({ course_id: courses.course_id, name: courses.name }).from(courses).where(eq(courses.course_id, payload.course_id)).limit(1);
   const existingSameName = await mainDb.select({ course_id: courses.course_id, name: courses.name }).from(courses).where(eq(courses.name, payload.title)).limit(1);
 
   if (existingSameId[0]) {
