@@ -1,50 +1,44 @@
 {
   "compilerOptions": {
-    "target": "ES2020",
-    "module": "CommonJS",
-    "lib": ["ES2020"],
-    "outDir": "./dist",
+    // Environment setup & latest features
+    "lib": ["ESNext"],
+    "target": "ESNext",
+    "module": "ESNext",
+    "moduleDetection": "force",
+    "allowJs": true,
+
+    // Bundler mode
+    "moduleResolution": "bundler",
+    "allowImportingTsExtensions": true,
+    "verbatimModuleSyntax": true,
+    "noEmit": true,
+
+    // Best practices
     "strict": true,
-    "esModuleInterop": true,
     "skipLibCheck": true,
-    "forceConsistentCasingInFileNames": true,
-    "resolveJsonModule": true,
-    "declaration": true,
-    "declarationMap": true,
-    "sourceMap": true,
-    "removeComments": true,
-    "noImplicitAny": true,
-    "strictNullChecks": true,
-    "strictFunctionTypes": true,
-    "noImplicitThis": true,
-    "noImplicitReturns": true,
     "noFallthroughCasesInSwitch": true,
-    "moduleResolution": "node",
+    "noUncheckedIndexedAccess": true,
+    "noImplicitOverride": true,
+
+    // Relaxed flags
+    "noUnusedLocals": false,
+    "noUnusedParameters": false,
+    "noPropertyAccessFromIndexSignature": false,
+
+    // Project-specific
+    "resolveJsonModule": true,
     "baseUrl": "./",
     "paths": {
       "@/*": ["src/*"],
       "@config/*": ["src/config/*"],
-      "@models/*": ["src/models/*"],
-      "@controllers/*": ["src/controllers/*"],
+      "@db/*": ["src/db/*"],
       "@routes/*": ["src/routes/*"],
+      "@schemas/*": ["src/schemas/*"],
       "@middleware/*": ["src/middleware/*"],
-      "@types/*": ["src/types/*"],
       "@utils/*": ["src/utils/*"],
       "@llm/*": ["src/llm/*"]
-    },
-    "experimentalDecorators": true,
-    "emitDecoratorMetadata": true
+    }
   },
-  "include": [
-    "src/**/*",
-    "scripts/**/*",
-    "src/app.ts",
-    "build/**/*"
-  ],
-  "exclude": [
-    "node_modules",
-    "dist",
-    "**/*.test.ts",
-    "src/llm/debug/**/*"
-  ]
+  "include": ["src/**/*"],
+  "exclude": ["node_modules", "dist", "**/*.test.ts", "src/llm/debug/**/*"]
 }

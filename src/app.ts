@@ -1,129 +1,171 @@
-import express from 'express';
-import cors from 'cors';
-import helmet from 'helmet';
-import morgan from 'morgan';
-import dotenv from 'dotenv';
+import 'dotenv/config';
+import { Hono } from 'hono';
 
-import { initializeDataSources } from './config/database';
-// 不再单独导入 initDB；数据库创建逻辑已内置于 initializeDataSources()
-import { createInitialData } from './models/index';
-import { notFoundHandler, errorHandler } from './middleware/errorHandler';
+import { cors } from 'hono/cors';
+import { secureHeaders } from 'hono/secure-headers';
+import { trimTrailingSlash } from 'hono/trailing-slash';
+import { onError, onNotFound } from './middleware/errorHandler';
+import { serveStatic } from 'hono/bun'
 import logger from './utils/logger';
-import swaggerUi from 'swagger-ui-express';
-// 导入 tsoa 生成的路由
-import { RegisterRoutes } from '../build/routes'; //第一次启动报错不用管，直接npm start 就行，后续修改代码不会报错了
-import swaggerDocument from '../build/swagger.json'
+import api from './routes';
+import docs from './routes/docs';
 
-// 加载环境变量
-dotenv.config();
+import { initializeDatabase, createInitialData, closeDatabase } from './db';
 
-const app = express();
-const PORT = process.env.PORT || 3000;
+const app = new Hono();
 
-const geetestDomains = [
-  "https://api.geetest.com",
-  "https://static.geetest.com",
-]
+// ── 中间件 ────────────────────────────────────────────
 
-// 中间件配置
-app.use(helmet({
+app.use(
+  '*',
+  cors({
+    origin: ['http://127.0.0.1:3000', 'http://127.0.0.1:7100', 'http://127.0.0.1:8989'],
+  }),
+);
+const jsdelivrDomains = ['cdn.jsdelivr.net'];
+const geetestDomains = ['https://api.geetest.com', 'https://static.geetest.com',...jsdelivrDomains];
+
+app.use('*', secureHeaders({
   contentSecurityPolicy: {
-    directives: {
-      defaultSrc: ["'self'","http://127.0.0.1:7100", 'blob:', 'data:', ...geetestDomains ],
-      connectSrc: [
-        "'self'",
-        "blob:",
-        'blob: http://127.0.0.1:8989',
-        "data:",
-        'http://127.0.0.1:8989',
-        ...geetestDomains
-      ],  // 添加blob:允许blob URL连接
-      mediaSrc: ["'self'", "blob:", 'blob: http://127.0.0.1:8989', 'http://127.0.0.1:8989', ...geetestDomains],
-      scriptSrc: ["'self'", "https://api.geetest.com", ...geetestDomains],
-      styleSrc: ["'self'", "'unsafe-inline'", ...geetestDomains],
-      imgSrc: ["'self'", 'blob:', 'data:', ...geetestDomains],
-      // TODO 这个代码会导致隐私泄漏，只在开发或本地环境使用，不要用在远程生产环境
-      "upgrade-insecure-requests": null,
+    defaultSrc: ["'self'", 'http://127.0.0.1:7100', 'blob:', 'data:', ...geetestDomains],
+    connectSrc: ["'self'", 'blob:', 'blob: http://127.0.0.1:8989', 'data:', 'http://127.0.0.1:8989', ...geetestDomains], // 添加blob:允许blob URL连接
+    mediaSrc: ["'self'", 'blob:', 'blob: http://127.0.0.1:8989', 'http://127.0.0.1:8989', ...geetestDomains],
+    scriptSrc: ["'self'", "'unsafe-inline'", 'https://api.geetest.com', ...geetestDomains],
+    styleSrc: ["'self'", "'unsafe-inline'", ...geetestDomains],
+    imgSrc: ["'self'", 'blob:', 'data:', ...geetestDomains],
+    // TODO 这个代码会导致隐私泄漏，只在开发或本地环境使用，不要用在远程生产环境
+    upgradeInsecureRequests: []
+  }
+}));
+app.use(trimTrailingSlash());
+
+app.use('*',serveStatic({root: 'public'}));
+
+// ── 错误响应日志中间件 ────────────────────────────────
+// 记录所有 4xx/5xx 响应到日志（不含 Zod 校验错误，已在 errorHandler 中处理）
+app.use('*', async (c, next) => {
+  await next();
+  if (c.res.status >= 400 && c.error == null) {
+    try {
+      const cloned = c.res.clone();
+      const body = (await cloned.json()) as Record<string, unknown>;
+      if (body && !body.success) {
+        let reqParams = '';
+        try {
+          const reqBody = await c.req.json();
+          reqParams = ` | 请求参数: ${JSON.stringify(reqBody)}`;
+        } catch {
+          // GET 等无 body 请求
+          const query = c.req.query();
+          if (Object.keys(query).length > 0) {
+            reqParams = ` | 查询参数: ${JSON.stringify(query)}`;
+          }
+        }
+        logger.warn(`[${c.req.method} ${c.req.path}] ${c.res.status}: ${body.error ?? ''}${reqParams}`);
+      }
+    } catch {
+      // 非 JSON 响应，忽略
     }
-  },
-  crossOriginResourcePolicy: {
-    policy: 'same-site'
-  },
-})); // 安全头部
-app.use(cors({origin: ["http://127.0.0.1:3000", "http://127.0.0.1:7100", "http://127.0.0.1:8989"]}));   // 跨域支持
-app.use(morgan('combined')); // 请求日志
-app.use(express.json({ limit: '10mb' })); // JSON解析
-app.use(express.urlencoded({ extended: true })); // URL编码解析
-app.use(express.static('public'))
+  }
+});
 
-// 注册 tsoa 生成的路由
-RegisterRoutes(app);
+// ── 健康检查 ──────────────────────────────────────────
 
-// 加载由 tsoa 生成的 OpenAPI 规范文件
-// 注意：需要先运行 `npm run build:tsoa` 生成这个文件
-app.use('/docs', swaggerUi.serve, swaggerUi.setup(swaggerDocument));
-
-// 健康检查端点
-app.get('/health', (req, res) => {
-  res.json({
+app.get('/health', c => {
+  return c.json({
     success: true,
     message: '服务器运行正常',
     timestamp: new Date().toISOString(),
-    environment: process.env.NODE_ENV || 'development'
+    environment: process.env.NODE_ENV || 'development',
   });
 });
 
+// ── 业务路由 ──────────────────────────────────────────
 
-// 404 处理
-app.use(notFoundHandler);
+app.route('/api', api);
 
-// 全局错误处理
-app.use(errorHandler);
+// ── API 文档 ──────────────────────────────────────────
 
-// 启动服务器
+app.route('/docs', docs);
+
+// ── 错误处理 ──────────────────────────────────────────
+
+app.notFound(onNotFound);
+app.onError(onError);
+
+// ── 启动服务器 ────────────────────────────────────────
+
+const PORT = parseInt(process.env.PORT || '3000', 10);
+
 const startServer = async (): Promise<void> => {
   try {
-    // 初始化 TypeORM 数据库连接
-    await initializeDataSources();
-    // 初始化测试数据（如无用户则插入）
+    await initializeDatabase();
     await createInitialData();
-    // 启动HTTP服务器
-    app.listen(PORT, () => {
-      logger.info(`🚀 服务器运行在端口 ${PORT}`);
-      logger.info(`📊 环境: ${process.env.NODE_ENV || 'development'}`);
-      logger.info(`🔗 健康检查: http://localhost:${PORT}/health`);
-      logger.info(`📚 API接口文档: http://localhost:${PORT}/docs`);
-      logger.info(`📚 静态文件: http://localhost:${PORT}/`);
-    });
+
+    // Bun 原生 HTTP 服务 / Node.js 兼容
+    if (typeof Bun !== 'undefined') {
+      Bun.serve({ port: PORT, fetch: app.fetch, idleTimeout: 0 });
+    } else {
+      const { serve } = await import('@hono/node-server');
+      serve({ fetch: app.fetch, port: PORT });
+    }
+
+    logger.info(`🚀 服务器运行在端口 ${PORT}`);
+    logger.info(`📊 环境: ${process.env.NODE_ENV || 'development'}`);
+    logger.info(`🔗 健康检查: http://localhost:${PORT}/health`);
+    logger.info(`📚 API接口文档: http://localhost:${PORT}/docs`);
+    logger.info(`🛑 关停程序接口: http://localhost:${PORT}/shutdown`);
   } catch (error) {
     logger.error('❌ 服务器启动失败:', error);
     process.exit(1);
   }
 };
 
-// 优雅关闭
-process.on('SIGINT', () => {
-  logger.info('🛑 收到关闭信号，正在关闭服务器...');
+// ── 进程信号处理 ──────────────────────────────────────
+
+const shutdown = async () => {
+  logger.info('🛑 正在关闭程序...');
+  await closeDatabase();
+  logger.info('✔️ 已经关闭程序...');
   process.exit(0);
+};
+
+app.get('/shutdown', async c => {
+  await shutdown();
+  return c.json({
+    success: true,
+    message: '服务器正在关停',
+    timestamp: new Date().toISOString(),
+    environment: process.env.NODE_ENV || 'development',
+  });
 });
 
-process.on('SIGTERM', () => {
-  logger.info('🛑 收到终止信号，正在关闭服务器...');
-  process.exit(0);
-});
+process.on('SIGINT', shutdown);
+process.on('SIGTERM', shutdown);
 
-// 未捕获异常处理
-process.on('uncaughtException', (error) => {
+process.on('uncaughtException', error => {
   logger.error('未捕获的异常:', error);
   process.exit(1);
 });
 
-process.on('unhandledRejection', (reason, promise) => {
+process.on('unhandledRejection', reason => {
   logger.error('未处理的 Promise 拒绝:', reason);
   process.exit(1);
 });
 
-// 启动应用
 startServer();
 
-export default app;
+export { app };
+  function helmet(arg0: {
+    contentSecurityPolicy: {
+      directives: {
+        defaultSrc: string[]; connectSrc: string[]; // 添加blob:允许blob URL连接
+        mediaSrc: string[]; scriptSrc: string[]; styleSrc: string[]; imgSrc: string[];
+        // TODO 这个代码会导致隐私泄漏，只在开发或本地环境使用，不要用在远程生产环境
+        'upgrade-insecure-requests': null;
+      };
+    }; crossOriginResourcePolicy: { policy: string; };
+  }): any {
+    throw new Error('Function not implemented.');
+  }
+

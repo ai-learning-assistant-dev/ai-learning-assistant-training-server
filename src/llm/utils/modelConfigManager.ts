@@ -1,5 +1,7 @@
+import logger from '../../utils/logger';
 import { LLM } from '@langchain/core/language_models/llms';
 import * as fs from 'fs';
+import { isEmpty } from 'lodash';
 import * as path from 'path';
 
 export interface ModelConfig {
@@ -19,8 +21,8 @@ export class ModelConfigManager {
 
   constructor() {
     // 使用项目中的配置文件
-    this.configPath = path.join(process.cwd(), '/src/config/llm-config.json');
-    console.log('Config path:', this.configPath);
+    this.configPath = process.env.ALA_LLM_CONFIG_PATH ? process.env.ALA_LLM_CONFIG_PATH : path.join(process.cwd(), '/src/config/llm-config.json');
+    logger.debug('Config path:', this.configPath);
     this.loadConfigs();
   }
 
@@ -31,10 +33,10 @@ export class ModelConfigManager {
         const configData = JSON.parse(configFile);
         this.configs = configData.models || [];
       } else {
-        console.warn(`Config file not found at ${this.configPath}`);
+        logger.warn(`Config file not found at ${path.relative(process.cwd(), this.configPath) || 'llm-config.json'}`);
       }
     } catch (error) {
-      console.error('Failed to load model configs:', error);
+      logger.error('Failed to load model configs:', error);
     }
   }
 
@@ -47,12 +49,18 @@ export class ModelConfigManager {
       if (config) {
         return config;
       }
-      
+
       // 再按名称查找（向后兼容）
       config = this.configs.find(m => m.name === identifier);
       if (config) {
         return config;
       }
+    }
+
+    const firstAvailableModel = this.configs.find(m => !m.isEmbeddingModel && !isEmpty(m.apiKey));
+
+    if(firstAvailableModel){
+      return firstAvailableModel;
     }
 
     // 返回第一个可用的非嵌入模型
@@ -71,14 +79,16 @@ export class ModelConfigManager {
   public getDefaultModel(): ModelConfig {
     // 获取默认模型配置
     const defaultModelConfig = modelConfigManager.getModelConfig();
-    const llm = defaultModelConfig ? defaultModelConfig : {
-      id: process.env.LLM_MODEL_ID || 'default',
-      name: process.env.LLM_MODEL_NAME || 'deepseek-chat',
-      displayName: process.env.LLM_DISPLAY_NAME || 'deepseek-chat',
-      provider: process.env.LLM_PROVIDER || 'deepseek',
-      baseUrl: process.env.LLM_API_BASE ?? process.env.DEEPSEEK_API_BASE ?? "https://api.deepseek.com",
-      apiKey: process.env.LLM_API_KEY ?? process.env.DEEPSEEK_API_KEY ?? ''
-    };
+    const llm = defaultModelConfig
+      ? defaultModelConfig
+      : {
+          id: process.env.LLM_MODEL_ID || 'default',
+          name: process.env.LLM_MODEL_NAME || 'deepseek-chat',
+          displayName: process.env.LLM_DISPLAY_NAME || 'deepseek-chat',
+          provider: process.env.LLM_PROVIDER || 'deepseek',
+          baseUrl: process.env.LLM_API_BASE ?? process.env.DEEPSEEK_API_BASE ?? 'https://api.deepseek.com',
+          apiKey: process.env.LLM_API_KEY ?? process.env.DEEPSEEK_API_KEY ?? '',
+        };
 
     if (llm.apiKey == '' && defaultModelConfig == undefined) {
       isAPIKeyEmpty = true;
